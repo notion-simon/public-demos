@@ -1,0 +1,3133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title></title>
+    <style>
+      :root{
+        --bg0:#070A12;
+        --bg1:#0B1022;
+        --panel: rgba(255,255,255,0.06);
+        --panel2: rgba(255,255,255,0.10);
+        --text: rgba(255,255,255,0.92);
+        --muted: rgba(255,255,255,0.70);
+        --focus: rgba(255,255,255,0.95);
+        --accent: #7CF2FF;
+        --accent2:#B77CFF;
+        --danger:#FF5C7A;
+        --ok:#57FFA6;
+        --shadow: 0 14px 30px rgba(0,0,0,0.45);
+        --gridLine: 1px;
+        --gemOutline: 1.5px;
+        --cellRing: 3px;
+        --cellGlow: 4px;
+        --cellCursor: 2px;
+        --radius: 18px;
+        --boardRadius: 18px;
+        --iconSize: 46px;
+        --boardW: 480px;
+        --cell: calc(var(--boardW) / 8);
+        --motion: 1;
+      }
+
+      *{ box-sizing:border-box; }
+      html, body { height: 100%; }
+      body{
+        margin:0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+        background: radial-gradient(1200px 800px at 50% 0%, #1A1F4B 0%, var(--bg0) 45%, #04050A 100%);
+        color: var(--text);
+        overflow-x:hidden;
+        -webkit-tap-highlight-color: transparent;
+      }
+      button{ font:inherit; }
+
+      .app{
+        min-height:100%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding: 20px 16px;
+      }
+
+      .shell{
+        width:min(720px, 100%);
+        display:flex;
+        flex-direction:column;
+        gap: 14px;
+        align-items:center;
+      }
+
+      .topRow{
+        width:100%;
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:12px;
+      }
+
+      .numbersRow{
+        width:100%;
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:12px;
+        padding: 0 2px;
+      }
+
+      .scoreNum, .levelNum, .bestNum, .finalNum{
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.5px;
+        text-shadow: 0 1px 0 rgba(0,0,0,0.35);
+      }
+      .scoreNum{ font-size: 22px; font-weight: 760; }
+      .levelWrap{
+        display:flex;
+        align-items:center;
+        gap:8px;
+      }
+      .levelNum{ font-size: 18px; font-weight: 740; }
+
+      .meter{
+        width:100%;
+        height: 12px;
+        background: rgba(255,255,255,0.10);
+        border-radius: 999px;
+        overflow:hidden;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+      }
+      .meterFill{
+        height:100%;
+        width:0%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #7CF2FF 0%, #B77CFF 55%, #FF74B8 100%);
+        box-shadow: 0 0 18px rgba(124,242,255,0.22);
+      }
+      .meter.flash .meterFill{
+        filter: brightness(1.3);
+      }
+
+      .boardWrap{
+        width: var(--boardW);
+        height: var(--boardW);
+        position:relative;
+        border-radius: var(--boardRadius);
+        background: linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.06) 70%);
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(255,255,255,0.10);
+        overflow:hidden;
+        user-select:none;
+        touch-action:none;
+      }
+      .boardGrid{
+        position:absolute;
+        inset:0;
+        background-size: var(--cell) var(--cell);
+        background-image:
+          linear-gradient(to right, rgba(255,255,255,0.08) var(--gridLine), transparent var(--gridLine)),
+          linear-gradient(to bottom, rgba(255,255,255,0.08) var(--gridLine), transparent var(--gridLine));
+        pointer-events:none;
+        opacity: 0.55;
+      }
+
+      .gemLayer{
+        position:absolute;
+        inset:0;
+      }
+      .gem{
+        position:absolute;
+        width: var(--cell);
+        height: var(--cell);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        will-change: transform, opacity, filter;
+      }
+      .gemSvg{
+        width: 82%;
+        height: 82%;
+        filter: drop-shadow(0 10px 12px rgba(0,0,0,0.40));
+      }
+      .gemSvg .o{
+        stroke: rgba(255,255,255,0.55);
+        stroke-width: var(--gemOutline);
+        stroke-linejoin: round;
+      }
+      .gemSvg .shine{
+        opacity: 0.28;
+      }
+      .gem:hover .gemSvg{
+        filter: drop-shadow(0 10px 12px rgba(0,0,0,0.40)) brightness(1.10);
+      }
+      .gem.selected::before{
+        content:"";
+        position:absolute;
+        inset: 10%;
+        border-radius: 14px;
+        outline: var(--cellRing) solid rgba(255,255,255,0.92);
+        box-shadow: 0 0 0 var(--cellGlow) rgba(124,242,255,0.35);
+        pointer-events:none;
+      }
+      .cursor{
+        position:absolute;
+        width: var(--cell);
+        height: var(--cell);
+        border-radius: 12px;
+        pointer-events:none;
+      }
+      .cursor::after{
+        content:"";
+        position:absolute;
+        inset: 14%;
+        border: var(--cellCursor) solid rgba(255,255,255,0.90);
+        border-radius: 0px;
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.2);
+      }
+
+      .controlsRow{
+        display:flex;
+        gap: 12px;
+        justify-content:center;
+        align-items:center;
+        width:100%;
+        flex-wrap:wrap;
+        margin-top: 6px;
+      }
+      .iconBtn{
+        width: var(--iconSize);
+        height: var(--iconSize);
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.06);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.32);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        cursor:pointer;
+        color: rgba(255,255,255,0.92);
+      }
+      .iconBtn:hover{ background: rgba(255,255,255,0.09); }
+      .iconBtn:active{ transform: translateY(1px); }
+      .iconBtn:focus-visible{
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+      }
+      .iconSvg{
+        width: 24px;
+        height: 24px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .menuCard{
+        width:min(560px, 100%);
+        border-radius: 26px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.06);
+        box-shadow: var(--shadow);
+        padding: 18px 16px 20px;
+        position:relative;
+        overflow:hidden;
+      }
+      .menuTop{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:12px;
+      }
+      .logoWrap{
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        padding: 22px 0 14px;
+      }
+      .logoSvg{
+        width: min(320px, 86%);
+        height: auto;
+        filter: drop-shadow(0 16px 20px rgba(0,0,0,0.35));
+      }
+      .startBtn{
+        width: min(320px, 92%);
+        height: 52px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.18);
+        background: linear-gradient(180deg, rgba(124,242,255,0.20) 0%, rgba(183,124,255,0.18) 55%, rgba(255,116,184,0.16) 100%);
+        color: rgba(255,255,255,0.94);
+        font-weight: 780;
+        letter-spacing: 0.4px;
+        cursor:pointer;
+        box-shadow: 0 16px 24px rgba(0,0,0,0.33);
+      }
+      .startBtn:hover{ filter: brightness(1.04); }
+      .startBtn:active{ transform: translateY(1px); }
+      .startBtn:focus-visible{
+        outline: 2px solid rgba(255,255,255,0.95);
+        outline-offset: 3px;
+      }
+
+      .overlay{
+        position:fixed;
+        inset:0;
+        display:none;
+        align-items:center;
+        justify-content:center;
+        padding: 20px 16px;
+        background: rgba(0,0,0,0.55);
+        backdrop-filter: blur(6px);
+        z-index: 50;
+      }
+      .overlay.show{ display:flex; }
+      .overlayCard{
+        width:min(520px, 100%);
+        border-radius: 26px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(11,16,34,0.86);
+        box-shadow: var(--shadow);
+        padding: 18px 16px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        gap: 12px;
+      }
+      .bigWord{
+        font-size: 26px;
+        font-weight: 820;
+        letter-spacing: 0.5px;
+        text-shadow: 0 2px 0 rgba(0,0,0,0.25);
+      }
+      .overlayRow{
+        display:flex;
+        gap: 14px;
+        align-items:center;
+        justify-content:center;
+        flex-wrap:wrap;
+      }
+
+      .gameOverNums{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap: 10px;
+        flex-wrap:wrap;
+      }
+      .finalNum{
+        font-size: 26px;
+        font-weight: 840;
+      }
+      .bestNum{
+        font-size: 18px;
+        font-weight: 760;
+        opacity: 0.92;
+      }
+      .newBest{
+        font-size: 14px;
+        font-weight: 820;
+        color: rgba(255,255,255,0.94);
+        background: rgba(87,255,166,0.18);
+        border: 1px solid rgba(87,255,166,0.22);
+        padding: 6px 10px;
+        border-radius: 999px;
+        letter-spacing: 0.3px;
+      }
+
+      .textBtn{
+        min-width: 170px;
+        height: 48px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.18);
+        background: rgba(255,255,255,0.08);
+        color: rgba(255,255,255,0.94);
+        font-weight: 780;
+        letter-spacing: 0.3px;
+        cursor:pointer;
+      }
+      .textBtn:hover{ background: rgba(255,255,255,0.11); }
+      .textBtn:focus-visible{
+        outline: 2px solid rgba(255,255,255,0.95);
+        outline-offset: 3px;
+      }
+
+      .hudWrap{
+        width:100%;
+        max-width: 720px;
+        display:none;
+        flex-direction:column;
+        align-items:center;
+        gap: 10px;
+      }
+      .hudWrap.show{ display:flex; }
+
+      .multiplier{
+        position:absolute;
+        left:50%;
+        transform: translateX(-50%);
+        top: -44px;
+        font-weight: 860;
+        letter-spacing: 0.4px;
+        font-size: 18px;
+        opacity:0;
+        pointer-events:none;
+        text-shadow: 0 2px 0 rgba(0,0,0,0.35);
+      }
+
+      .scorePopup{
+        position:absolute;
+        transform: translate(-50%, -50%);
+        font-weight: 860;
+        letter-spacing: 0.3px;
+        font-variant-numeric: tabular-nums;
+        color: rgba(255,255,255,0.96);
+        text-shadow: 0 2px 0 rgba(0,0,0,0.35);
+        pointer-events:none;
+      }
+
+      .screen{
+        width:100%;
+        display:none;
+      }
+      .screen.show{ display:block; }
+
+      .settingsGrid{
+        width:min(520px, 100%);
+        border-radius: 26px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.06);
+        box-shadow: var(--shadow);
+        padding: 18px 16px;
+        display:flex;
+        flex-direction:column;
+        gap: 14px;
+      }
+      .settingsRow{
+        display:flex;
+        gap:12px;
+        flex-wrap:wrap;
+        justify-content:center;
+      }
+      .iconBtn.on{
+        border-color: rgba(124,242,255,0.30);
+        background: rgba(124,242,255,0.10);
+      }
+      .iconBtn.off{
+        border-color: rgba(255,255,255,0.10);
+        background: rgba(255,255,255,0.05);
+        opacity: 0.85;
+      }
+      .confirmRow{
+        display:none;
+        gap:12px;
+        justify-content:center;
+      }
+      .confirmRow.show{ display:flex; }
+
+      /* Responsive board widths */
+      @media (min-width: 600px){
+        :root{ --boardW: 480px; }
+      }
+      @media (min-width: 360px) and (max-width: 599px){
+        :root{ --boardW: calc(100vw - 32px); }
+      }
+      @media (max-width: 359px){
+        :root{ --boardW: calc(100vw - 16px); }
+      }
+
+      @media (max-width: 359px){
+        .shell{ gap: 10px; }
+        .startBtn{ width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="shell">
+        <!-- Main Menu -->
+        <div id="menuScreen" class="screen show" aria-hidden="false">
+          <div class="menuCard">
+            <div class="menuTop">
+              <button id="menuBestBtn" class="iconBtn" type="button" aria-label="Best score">
+                <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 5h8v4a4 4 0 0 1-8 0V5Z"></path>
+                  <path d="M6 7H4a2 2 0 0 0 2 2"></path>
+                  <path d="M18 7h2a2 2 0 0 1-2 2"></path>
+                  <path d="M10 13v2a2 2 0 0 0 4 0v-2"></path>
+                  <path d="M8 21h8"></path>
+                </svg>
+              </button>
+              <button id="menuSettingsBtn" class="iconBtn" type="button" aria-label="Settings">
+                <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
+                  <path d="M19.4 15a8.2 8.2 0 0 0 .1-1l2-1.2-2-3.4-2.3.6a7.5 7.5 0 0 0-1.7-1L14.8 6h-3.6l-.7 2a7.5 7.5 0 0 0-1.7 1L6.5 9.4 4.5 12.8l2 1.2a8.2 8.2 0 0 0 .1 1l-2 1.2 2 3.4 2.3-.6a7.5 7.5 0 0 0 1.7 1l.7 2h3.6l.7-2a7.5 7.5 0 0 0 1.7-1l2.3.6 2-3.4-2-1.2Z"></path>
+                </svg>
+              </button>
+            </div>
+
+            <div class="logoWrap" aria-hidden="true">
+              <svg class="logoSvg" viewBox="0 0 400 210">
+                <defs>
+                  <linearGradient id="lg0" x1="0" x2="1">
+                    <stop offset="0" stop-color="#7CF2FF" stop-opacity="0.95"/>
+                    <stop offset="0.45" stop-color="#B77CFF" stop-opacity="0.92"/>
+                    <stop offset="1" stop-color="#FF74B8" stop-opacity="0.90"/>
+                  </linearGradient>
+                  <linearGradient id="lg1" x1="0" x2="1" y1="1" y2="0">
+                    <stop offset="0" stop-color="#2BFFBF" stop-opacity="0.85"/>
+                    <stop offset="0.55" stop-color="#7CF2FF" stop-opacity="0.80"/>
+                    <stop offset="1" stop-color="#B77CFF" stop-opacity="0.85"/>
+                  </linearGradient>
+                </defs>
+                <path d="M200 10 335 75 360 125 270 200 130 200 40 125 65 75Z" fill="url(#lg0)" opacity="0.95"/>
+                <path d="M200 25 312 80 328 123 254 185 146 185 72 123 88 80Z" fill="rgba(0,0,0,0.18)"/>
+                <path d="M200 28 304 82 316 122 248 178 152 178 84 122 96 82Z" fill="url(#lg1)" opacity="0.92"/>
+                <path d="M200 28 248 178 152 178Z" fill="rgba(255,255,255,0.10)"/>
+                <path d="M96 82 200 28 84 122Z" fill="rgba(255,255,255,0.12)"/>
+                <path d="M304 82 200 28 316 122Z" fill="rgba(255,255,255,0.12)"/>
+              </svg>
+            </div>
+
+            <div style="display:flex; justify-content:center; padding-bottom: 6px;">
+              <button id="startBtn" class="startBtn" type="button">Start Game</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gameplay HUD -->
+        <div id="gameHud" class="hudWrap" aria-hidden="true">
+          <div class="numbersRow">
+            <div class="scoreNum" id="scoreNum" aria-label="Score" aria-live="polite">0</div>
+            <div class="levelWrap" aria-label="Level">
+              <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;opacity:0.95;">
+                <path d="M12 2.5l2.9 6 6.6.6-5 4.2 1.6 6.3L12 16.8 5.9 19.6 7.5 13.3 2.5 9.1l6.6-.6L12 2.5Z" fill="rgba(255,255,255,0.92)" stroke="none"/>
+              </svg>
+              <div class="levelNum" id="levelNum">1</div>
+            </div>
+          </div>
+          <div class="meter" id="meter" aria-label="Progress">
+            <div class="meterFill" id="meterFill"></div>
+          </div>
+
+          <div style="position:relative; width:var(--boardW);">
+            <div id="multiplier" class="multiplier" aria-hidden="true">x2</div>
+            <div id="board" class="boardWrap" role="grid" tabindex="0" aria-label="Board" aria-activedescendant="">
+              <div class="boardGrid" aria-hidden="true"></div>
+              <div id="gemLayer" class="gemLayer" aria-hidden="false"></div>
+              <div id="cursor" class="cursor" aria-hidden="true"></div>
+            </div>
+          </div>
+
+          <div class="controlsRow">
+            <button id="pauseBtn" class="iconBtn" type="button" aria-label="Pause">
+              <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 5v14"></path>
+                <path d="M17 5v14"></path>
+              </svg>
+            </button>
+            <button id="hintBtn" class="iconBtn" type="button" aria-label="Hint">
+              <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5L12 2Z"></path>
+              </svg>
+            </button>
+            <button id="gameSettingsBtn" class="iconBtn" type="button" aria-label="Settings">
+              <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
+                <path d="M19.4 15a8.2 8.2 0 0 0 .1-1l2-1.2-2-3.4-2.3.6a7.5 7.5 0 0 0-1.7-1L14.8 6h-3.6l-.7 2a7.5 7.5 0 0 0-1.7 1L6.5 9.4 4.5 12.8l2 1.2a8.2 8.2 0 0 0 .1 1l-2 1.2 2 3.4 2.3-.6a7.5 7.5 0 0 0 1.7 1l.7 2h3.6l.7-2a7.5 7.5 0 0 0 1.7-1l2.3.6 2-3.4-2-1.2Z"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pause Overlay -->
+    <div id="pauseOverlay" class="overlay" aria-hidden="true">
+      <div class="overlayCard">
+        <div class="bigWord">Paused</div>
+        <div class="overlayRow">
+          <button id="resumeBtn" class="iconBtn" type="button" aria-label="Resume">
+            <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5l12 7-12 7Z" fill="currentColor" stroke="none"></path>
+            </svg>
+          </button>
+          <button id="restartBtn" class="iconBtn" type="button" aria-label="Restart">
+            <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-3-6.7"></path>
+              <path d="M21 3v6h-6"></path>
+            </svg>
+          </button>
+          <button id="pauseSettingsBtn" class="iconBtn" type="button" aria-label="Settings">
+            <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
+              <path d="M19.4 15a8.2 8.2 0 0 0 .1-1l2-1.2-2-3.4-2.3.6a7.5 7.5 0 0 0-1.7-1L14.8 6h-3.6l-.7 2a7.5 7.5 0 0 0-1.7 1L6.5 9.4 4.5 12.8l2 1.2a8.2 8.2 0 0 0 .1 1l-2 1.2 2 3.4 2.3-.6a7.5 7.5 0 0 0 1.7 1l.7 2h3.6l.7-2a7.5 7.5 0 0 0 1.7-1l2.3.6 2-3.4-2-1.2Z"></path>
+            </svg>
+          </button>
+          <button id="pauseMenuBtn" class="iconBtn" type="button" aria-label="Menu">
+            <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 10.5 12 3l9 7.5"></path>
+              <path d="M5 10v10h14V10"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameOverOverlay" class="overlay" aria-hidden="true">
+      <div class="overlayCard">
+        <div class="bigWord">Game Over</div>
+        <div class="gameOverNums">
+          <div id="finalScoreNum" class="finalNum" aria-label="Final score">0</div>
+        </div>
+        <div class="gameOverNums">
+          <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true" style="width:26px;height:26px;">
+            <path d="M8 5h8v4a4 4 0 0 1-8 0V5Z"></path>
+            <path d="M6 7H4a2 2 0 0 0 2 2"></path>
+            <path d="M18 7h2a2 2 0 0 1-2 2"></path>
+            <path d="M10 13v2a2 2 0 0 0 4 0v-2"></path>
+            <path d="M8 21h8"></path>
+          </svg>
+          <div id="bestScoreNum" class="bestNum" aria-label="Best score">0</div>
+        </div>
+        <div id="newBestTag" class="newBest" style="display:none;">New Best</div>
+        <div class="overlayRow">
+          <button id="playAgainBtn" class="textBtn" type="button">Play Again</button>
+          <button id="goMenuBtn" class="textBtn" type="button">Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Best Score Screen -->
+    <div id="bestScreen" class="overlay" aria-hidden="true">
+      <div class="overlayCard">
+        <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true" style="width:32px;height:32px;">
+          <path d="M8 5h8v4a4 4 0 0 1-8 0V5Z"></path>
+          <path d="M6 7H4a2 2 0 0 0 2 2"></path>
+          <path d="M18 7h2a2 2 0 0 1-2 2"></path>
+          <path d="M10 13v2a2 2 0 0 0 4 0v-2"></path>
+          <path d="M8 21h8"></path>
+        </svg>
+        <div id="bestOnlyNum" class="finalNum">0</div>
+        <button id="bestHomeBtn" class="iconBtn" type="button" aria-label="Menu">
+          <svg class="iconSvg" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 10.5 12 3l9 7.5"></path>
+            <path d="M5 10v10h14V10"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Settings Screen -->
+    <div id="settingsScreen" class="overlay" aria-hidden="true">
+      <div class="settingsGrid">
+        <div class="settingsRow">
+          <button id="soundBtn" class="iconBtn" type="button" aria-label="Sound"></button>
+          <button id="motionBtn" class="iconBtn" type="button" aria-label="Motion"></button>
+          <button id="idleHintBtn" class="iconBtn" type="button" aria-label="Idle hints"></button>
+          <button id="contrastBtn" class="iconBtn" type="button" aria-label="High contrast"></button>
+          <button id="trashBtn" class="iconBtn" type="button" aria-label="Reset best score"></button>
+          <button id="settingsHomeBtn" class="iconBtn" type="button" aria-label="Menu"></button>
+        </div>
+        <div id="confirmRow" class="confirmRow" aria-hidden="true">
+          <button id="confirmResetBtn" class="iconBtn" type="button" aria-label="Confirm reset"></button>
+          <button id="cancelResetBtn" class="iconBtn" type="button" aria-label="Cancel reset"></button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+/* Core game logic (no DOM). Provides deterministic board operations and scoring.
+   Exposes a global BejeweledCore for browser, and module.exports for Node tests. */
+(function (global) {
+  'use strict';
+
+  const ROWS = 8;
+  const COLS = 8;
+
+  const GemType = Object.freeze({
+    RED: 'red',
+    BLUE: 'blue',
+    GREEN: 'green',
+    YELLOW: 'yellow',
+    PURPLE: 'purple',
+    ORANGE: 'orange',
+    WHITE: 'white',
+  });
+
+  const Special = Object.freeze({
+    NONE: 'none',
+    LINE_H: 'lineH',
+    LINE_V: 'lineV',
+    BURST: 'burst',
+    COLOR: 'color',
+  });
+
+  function deepCloneBoard(board) {
+    return board.map(row => row.map(cell => (cell ? { ...cell } : null)));
+  }
+
+  function targetForLevel(level) {
+    const x = level - 1;
+    return 1000 + 400 * x + 100 * x * x;
+  }
+
+  function gemTypesForLevel(level) {
+    if (level <= 2) return [GemType.RED, GemType.BLUE, GemType.GREEN, GemType.YELLOW, GemType.PURPLE];
+    if (level <= 5) return [GemType.RED, GemType.BLUE, GemType.GREEN, GemType.YELLOW, GemType.PURPLE, GemType.ORANGE];
+    return [GemType.RED, GemType.BLUE, GemType.GREEN, GemType.YELLOW, GemType.PURPLE, GemType.ORANGE, GemType.WHITE];
+  }
+
+  function isInBounds(r, c) {
+    return r >= 0 && r < ROWS && c >= 0 && c < COLS;
+  }
+
+  function baseTypeOf(cell) {
+    if (!cell) return null;
+    if (cell.special === Special.COLOR) return null;
+    return cell.type;
+  }
+
+  function canMatch(cell) {
+    return !!cell && cell.special !== Special.COLOR;
+  }
+
+  function swapInBoard(board, a, b) {
+    const tmp = board[a.r][a.c];
+    board[a.r][a.c] = board[b.r][b.c];
+    board[b.r][b.c] = tmp;
+  }
+
+  function forEachCell(fn) {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) fn(r, c);
+    }
+  }
+
+  function detectMatches(board) {
+    // Returns:
+    // - lines: array of { cells:[{r,c}...], dir:'h'|'v', type, length }
+    // - matchedSet: Map key->true for all matched cells (union)
+    // Special gems count as their base type; color gems do not match.
+    const matched = new Map();
+    const lines = [];
+
+    // Horizontal
+    for (let r = 0; r < ROWS; r++) {
+      let c = 0;
+      while (c < COLS) {
+        const cell = board[r][c];
+        const t = baseTypeOf(cell);
+        if (!t) {
+          c++;
+          continue;
+        }
+        let end = c + 1;
+        while (end < COLS && baseTypeOf(board[r][end]) === t) end++;
+        const len = end - c;
+        if (len >= 3) {
+          const cells = [];
+          for (let cc = c; cc < end; cc++) {
+            const key = `${r},${cc}`;
+            matched.set(key, true);
+            cells.push({ r, c: cc });
+          }
+          lines.push({ cells, dir: 'h', type: t, length: len });
+        }
+        c = end;
+      }
+    }
+
+    // Vertical
+    for (let c = 0; c < COLS; c++) {
+      let r = 0;
+      while (r < ROWS) {
+        const cell = board[r][c];
+        const t = baseTypeOf(cell);
+        if (!t) {
+          r++;
+          continue;
+        }
+        let end = r + 1;
+        while (end < ROWS && baseTypeOf(board[end][c]) === t) end++;
+        const len = end - r;
+        if (len >= 3) {
+          const cells = [];
+          for (let rr = r; rr < end; rr++) {
+            const key = `${rr},${c}`;
+            matched.set(key, true);
+            cells.push({ r: rr, c });
+          }
+          lines.push({ cells, dir: 'v', type: t, length: len });
+        }
+        r = end;
+      }
+    }
+
+    return { lines, matchedSet: matched };
+  }
+
+  function buildMatchedComponents(board, matchedSet) {
+    // Components of matched cells connected 4-dir with same base type.
+    const seen = new Map();
+    const comps = [];
+
+    function neighbors(rc) {
+      return [
+        { r: rc.r - 1, c: rc.c },
+        { r: rc.r + 1, c: rc.c },
+        { r: rc.r, c: rc.c - 1 },
+        { r: rc.r, c: rc.c + 1 },
+      ].filter(p => isInBounds(p.r, p.c));
+    }
+
+    for (const key of matchedSet.keys()) {
+      if (seen.get(key)) continue;
+      const [r0, c0] = key.split(',').map(Number);
+      const t = baseTypeOf(board[r0][c0]);
+      if (!t) continue;
+
+      const queue = [{ r: r0, c: c0 }];
+      const cells = [];
+      seen.set(key, true);
+      while (queue.length) {
+        const cur = queue.pop();
+        cells.push(cur);
+        for (const nb of neighbors(cur)) {
+          const k = `${nb.r},${nb.c}`;
+          if (!matchedSet.get(k) || seen.get(k)) continue;
+          if (baseTypeOf(board[nb.r][nb.c]) !== t) continue;
+          seen.set(k, true);
+          queue.push(nb);
+        }
+      }
+      comps.push({ type: t, cells });
+    }
+    return comps;
+  }
+
+  function analyzeComponentForSpecial(board, comp) {
+    // Determine if comp supports color, burst, or line creation.
+    // Also compute intersection and best straight segment lengths.
+    const set = new Set(comp.cells.map(p => `${p.r},${p.c}`));
+    const horizAt = new Map(); // key -> run length including key
+    const vertAt = new Map();
+
+    // For each cell, compute horizontal contiguous length within set.
+    for (const p of comp.cells) {
+      // horizontal
+      let left = p.c;
+      while (left - 1 >= 0 && set.has(`${p.r},${left - 1}`)) left--;
+      let right = p.c;
+      while (right + 1 < COLS && set.has(`${p.r},${right + 1}`)) right++;
+      horizAt.set(`${p.r},${p.c}`, right - left + 1);
+      // vertical
+      let up = p.r;
+      while (up - 1 >= 0 && set.has(`${up - 1},${p.c}`)) up--;
+      let down = p.r;
+      while (down + 1 < ROWS && set.has(`${down + 1},${p.c}`)) down++;
+      vertAt.set(`${p.r},${p.c}`, down - up + 1);
+    }
+
+    let hasIntersection = false;
+    let intersectionCell = null;
+    for (const p of comp.cells) {
+      const k = `${p.r},${p.c}`;
+      if ((horizAt.get(k) || 0) >= 3 && (vertAt.get(k) || 0) >= 3) {
+        hasIntersection = true;
+        // Prefer the most central intersection (deterministic)
+        if (!intersectionCell) intersectionCell = p;
+        else {
+          if (p.r < intersectionCell.r || (p.r === intersectionCell.r && p.c < intersectionCell.c)) intersectionCell = p;
+        }
+      }
+    }
+
+    // Find longest straight segments in this component.
+    let bestH = null; // {length, row, cStart, cEnd}
+    let bestV = null; // {length, col, rStart, rEnd}
+
+    // For horizontal, scan per row
+    for (let r = 0; r < ROWS; r++) {
+      let c = 0;
+      while (c < COLS) {
+        if (!set.has(`${r},${c}`)) { c++; continue; }
+        let end = c + 1;
+        while (end < COLS && set.has(`${r},${end}`)) end++;
+        const len = end - c;
+        if (len >= 3) {
+          if (!bestH || len > bestH.length || (len === bestH.length && (r < bestH.row || (r === bestH.row && c < bestH.cStart)))) {
+            bestH = { length: len, row: r, cStart: c, cEnd: end - 1 };
+          }
+        }
+        c = end;
+      }
+    }
+    // For vertical, scan per col
+    for (let c = 0; c < COLS; c++) {
+      let r = 0;
+      while (r < ROWS) {
+        if (!set.has(`${r},${c}`)) { r++; continue; }
+        let end = r + 1;
+        while (end < ROWS && set.has(`${end},${c}`)) end++;
+        const len = end - r;
+        if (len >= 3) {
+          if (!bestV || len > bestV.length || (len === bestV.length && (c < bestV.col || (c === bestV.col && r < bestV.rStart)))) {
+            bestV = { length: len, col: c, rStart: r, rEnd: end - 1 };
+          }
+        }
+        r = end;
+      }
+    }
+
+    const canColor = (bestH && bestH.length >= 5) || (bestV && bestV.length >= 5);
+    const canBurst = hasIntersection;
+    const canLine = (!canBurst && !canColor) && ((bestH && bestH.length === 4) || (bestV && bestV.length === 4));
+
+    return { canColor, canBurst, canLine, intersectionCell, bestH, bestV };
+  }
+
+  function chooseSpecialCreation(board, detection, movedDest) {
+    // Returns { kind:Special, at:{r,c}, baseType } or null.
+    const comps = buildMatchedComponents(board, detection.matchedSet);
+    if (comps.length === 0) return null;
+    const candidates = [];
+    for (const comp of comps) {
+      const info = analyzeComponentForSpecial(board, comp);
+      if (info.canColor) candidates.push({ priority: 3, kind: Special.COLOR, comp, info });
+      else if (info.canBurst) candidates.push({ priority: 2, kind: Special.BURST, comp, info });
+      else if (info.canLine) {
+        // Determine line direction from the straight 4 that exists (prefer longer? deterministic).
+        // If both exist (rare without intersection), prefer the one involving movedDest if possible.
+        candidates.push({ priority: 1, kind: 'line', comp, info });
+      }
+    }
+    if (!candidates.length) return null;
+
+    // Highest priority only.
+    const maxP = Math.max(...candidates.map(c => c.priority));
+    let top = candidates.filter(c => c.priority === maxP);
+
+    // Prefer candidate that contains movedDest (moved gem final cell)
+    const mdKey = movedDest ? `${movedDest.r},${movedDest.c}` : null;
+    if (mdKey) {
+      const withMoved = top.filter(c => c.comp.cells.some(p => `${p.r},${p.c}` === mdKey));
+      if (withMoved.length) top = withMoved;
+    }
+
+    // Deterministic tie-breaker: smallest (row,col) among component cells
+    top.sort((a, b) => {
+      function minKey(comp) {
+        let mr = 99, mc = 99;
+        for (const p of comp.cells) {
+          if (p.r < mr || (p.r === mr && p.c < mc)) { mr = p.r; mc = p.c; }
+        }
+        return mr * 100 + mc;
+      }
+      return minKey(a.comp) - minKey(b.comp);
+    });
+    const chosen = top[0];
+
+    // Determine placement cell.
+    let at = null;
+    const movedInComp = mdKey && chosen.comp.cells.some(p => `${p.r},${p.c}` === mdKey);
+    if (movedInComp) {
+      at = { ...movedDest };
+    } else if (chosen.kind === Special.BURST) {
+      at = chosen.info.intersectionCell ? { ...chosen.info.intersectionCell } : { ...chosen.comp.cells[0] };
+    } else {
+      // Straight placement: use the longest straight segment in the component (prefer horizontal then vertical).
+      let seg = null;
+      if (chosen.info.bestH && chosen.info.bestV) {
+        if (chosen.info.bestH.length > chosen.info.bestV.length) seg = { dir: 'h', ...chosen.info.bestH };
+        else if (chosen.info.bestV.length > chosen.info.bestH.length) seg = { dir: 'v', ...chosen.info.bestV };
+        else {
+          // tie: pick one closest to movedDest if exists, else deterministic (horizontal).
+          seg = { dir: 'h', ...chosen.info.bestH };
+        }
+      } else if (chosen.info.bestH) seg = { dir: 'h', ...chosen.info.bestH };
+      else if (chosen.info.bestV) seg = { dir: 'v', ...chosen.info.bestV };
+
+      if (!seg) return null;
+
+      const len = seg.length;
+      if (seg.dir === 'h') {
+        const centers = len % 2 === 1 ? [seg.cStart + Math.floor(len / 2)] : [seg.cStart + len / 2 - 1, seg.cStart + len / 2];
+        if (!movedDest) at = { r: seg.row, c: centers[0] };
+        else {
+          centers.sort((a, b) => Math.abs(a - movedDest.c) - Math.abs(b - movedDest.c));
+          at = { r: seg.row, c: centers[0] };
+        }
+      } else {
+        const centers = len % 2 === 1 ? [seg.rStart + Math.floor(len / 2)] : [seg.rStart + len / 2 - 1, seg.rStart + len / 2];
+        if (!movedDest) at = { r: centers[0], c: seg.col };
+        else {
+          centers.sort((a, b) => Math.abs(a - movedDest.r) - Math.abs(b - movedDest.r));
+          at = { r: centers[0], c: seg.col };
+        }
+      }
+    }
+
+    // Determine kind details for line.
+    let kind = chosen.kind;
+    if (kind === 'line') {
+      // Determine if horizontal 4 or vertical 4 exists in chosen component; prefer one that includes movedDest if possible.
+      const set = new Set(chosen.comp.cells.map(p => `${p.r},${p.c}`));
+      const options = [];
+      // horizontal runs
+      for (let r = 0; r < ROWS; r++) {
+        let c = 0;
+        while (c < COLS) {
+          if (!set.has(`${r},${c}`)) { c++; continue; }
+          let end = c + 1;
+          while (end < COLS && set.has(`${r},${end}`)) end++;
+          const len = end - c;
+          if (len === 4) options.push({ dir: 'h', r, cStart: c, cEnd: end - 1 });
+          c = end;
+        }
+      }
+      for (let c = 0; c < COLS; c++) {
+        let r = 0;
+        while (r < ROWS) {
+          if (!set.has(`${r},${c}`)) { r++; continue; }
+          let end = r + 1;
+          while (end < ROWS && set.has(`${end},${c}`)) end++;
+          const len = end - r;
+          if (len === 4) options.push({ dir: 'v', c, rStart: r, rEnd: end - 1 });
+          r = end;
+        }
+      }
+      let opt = options[0];
+      if (movedDest && options.length > 1) {
+        const k = `${movedDest.r},${movedDest.c}`;
+        const withMoved = options.filter(o => {
+          if (o.dir === 'h') return movedDest.r === o.r && movedDest.c >= o.cStart && movedDest.c <= o.cEnd;
+          return movedDest.c === o.c && movedDest.r >= o.rStart && movedDest.r <= o.rEnd;
+        });
+        if (withMoved.length) opt = withMoved[0];
+      }
+      kind = (opt && opt.dir === 'v') ? Special.LINE_V : Special.LINE_H;
+    }
+
+    return { kind, at, baseType: chosen.comp.type };
+  }
+
+  function scoreNormalMatchForComponent(board, comp) {
+    // Determine if component is T/L and its straight length otherwise.
+    const set = new Set(comp.cells.map(p => `${p.r},${p.c}`));
+    let hasIntersection = false;
+    for (const p of comp.cells) {
+      let h = 1;
+      while (p.c - h >= 0 && set.has(`${p.r},${p.c - h}`)) h++;
+      let hh = 1;
+      while (p.c + hh < COLS && set.has(`${p.r},${p.c + hh}`)) hh++;
+      const hlen = h + hh - 1;
+      let v = 1;
+      while (p.r - v >= 0 && set.has(`${p.r - v},${p.c}`)) v++;
+      let vv = 1;
+      while (p.r + vv < ROWS && set.has(`${p.r + vv},${p.c}`)) vv++;
+      const vlen = v + vv - 1;
+      if (hlen >= 3 && vlen >= 3) { hasIntersection = true; break; }
+    }
+    if (hasIntersection) return 120;
+
+    // Straight: either all in a row or all in a column (for standard match detection).
+    // Determine max run length among rows/cols.
+    let maxLen = 0;
+    // rows
+    for (let r = 0; r < ROWS; r++) {
+      let c = 0;
+      while (c < COLS) {
+        if (!set.has(`${r},${c}`)) { c++; continue; }
+        let end = c + 1;
+        while (end < COLS && set.has(`${r},${end}`)) end++;
+        maxLen = Math.max(maxLen, end - c);
+        c = end;
+      }
+    }
+    // cols
+    for (let c = 0; c < COLS; c++) {
+      let r = 0;
+      while (r < ROWS) {
+        if (!set.has(`${r},${c}`)) { r++; continue; }
+        let end = r + 1;
+        while (end < ROWS && set.has(`${end},${c}`)) end++;
+        maxLen = Math.max(maxLen, end - r);
+        r = end;
+      }
+    }
+    const table = new Map([
+      [3, 30],
+      [4, 60],
+      [5, 120],
+      [6, 150],
+      [7, 180],
+      [8, 210],
+    ]);
+    return table.get(Math.min(8, maxLen)) || 0;
+  }
+
+  function scoreNormalMatches(board, matchedSet) {
+    const comps = buildMatchedComponents(board, matchedSet);
+    let total = 0;
+    for (const comp of comps) total += scoreNormalMatchForComponent(board, comp);
+    return { total, components: comps };
+  }
+
+  function classifySpecialSwap(a, b) {
+    // a,b are cells. Returns one of:
+    // 'LL','LB','BB','CN','CL','CB','CC' or null
+    const sa = a ? a.special : Special.NONE;
+    const sb = b ? b.special : Special.NONE;
+
+    const isLine = s => s === Special.LINE_H || s === Special.LINE_V;
+    const isBurst = s => s === Special.BURST;
+    const isColor = s => s === Special.COLOR;
+
+    if (isLine(sa) && isLine(sb)) return 'LL';
+    if ((isLine(sa) && isBurst(sb)) || (isBurst(sa) && isLine(sb))) return 'LB';
+    if (isBurst(sa) && isBurst(sb)) return 'BB';
+    if (isColor(sa) && isColor(sb)) return 'CC';
+    if ((isColor(sa) && !isColor(sb)) || (!isColor(sa) && isColor(sb))) {
+      // color + normal/line/burst (color gem has no base type)
+      const other = isColor(sa) ? b : a;
+      if (!other) return null;
+      if (other.special === Special.BURST) return 'CB';
+      if (other.special === Special.LINE_H || other.special === Special.LINE_V) return 'CL';
+      if (other.special === Special.NONE) return 'CN';
+      // color + color handled above
+      return null;
+    }
+    return null;
+  }
+
+  function computeSpecialSwapClears(board, swap, movedDest) {
+    // swap: {a:{r,c}, b:{r,c}} where a is moved origin and b is destination.
+    // movedDest is swap.b.
+    const a = board[swap.a.r][swap.a.c];
+    const b = board[swap.b.r][swap.b.c];
+    const kind = classifySpecialSwap(a, b);
+    if (!kind) return null;
+
+    const dest = movedDest;
+    const clears = new Map(); // key -> effectType ('line'|'burst'|'color')
+    const activations = []; // for UI hints, list of {type:'line'|'burst'|'color', at:{r,c}}
+
+    function markCell(r, c, effect) {
+      if (!isInBounds(r, c)) return;
+      const key = `${r},${c}`;
+      const prev = clears.get(key);
+      // keep highest effect value: color > burst > line
+      const rank = { line: 1, burst: 2, color: 3 };
+      if (!prev || rank[effect] > rank[prev]) clears.set(key, effect);
+    }
+
+    function clearRowColCross(r, c) {
+      for (let cc = 0; cc < COLS; cc++) markCell(r, cc, 'line');
+      for (let rr = 0; rr < ROWS; rr++) markCell(rr, c, 'line');
+    }
+    function clear3Rows3Cols(r, c) {
+      for (let dr = -1; dr <= 1; dr++) {
+        const rr = r + dr;
+        if (isInBounds(rr, 0)) for (let cc = 0; cc < COLS; cc++) markCell(rr, cc, 'line');
+      }
+      for (let dc = -1; dc <= 1; dc++) {
+        const cc = c + dc;
+        if (isInBounds(0, cc)) for (let rr = 0; rr < ROWS; rr++) markCell(rr, cc, 'line');
+      }
+    }
+    function clearArea(r, c, radius, effect) {
+      for (let rr = r - radius; rr <= r + radius; rr++) {
+        for (let cc = c - radius; cc <= c + radius; cc++) markCell(rr, cc, effect);
+      }
+    }
+
+    if (kind === 'LL') {
+      clearRowColCross(dest.r, dest.c);
+      activations.push({ type: 'line', at: { ...dest } });
+    } else if (kind === 'LB') {
+      clear3Rows3Cols(dest.r, dest.c);
+      activations.push({ type: 'line', at: { ...dest } });
+    } else if (kind === 'BB') {
+      clearArea(dest.r, dest.c, 2, 'burst');
+      activations.push({ type: 'burst', at: { ...dest } });
+    } else if (kind === 'CN') {
+      // Clear all gems of the normal type.
+      const other = (a.special === Special.COLOR) ? b : a;
+      const t = baseTypeOf(other);
+      forEachCell((r, c) => {
+        const bt = baseTypeOf(board[r][c]);
+        if (bt && bt === t) markCell(r, c, 'color');
+      });
+      activations.push({ type: 'color', at: { ...dest } });
+    } else if (kind === 'CL' || kind === 'CB') {
+      const other = (a.special === Special.COLOR) ? b : a;
+      const t = baseTypeOf(other);
+      // Convert all gems of that type into line/burst, then activate all.
+      // We do conversion in the resolver; here we just compute effects of activating all converted.
+      if (!t) return null;
+      if (kind === 'CL') {
+        // Convert to line gems. Use the swapped line gem's direction for all conversions.
+        const lineDir = (other.special === Special.LINE_V) ? 'v' : 'h';
+        forEachCell((r, c) => {
+          const bt = baseTypeOf(board[r][c]);
+          if (bt !== t) return;
+          // When "activating all converted line gems", each clears its row/col.
+          if (lineDir === 'h') {
+            for (let cc = 0; cc < COLS; cc++) markCell(r, cc, 'line');
+          } else {
+            for (let rr = 0; rr < ROWS; rr++) markCell(rr, c, 'line');
+          }
+          activations.push({ type: 'line', at: { r, c } });
+        });
+      } else {
+        forEachCell((r, c) => {
+          const bt = baseTypeOf(board[r][c]);
+          if (bt !== t) return;
+          clearArea(r, c, 1, 'burst');
+          activations.push({ type: 'burst', at: { r, c } });
+        });
+      }
+    } else if (kind === 'CC') {
+      forEachCell((r, c) => markCell(r, c, 'color'));
+      activations.push({ type: 'color', at: { ...dest } });
+    }
+
+    // In special swaps, both swapped gems are consumed; ensure both swap coordinates clear.
+    // (Important for color gem consumption and for row/col/area patterns that might not include the origin cell.)
+    if (swap && swap.a && swap.b) {
+      if (kind.startsWith('C')) {
+        markCell(swap.a.r, swap.a.c, 'color');
+        markCell(swap.b.r, swap.b.c, 'color');
+      } else if (kind === 'BB') {
+        markCell(swap.a.r, swap.a.c, 'burst');
+        markCell(swap.b.r, swap.b.c, 'burst');
+      } else {
+        markCell(swap.a.r, swap.a.c, 'line');
+        markCell(swap.b.r, swap.b.c, 'line');
+      }
+    }
+
+    return { kind, clears, activations };
+  }
+
+  function resolveSpecialActivations(board, matchedSet) {
+    // For specials included in matchedSet, compute additional clears and effect map.
+    const effectMap = new Map(); // key -> effect type highest
+    const triggers = []; // list of activations for UI
+
+    const rank = { line: 1, burst: 2, color: 3 };
+    function mark(r, c, effect) {
+      if (!isInBounds(r, c)) return;
+      const k = `${r},${c}`;
+      const prev = effectMap.get(k);
+      if (!prev || rank[effect] > rank[prev]) effectMap.set(k, effect);
+    }
+
+    for (const key of matchedSet.keys()) {
+      const [r, c] = key.split(',').map(Number);
+      const cell = board[r][c];
+      if (!cell) continue;
+      if (cell.special === Special.LINE_H) {
+        for (let cc = 0; cc < COLS; cc++) mark(r, cc, 'line');
+        triggers.push({ type: 'line', at: { r, c }, dir: 'h' });
+      } else if (cell.special === Special.LINE_V) {
+        for (let rr = 0; rr < ROWS; rr++) mark(rr, c, 'line');
+        triggers.push({ type: 'line', at: { r, c }, dir: 'v' });
+      } else if (cell.special === Special.BURST) {
+        for (let rr = r - 1; rr <= r + 1; rr++) {
+          for (let cc = c - 1; cc <= c + 1; cc++) mark(rr, cc, 'burst');
+        }
+        triggers.push({ type: 'burst', at: { r, c } });
+      }
+    }
+    return { effectMap, triggers };
+  }
+
+  function computeScoreForStep(boardBeforeClear, matchedSet, effectMap, cascadeMultiplier) {
+    // Normal match points:
+    const normal = scoreNormalMatches(boardBeforeClear, matchedSet);
+    const normalPoints = normal.total;
+
+    // Special-effect points: 10/15/20 per unique gem cleared by effects, highest effect per cell.
+    let effectPoints = 0;
+    for (const [key, eff] of effectMap.entries()) {
+      const [r, c] = key.split(',').map(Number);
+      if (!boardBeforeClear[r][c]) continue;
+      if (eff === 'line') effectPoints += 10;
+      else if (eff === 'burst') effectPoints += 15;
+      else if (eff === 'color') effectPoints += 20;
+    }
+    const subtotal = normalPoints + effectPoints;
+    const stepPoints = subtotal * cascadeMultiplier;
+    return { normalPoints, effectPoints, subtotal, stepPoints };
+  }
+
+  function applyClears(board, clearKeys) {
+    // clearKeys: Set of "r,c"
+    for (const key of clearKeys) {
+      const [r, c] = key.split(',').map(Number);
+      board[r][c] = null;
+    }
+  }
+
+  function computeFall(board) {
+    // Returns move list: [{id, from:{r,c}, to:{r,c}, distance}]
+    const moves = [];
+    for (let c = 0; c < COLS; c++) {
+      let writeRow = ROWS - 1;
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (board[r][c]) {
+          if (writeRow !== r) {
+            const gem = board[r][c];
+            board[writeRow][c] = gem;
+            board[r][c] = null;
+            moves.push({ id: gem.id, from: { r, c }, to: { r: writeRow, c }, distance: writeRow - r });
+          }
+          writeRow--;
+        }
+      }
+    }
+    return moves;
+  }
+
+  function spawnNewGems(board, level, idGen) {
+    const types = gemTypesForLevel(level);
+    const spawns = [];
+    for (let c = 0; c < COLS; c++) {
+      for (let r = 0; r < ROWS; r++) {
+        if (board[r][c]) continue;
+        const type = types[Math.floor(Math.random() * types.length)];
+        const gem = { id: idGen(), type, special: Special.NONE };
+        board[r][c] = gem;
+        // Spawn from above: distance is (r + 1) rows above (at least 1)
+        spawns.push({ id: gem.id, to: { r, c }, fromRow: -1 - Math.floor(Math.random() * 2) });
+      }
+    }
+    return spawns;
+  }
+
+  function boardHasAnyMatch(board) {
+    const det = detectMatches(board);
+    return det.matchedSet.size > 0;
+  }
+
+  function legalNormalSwapExists(board) {
+    forEachCell((r, c) => {
+      // right and down only to avoid duplicates
+    });
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const here = { r, c };
+        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }];
+        for (const d of dirs) {
+          const rr = r + d.dr, cc = c + d.dc;
+          if (!isInBounds(rr, cc)) continue;
+          const other = { r: rr, c: cc };
+          // swap in a clone
+          const b2 = deepCloneBoard(board);
+          swapInBoard(b2, here, other);
+          const det = detectMatches(b2);
+          if (det.matchedSet.size > 0) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function countLegalNormalSwaps(board) {
+    let count = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const here = { r, c };
+        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }];
+        for (const d of dirs) {
+          const rr = r + d.dr, cc = c + d.dc;
+          if (!isInBounds(rr, cc)) continue;
+          const other = { r: rr, c: cc };
+          const b2 = deepCloneBoard(board);
+          swapInBoard(b2, here, other);
+          const det = detectMatches(b2);
+          if (det.matchedSet.size > 0) count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  function anyLegalMove(board) {
+    // Legal move: any swap creating normal match OR any adjacent special swap (section 16)
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const here = { r, c };
+        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 0, dc: -1 }, { dr: -1, dc: 0 }];
+        for (const d of dirs) {
+          const rr = r + d.dr, cc = c + d.dc;
+          if (!isInBounds(rr, cc)) continue;
+          const other = { r: rr, c: cc };
+          const a = board[r][c], b = board[rr][cc];
+          if (!a || !b) continue;
+          if (classifySpecialSwap(a, b)) return true;
+          const b2 = deepCloneBoard(board);
+          swapInBoard(b2, here, other);
+          const det = detectMatches(b2);
+          if (det.matchedSet.size > 0) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function findHintMove(board) {
+    // Scan rows top->bottom, cols left->right, per cell test right,down,left,up.
+    const dirs = [
+      { dr: 0, dc: 1 },
+      { dr: 1, dc: 0 },
+      { dr: 0, dc: -1 },
+      { dr: -1, dc: 0 },
+    ];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        for (const d of dirs) {
+          const rr = r + d.dr, cc = c + d.dc;
+          if (!isInBounds(rr, cc)) continue;
+          const a = board[r][c], b = board[rr][cc];
+          if (!a || !b) continue;
+          // hint is for legal move: match-creating OR special-swap.
+          if (classifySpecialSwap(a, b)) return { from: { r, c }, to: { r: rr, c: cc }, special: true };
+          const b2 = deepCloneBoard(board);
+          swapInBoard(b2, { r, c }, { r: rr, c: cc });
+          const det = detectMatches(b2);
+          if (det.matchedSet.size > 0) return { from: { r, c }, to: { r: rr, c: cc }, special: false };
+        }
+      }
+    }
+    return null;
+  }
+
+  function generateStartingBoard(idGen, level = 1) {
+    // Level 1 types only (5 types). Must have no matches and at least 3 legal normal swaps.
+    const types = gemTypesForLevel(level);
+    const allowed = types.slice(0, 5);
+
+    function randomType() {
+      return allowed[Math.floor(Math.random() * allowed.length)];
+    }
+
+    while (true) {
+      const board = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => null));
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          let t = randomType();
+          // avoid immediate match creation
+          let tries = 0;
+          while (tries < 20) {
+            const left1 = c >= 1 ? baseTypeOf(board[r][c - 1]) : null;
+            const left2 = c >= 2 ? baseTypeOf(board[r][c - 2]) : null;
+            const up1 = r >= 1 ? baseTypeOf(board[r - 1][c]) : null;
+            const up2 = r >= 2 ? baseTypeOf(board[r - 2][c]) : null;
+            const createsH = left1 && left2 && left1 === t && left2 === t;
+            const createsV = up1 && up2 && up1 === t && up2 === t;
+            if (!createsH && !createsV) break;
+            t = randomType();
+            tries++;
+          }
+          board[r][c] = { id: idGen(), type: t, special: Special.NONE };
+        }
+      }
+      if (boardHasAnyMatch(board)) continue;
+      if (countLegalNormalSwaps(board) < 3) continue;
+      return board;
+    }
+  }
+
+  const StorageKeys = Object.freeze({
+    BEST: 'bb_best',
+    SOUND: 'bb_sound',
+    MOTION: 'bb_motion',
+    IDLE_HINT: 'bb_idle_hint',
+    CONTRAST: 'bb_contrast',
+  });
+
+  function loadPersistedSettings(storage) {
+    const best = Number(storage.getItem(StorageKeys.BEST) || '0') || 0;
+    const sound = (storage.getItem(StorageKeys.SOUND) ?? '1') === '1';
+    const motion = (storage.getItem(StorageKeys.MOTION) ?? '1') === '1';
+    const idleHint = (storage.getItem(StorageKeys.IDLE_HINT) ?? '1') === '1';
+    const contrast = (storage.getItem(StorageKeys.CONTRAST) ?? '0') === '1';
+    return { best, sound, motion, idleHint, contrast };
+  }
+
+  function savePersistedSettings(storage, s) {
+    storage.setItem(StorageKeys.BEST, String(s.best || 0));
+    storage.setItem(StorageKeys.SOUND, s.sound ? '1' : '0');
+    storage.setItem(StorageKeys.MOTION, s.motion ? '1' : '0');
+    storage.setItem(StorageKeys.IDLE_HINT, s.idleHint ? '1' : '0');
+    storage.setItem(StorageKeys.CONTRAST, s.contrast ? '1' : '0');
+  }
+
+  const API = {
+    ROWS,
+    COLS,
+    GemType,
+    Special,
+    targetForLevel,
+    gemTypesForLevel,
+    baseTypeOf,
+    detectMatches,
+    chooseSpecialCreation,
+    computeSpecialSwapClears,
+    resolveSpecialActivations,
+    computeScoreForStep,
+    applyClears,
+    computeFall,
+    spawnNewGems,
+    generateStartingBoard,
+    classifySpecialSwap,
+    anyLegalMove,
+    findHintMove,
+    countLegalNormalSwaps,
+    loadPersistedSettings,
+    savePersistedSettings,
+    StorageKeys,
+  };
+
+  global.BejeweledCore = API;
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+    <script>
+/* UI + animation + input wiring. Uses BejeweledCore. */
+(function () {
+  'use strict';
+
+  const Core = window.BejeweledCore;
+  if (!Core) throw new Error('Missing core');
+
+  const {
+    ROWS, COLS, Special,
+    targetForLevel,
+    generateStartingBoard,
+    detectMatches,
+    chooseSpecialCreation,
+    computeSpecialSwapClears,
+    resolveSpecialActivations,
+    computeScoreForStep,
+    applyClears,
+    computeFall,
+    spawnNewGems,
+    anyLegalMove,
+    findHintMove,
+    classifySpecialSwap,
+    baseTypeOf,
+    loadPersistedSettings,
+    savePersistedSettings,
+  } = Core;
+
+  const $ = (id) => document.getElementById(id);
+
+  function isInBounds(r, c) {
+    return r >= 0 && r < ROWS && c >= 0 && c < COLS;
+  }
+
+  const dom = {
+    menuScreen: $('menuScreen'),
+    startBtn: $('startBtn'),
+    menuBestBtn: $('menuBestBtn'),
+    menuSettingsBtn: $('menuSettingsBtn'),
+
+    gameHud: $('gameHud'),
+    scoreNum: $('scoreNum'),
+    levelNum: $('levelNum'),
+    meter: $('meter'),
+    meterFill: $('meterFill'),
+
+    board: $('board'),
+    gemLayer: $('gemLayer'),
+    cursor: $('cursor'),
+    multiplier: $('multiplier'),
+
+    pauseBtn: $('pauseBtn'),
+    hintBtn: $('hintBtn'),
+    gameSettingsBtn: $('gameSettingsBtn'),
+
+    pauseOverlay: $('pauseOverlay'),
+    resumeBtn: $('resumeBtn'),
+    restartBtn: $('restartBtn'),
+    pauseSettingsBtn: $('pauseSettingsBtn'),
+    pauseMenuBtn: $('pauseMenuBtn'),
+
+    gameOverOverlay: $('gameOverOverlay'),
+    finalScoreNum: $('finalScoreNum'),
+    bestScoreNum: $('bestScoreNum'),
+    newBestTag: $('newBestTag'),
+    playAgainBtn: $('playAgainBtn'),
+    goMenuBtn: $('goMenuBtn'),
+
+    bestScreen: $('bestScreen'),
+    bestOnlyNum: $('bestOnlyNum'),
+    bestHomeBtn: $('bestHomeBtn'),
+
+    settingsScreen: $('settingsScreen'),
+    soundBtn: $('soundBtn'),
+    motionBtn: $('motionBtn'),
+    idleHintBtn: $('idleHintBtn'),
+    contrastBtn: $('contrastBtn'),
+    trashBtn: $('trashBtn'),
+    settingsHomeBtn: $('settingsHomeBtn'),
+    confirmRow: $('confirmRow'),
+    confirmResetBtn: $('confirmResetBtn'),
+    cancelResetBtn: $('cancelResetBtn'),
+  };
+
+  // ---------- Icons (SVG) ----------
+  function iconSvg(name) {
+    // Inline SVG, no visible words.
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'iconSvg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+
+    function p(d, fill = null) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      el.setAttribute('d', d);
+      if (fill) { el.setAttribute('fill', fill); el.setAttribute('stroke', 'none'); }
+      svg.appendChild(el);
+    }
+    function l(x1, y1, x2, y2) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      el.setAttribute('x1', x1); el.setAttribute('y1', y1);
+      el.setAttribute('x2', x2); el.setAttribute('y2', y2);
+      svg.appendChild(el);
+    }
+    function c(cx, cy, r, fill = null) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      el.setAttribute('cx', cx); el.setAttribute('cy', cy); el.setAttribute('r', r);
+      if (fill) { el.setAttribute('fill', fill); el.setAttribute('stroke', 'none'); }
+      svg.appendChild(el);
+    }
+
+    if (name === 'soundOn') {
+      p('M4 10v4h3l4 3V7L7 10H4Z');
+      p('M15 9a3 3 0 0 1 0 6');
+      p('M17.5 6.5a6 6 0 0 1 0 11');
+    } else if (name === 'soundOff') {
+      p('M4 10v4h3l4 3V7L7 10H4Z');
+      p('M15 9a3 3 0 0 1 0 6');
+      l(15, 8, 21, 16);
+    } else if (name === 'motion') {
+      c(9, 12, 4);
+      c(15, 12, 4);
+      p('M18.5 8.5c1.5 1 2.5 2.5 2.5 3.5');
+      p('M18.5 15.5c1.5-1 2.5-2.5 2.5-3.5');
+    } else if (name === 'idleHint') {
+      p('M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5L12 2Z');
+      c(18.5, 18.2, 1.2, 'currentColor');
+    } else if (name === 'contrast') {
+      c(12, 12, 8);
+      p('M12 4a8 8 0 0 1 0 16Z', 'currentColor');
+    } else if (name === 'trash') {
+      p('M6 7h12');
+      p('M9 7V5h6v2');
+      p('M8 7l1 14h6l1-14');
+    } else if (name === 'check') {
+      p('M5 13l4 4L19 7');
+    } else if (name === 'x') {
+      p('M6 6l12 12');
+      p('M18 6 6 18');
+    } else if (name === 'home') {
+      p('M3 10.5 12 3l9 7.5');
+      p('M5 10v10h14V10');
+    } else {
+      // fallback: gear outline
+      p('M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z');
+      p('M19.4 15a8.2 8.2 0 0 0 .1-1l2-1.2-2-3.4-2.3.6a7.5 7.5 0 0 0-1.7-1L14.8 6h-3.6l-.7 2a7.5 7.5 0 0 0-1.7 1L6.5 9.4 4.5 12.8l2 1.2a8.2 8.2 0 0 0 .1 1l-2 1.2 2 3.4 2.3-.6a7.5 7.5 0 0 0 1.7 1l.7 2h3.6l.7-2a7.5 7.5 0 0 0 1.7-1l2.3.6 2-3.4-2-1.2Z');
+    }
+    return svg;
+  }
+
+  function setBtnIcon(btn, iconName) {
+    btn.innerHTML = '';
+    btn.appendChild(iconSvg(iconName));
+  }
+
+  // ---------- Audio ----------
+  class AudioManager {
+    constructor() {
+      this.enabled = true;
+      this.unlocked = false;
+      this.ctx = null;
+      this.master = null;
+    }
+    setEnabled(v) {
+      this.enabled = !!v;
+      if (this.master) this.master.gain.value = this.enabled ? 0.9 : 0.0;
+    }
+    unlock() {
+      if (this.unlocked) return;
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const master = ctx.createGain();
+        master.gain.value = this.enabled ? 0.9 : 0.0;
+        master.connect(ctx.destination);
+        this.ctx = ctx;
+        this.master = master;
+        this.unlocked = true;
+      } catch {
+        // If audio fails, silently ignore.
+      }
+    }
+    tone(freq, durMs, type = 'sine', gain = 0.08) {
+      if (!this.enabled || !this.unlocked || !this.ctx) return;
+      const t0 = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      g.gain.value = 0.0001;
+      osc.connect(g);
+      g.connect(this.master);
+      osc.start(t0);
+      g.gain.setTargetAtTime(gain, t0, 0.01);
+      g.gain.setTargetAtTime(0.0001, t0 + durMs / 1000, 0.02);
+      osc.stop(t0 + durMs / 1000 + 0.06);
+    }
+    click() { this.tone(900, 40, 'triangle', 0.055); }
+    slide() { this.tone(320, 80, 'sine', 0.06); this.tone(480, 80, 'sine', 0.05); }
+    dull() { this.tone(140, 70, 'square', 0.035); }
+    chime(mult = 1) { this.tone(520 * mult, 90, 'sine', 0.055); this.tone(780 * mult, 120, 'triangle', 0.045); }
+    sparkle() { this.tone(980, 60, 'triangle', 0.05); this.tone(1320, 80, 'sine', 0.04); }
+    burst() { this.tone(220, 110, 'sawtooth', 0.045); this.tone(110, 140, 'square', 0.03); }
+    rise() { this.tone(480, 80, 'sine', 0.04); this.tone(720, 120, 'sine', 0.05); this.tone(980, 140, 'triangle', 0.05); }
+    fall() { this.tone(620, 80, 'triangle', 0.045); this.tone(420, 110, 'sine', 0.05); this.tone(240, 140, 'sine', 0.045); }
+  }
+
+  const audio = new AudioManager();
+  function userInteracted() { audio.unlock(); }
+
+  // ---------- Animation manager (WAAPI) ----------
+  const activeAnimations = new Set();
+  let pausedByUser = false;
+  let pausedByVisibility = false;
+
+  function playAnim(el, keyframes, options) {
+    const anim = el.animate(keyframes, options);
+    activeAnimations.add(anim);
+    if (pausedByUser || pausedByVisibility) anim.pause();
+    const finished = anim.finished.finally(() => activeAnimations.delete(anim));
+    return { anim, finished };
+  }
+
+  function pauseAllAnimations() {
+    for (const a of activeAnimations) {
+      try { a.pause(); } catch {}
+    }
+  }
+  function resumeAllAnimations() {
+    for (const a of activeAnimations) {
+      try { a.play(); } catch {}
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      pausedByVisibility = true;
+      pauseAllAnimations();
+    } else {
+      pausedByVisibility = false;
+      if (!pausedByUser) resumeAllAnimations();
+    }
+  });
+
+  // Allow P to resume while paused even if board focus is lost.
+  window.addEventListener('keydown', (ev) => {
+    if (state.screen === 'paused' && ev.key.toLowerCase() === 'p') {
+      ev.preventDefault();
+      hidePause();
+    }
+  });
+
+  // ---------- Game state ----------
+  const state = {
+    screen: 'menu', // menu | playing | paused | settings | best | gameover
+    settingsFrom: 'menu',
+    board: null,
+    score: 0,
+    level: 1,
+    progress: 0,
+    best: 0,
+    selected: null, // {r,c}
+    cursor: { r: 0, c: 0 },
+    resolving: false,
+    hint: null, // {from,to}
+    idleMs: 0,
+    motion: true,
+    sound: true,
+    idleHint: true,
+    contrast: false,
+    gemEls: new Map(), // gem.id => element
+    idCounter: 1,
+  };
+
+  function idGen() {
+    state.idCounter++;
+    return `g${state.idCounter}`;
+  }
+
+  function motionDur(onMs, offMs) {
+    return state.motion ? onMs : offMs;
+  }
+
+  function setContrastVars() {
+    const root = document.documentElement;
+    if (state.contrast) {
+      root.style.setProperty('--gridLine', '2px');
+      root.style.setProperty('--gemOutline', '3px');
+    } else {
+      root.style.setProperty('--gridLine', '1px');
+      root.style.setProperty('--gemOutline', '1.5px');
+    }
+  }
+
+  function setMotionVars() {
+    const root = document.documentElement;
+    root.style.setProperty('--motion', state.motion ? '1' : '0');
+  }
+
+  function persist() {
+    savePersistedSettings(localStorage, {
+      best: state.best,
+      sound: state.sound,
+      motion: state.motion,
+      idleHint: state.idleHint,
+      contrast: state.contrast,
+    });
+  }
+
+  function updateHud() {
+    dom.scoreNum.textContent = String(state.score);
+    dom.levelNum.textContent = String(state.level);
+    const t = targetForLevel(state.level);
+    const pct = Math.max(0, Math.min(1, state.progress / t));
+    dom.meterFill.style.width = `${(pct * 100).toFixed(2)}%`;
+
+    // Accessibility metadata
+    dom.scoreNum.setAttribute('aria-label', `Score ${state.score}`);
+    dom.levelNum.setAttribute('aria-label', `Level ${state.level}`);
+    dom.meter.setAttribute('aria-label', `Progress ${state.progress} ${t}`);
+  }
+
+  function showMenu() {
+    state.screen = 'menu';
+    dom.menuScreen.classList.add('show');
+    dom.menuScreen.setAttribute('aria-hidden', 'false');
+    dom.gameHud.classList.remove('show');
+    dom.gameHud.setAttribute('aria-hidden', 'true');
+    dom.pauseOverlay.classList.remove('show');
+    dom.pauseOverlay.setAttribute('aria-hidden', 'true');
+    dom.settingsScreen.classList.remove('show');
+    dom.settingsScreen.setAttribute('aria-hidden', 'true');
+    dom.bestScreen.classList.remove('show');
+    dom.bestScreen.setAttribute('aria-hidden', 'true');
+    dom.gameOverOverlay.classList.remove('show');
+    dom.gameOverOverlay.setAttribute('aria-hidden', 'true');
+    dom.board.style.opacity = '1';
+    state.selected = null;
+    clearHint();
+  }
+
+  function showGame() {
+    state.screen = 'playing';
+    dom.menuScreen.classList.remove('show');
+    dom.menuScreen.setAttribute('aria-hidden', 'true');
+    dom.gameHud.classList.add('show');
+    dom.gameHud.setAttribute('aria-hidden', 'false');
+    dom.pauseOverlay.classList.remove('show');
+    dom.pauseOverlay.setAttribute('aria-hidden', 'true');
+    dom.settingsScreen.classList.remove('show');
+    dom.settingsScreen.setAttribute('aria-hidden', 'true');
+    dom.bestScreen.classList.remove('show');
+    dom.bestScreen.setAttribute('aria-hidden', 'true');
+    dom.gameOverOverlay.classList.remove('show');
+    dom.gameOverOverlay.setAttribute('aria-hidden', 'true');
+    dom.board.style.opacity = '1';
+    updateHud();
+    updateCursor();
+    requestAnimationFrame(() => dom.board.focus({ preventScroll: true }));
+  }
+
+  function showPause() {
+    state.screen = 'paused';
+    pausedByUser = true;
+    pauseAllAnimations();
+    dom.pauseOverlay.classList.add('show');
+    dom.pauseOverlay.setAttribute('aria-hidden', 'false');
+  }
+
+  function hidePause() {
+    dom.pauseOverlay.classList.remove('show');
+    dom.pauseOverlay.setAttribute('aria-hidden', 'true');
+    pausedByUser = false;
+    if (!pausedByVisibility) resumeAllAnimations();
+    state.screen = 'playing';
+    requestAnimationFrame(() => dom.board.focus({ preventScroll: true }));
+  }
+
+  function showSettings(fromScreen) {
+    state.settingsFrom = fromScreen;
+    state.screen = 'settings';
+    dom.settingsScreen.classList.add('show');
+    dom.settingsScreen.setAttribute('aria-hidden', 'false');
+    dom.confirmRow.classList.remove('show');
+    dom.confirmRow.setAttribute('aria-hidden', 'true');
+    renderSettingsButtons();
+  }
+
+  function hideSettings() {
+    dom.settingsScreen.classList.remove('show');
+    dom.settingsScreen.setAttribute('aria-hidden', 'true');
+    if (state.settingsFrom === 'menu') {
+      showMenu();
+    } else if (state.settingsFrom === 'pause') {
+      showPause();
+    } else {
+      showGame();
+    }
+  }
+
+  function showBest() {
+    state.screen = 'best';
+    dom.bestOnlyNum.textContent = String(state.best);
+    dom.bestScreen.classList.add('show');
+    dom.bestScreen.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideBest() {
+    dom.bestScreen.classList.remove('show');
+    dom.bestScreen.setAttribute('aria-hidden', 'true');
+    showMenu();
+  }
+
+  function showGameOver(finalScore) {
+    state.screen = 'gameover';
+    dom.board.style.opacity = '0.4';
+    dom.finalScoreNum.textContent = String(finalScore);
+    dom.bestScoreNum.textContent = String(state.best);
+    dom.newBestTag.style.display = 'none';
+    dom.gameOverOverlay.classList.add('show');
+    dom.gameOverOverlay.setAttribute('aria-hidden', 'false');
+    dom.gameOverOverlay.setAttribute('aria-label', `Game Over ${finalScore} ${state.best}`);
+  }
+
+  // ---------- Gem rendering ----------
+  function gemSvgFor(cell) {
+    const t = cell.type;
+    const sp = cell.special;
+    // Shapes are distinct per color/type.
+    // Use a per-gem subtle highlight and outline.
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'gemSvg');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('aria-hidden', 'true');
+
+    function defs() {
+      const d = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      svg.appendChild(d);
+      return d;
+    }
+    function mkLinear(id, stops) {
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+      g.setAttribute('id', id);
+      g.setAttribute('x1', '0'); g.setAttribute('y1', '0');
+      g.setAttribute('x2', '1'); g.setAttribute('y2', '1');
+      for (const s of stops) {
+        const st = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        st.setAttribute('offset', s[0]);
+        st.setAttribute('stop-color', s[1]);
+        st.setAttribute('stop-opacity', s[2] ?? '1');
+        g.appendChild(st);
+      }
+      return g;
+    }
+
+    function polygon(points, fill, cls = '') {
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      p.setAttribute('points', points);
+      p.setAttribute('fill', fill);
+      if (cls) p.setAttribute('class', cls);
+      svg.appendChild(p);
+      return p;
+    }
+    function path(d, fill, cls = '') {
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', d);
+      p.setAttribute('fill', fill);
+      if (cls) p.setAttribute('class', cls);
+      svg.appendChild(p);
+      return p;
+    }
+    function circle(cx, cy, r, fill, cls = '') {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', r);
+      c.setAttribute('fill', fill);
+      if (cls) c.setAttribute('class', cls);
+      svg.appendChild(c);
+      return c;
+    }
+    function rect(x, y, w, h, fill, rx = 10, cls = '') {
+      const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      r.setAttribute('x', x); r.setAttribute('y', y); r.setAttribute('width', w); r.setAttribute('height', h);
+      r.setAttribute('rx', rx);
+      r.setAttribute('fill', fill);
+      if (cls) r.setAttribute('class', cls);
+      svg.appendChild(r);
+      return r;
+    }
+
+    // Color palettes
+    const pal = {
+      red: ['#FF4B5E', '#B1162B'],
+      blue: ['#4CC7FF', '#124DAE'],
+      green: ['#5CFFB0', '#0E7B48'],
+      yellow: ['#FFD44D', '#B66C0A'],
+      purple: ['#B77CFF', '#4A1B9D'],
+      orange: ['#FF9D47', '#B13F0A'],
+      white: ['#F3F7FF', '#8AA6FF'],
+    };
+
+    const ds = defs();
+
+    if (sp === Special.COLOR) {
+      const g = mkLinear(`prism-${cell.id}`, [
+        ['0%', '#7CF2FF', '0.95'],
+        ['35%', '#B77CFF', '0.92'],
+        ['70%', '#FF74B8', '0.90'],
+        ['100%', '#2BFFBF', '0.88'],
+      ]);
+      ds.appendChild(g);
+      circle(50, 50, 40, `url(#prism-${cell.id})`);
+      circle(50, 50, 40, 'transparent', 'o').setAttribute('stroke', 'rgba(255,255,255,0.55)');
+      circle(38, 35, 10, 'rgba(255,255,255,0.32)', 'shine');
+      circle(44, 30, 5, 'rgba(255,255,255,0.24)', 'shine');
+    } else {
+      const [c0, c1] = pal[t] || pal.red;
+      const g = mkLinear(`g-${cell.id}`, [
+        ['0%', c0, '0.96'],
+        ['100%', c1, '0.95'],
+      ]);
+      ds.appendChild(g);
+
+      if (t === 'red') {
+        polygon('50,10 84,44 50,90 16,44', `url(#g-${cell.id})`);
+        polygon('50,18 75,44 50,82 25,44', 'rgba(255,255,255,0.12)');
+      } else if (t === 'blue') {
+        path('M50 10C70 26 78 44 78 58c0 18-12 32-28 32S22 76 22 58c0-14 8-32 28-48Z', `url(#g-${cell.id})`);
+        path('M50 20C62 30 67 41 67 50c0 10-8 18-17 18S33 60 33 50c0-9 5-20 17-30Z', 'rgba(255,255,255,0.10)');
+      } else if (t === 'green') {
+        polygon('50,10 78,26 78,58 50,90 22,58 22,26', `url(#g-${cell.id})`);
+        polygon('50,20 69,31 69,56 50,80 31,56 31,31', 'rgba(255,255,255,0.10)');
+      } else if (t === 'yellow') {
+        rect(20, 20, 60, 60, `url(#g-${cell.id})`, 10);
+        polygon('30,30 70,30 70,70 30,70', 'rgba(255,255,255,0.10)');
+        polygon('20,20 80,20 72,28 28,28', 'rgba(255,255,255,0.10)');
+      } else if (t === 'purple') {
+        polygon('50,10 78,42 50,90 22,42', `url(#g-${cell.id})`);
+        polygon('50,24 67,42 50,76 33,42', 'rgba(255,255,255,0.10)');
+      } else if (t === 'orange') {
+        polygon('50,12 72,20 88,42 80,64 50,88 20,64 12,42 28,20', `url(#g-${cell.id})`);
+        polygon('50,24 68,30 78,44 73,58 50,76 27,58 22,44 32,30', 'rgba(255,255,255,0.10)');
+      } else if (t === 'white') {
+        polygon('50,8 62,28 84,34 68,52 72,76 50,64 28,76 32,52 16,34 38,28', `url(#g-${cell.id})`);
+        polygon('50,20 59,34 74,38 63,50 66,66 50,58 34,66 37,50 26,38 41,34', 'rgba(255,255,255,0.10)');
+      }
+
+      // Outline
+      const outline = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      outline.setAttribute('fill', 'transparent');
+      outline.setAttribute('class', 'o');
+      // approximate outlines per type
+      if (t === 'blue') outline.setAttribute('d', 'M50 10C70 26 78 44 78 58c0 18-12 32-28 32S22 76 22 58c0-14 8-32 28-48Z');
+      else if (t === 'yellow') outline.setAttribute('d', 'M30 20h40a10 10 0 0 1 10 10v40a10 10 0 0 1-10 10H30a10 10 0 0 1-10-10V30a10 10 0 0 1 10-10Z');
+      else if (t === 'green') outline.setAttribute('d', 'M50 10 78 26 78 58 50 90 22 58 22 26Z');
+      else if (t === 'purple') outline.setAttribute('d', 'M50 10 78 42 50 90 22 42Z');
+      else if (t === 'orange') outline.setAttribute('d', 'M50 12 72 20 88 42 80 64 50 88 20 64 12 42 28 20Z');
+      else if (t === 'white') outline.setAttribute('d', 'M50 8 62 28 84 34 68 52 72 76 50 64 28 76 32 52 16 34 38 28Z');
+      else outline.setAttribute('d', 'M50 10 84 44 50 90 16 44Z');
+      svg.appendChild(outline);
+
+      // Shine
+      circle(38, 30, 9, 'rgba(255,255,255,0.20)', 'shine');
+      circle(44, 24, 4, 'rgba(255,255,255,0.18)', 'shine');
+
+      // Special marks
+      if (sp === Special.LINE_H || sp === Special.LINE_V) {
+        const mark = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        if (sp === Special.LINE_H) {
+          mark.setAttribute('x', '18'); mark.setAttribute('y', '46'); mark.setAttribute('width', '64'); mark.setAttribute('height', '8');
+        } else {
+          mark.setAttribute('x', '46'); mark.setAttribute('y', '18'); mark.setAttribute('width', '8'); mark.setAttribute('height', '64');
+        }
+        mark.setAttribute('rx', '4');
+        mark.setAttribute('fill', 'rgba(255,255,255,0.92)');
+        svg.appendChild(mark);
+      } else if (sp === Special.BURST) {
+        const star = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        star.setAttribute('d', 'M50 24l4.5 12 12 4.5-12 4.5-4.5 12-4.5-12-12-4.5 12-4.5L50 24Z');
+        star.setAttribute('fill', 'rgba(255,255,255,0.92)');
+        svg.appendChild(star);
+      }
+    }
+    return svg;
+  }
+
+  function gemAriaLabelFor(cell, r, c, focused, selected) {
+    const row = r + 1;
+    const col = c + 1;
+    let gemType = cell.special === Special.COLOR ? 'color' : cell.type;
+    let special = cell.special;
+    return `row ${row} column ${col} ${gemType} ${special} ${focused ? 'focused' : 'unfocused'} ${selected ? 'selected' : 'unselected'}`;
+  }
+
+  function cellPx() {
+    const br = dom.board.getBoundingClientRect();
+    return br.width / 8;
+  }
+
+  function posFor(r, c) {
+    const s = cellPx();
+    return { x: c * s, y: r * s, s };
+  }
+
+  function clearBoardDom() {
+    dom.gemLayer.innerHTML = '';
+    state.gemEls.clear();
+  }
+
+  function renderBoard() {
+    // Ensure cursor exists.
+    dom.cursor.style.display = 'block';
+
+    // Create/update gem elements.
+    const seen = new Set();
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = state.board[r][c];
+        if (!cell) continue;
+        seen.add(cell.id);
+        let el = state.gemEls.get(cell.id);
+        if (!el) {
+          el = document.createElement('div');
+          el.className = 'gem';
+          el.dataset.gemId = cell.id;
+          dom.gemLayer.appendChild(el);
+          state.gemEls.set(cell.id, el);
+        }
+        el.innerHTML = '';
+        el.appendChild(gemSvgFor(cell));
+        el.id = `cell-${r}-${c}`;
+        el.setAttribute('role', 'gridcell');
+        el.setAttribute('aria-label', gemAriaLabelFor(cell, r, c, (state.cursor.r === r && state.cursor.c === c), (state.selected && state.selected.r === r && state.selected.c === c)));
+        el.setAttribute('aria-selected', state.selected && state.selected.r === r && state.selected.c === c ? 'true' : 'false');
+        const p = posFor(r, c);
+        el.style.left = `${p.x}px`;
+        el.style.top = `${p.y}px`;
+        el.style.opacity = '1';
+        el.style.transform = 'translate(0px, 0px)';
+        el.classList.toggle('selected', !!(state.selected && state.selected.r === r && state.selected.c === c));
+        el.style.pointerEvents = state.screen === 'playing' ? 'auto' : 'none';
+      }
+    }
+    // Remove old gems
+    for (const [id, el] of Array.from(state.gemEls.entries())) {
+      if (!seen.has(id)) {
+        el.remove();
+        state.gemEls.delete(id);
+      }
+    }
+
+    updateCursor();
+    dom.board.setAttribute('aria-activedescendant', `cell-${state.cursor.r}-${state.cursor.c}`);
+  }
+
+  function updateCursor() {
+    const p = posFor(state.cursor.r, state.cursor.c);
+    dom.cursor.style.left = `${p.x}px`;
+    dom.cursor.style.top = `${p.y}px`;
+  }
+
+  // ---------- Hint visuals ----------
+  let hintAnims = [];
+  function clearHint() {
+    state.hint = null;
+    for (const a of hintAnims) {
+      try { a.cancel(); } catch {}
+    }
+    hintAnims = [];
+    // remove any hint styles
+    for (const el of state.gemEls.values()) el.classList.remove('hintA', 'hintB');
+  }
+
+  function showHint(move) {
+    clearHint();
+    if (!move) return;
+    state.hint = move;
+    const a = document.getElementById(`cell-${move.from.r}-${move.from.c}`);
+    const b = document.getElementById(`cell-${move.to.r}-${move.to.c}`);
+    if (!a || !b) return;
+
+    a.classList.add('hintA');
+    b.classList.add('hintB');
+    const glow = [
+      { filter: 'brightness(1)', offset: 0 },
+      { filter: 'brightness(1.25)', offset: 0.18 },
+      { filter: 'brightness(1)', offset: 0.34 },
+      { filter: 'brightness(1.25)', offset: 0.52 },
+      { filter: 'brightness(1)', offset: 0.70 },
+      { filter: 'brightness(1)', offset: 1 },
+    ];
+    hintAnims.push(playAnim(a, glow, { duration: 2000, easing: 'ease-in-out' }).anim);
+    hintAnims.push(playAnim(b, glow, { duration: 2000, easing: 'ease-in-out' }).anim);
+
+    if (state.motion) {
+      const dx = move.to.c - move.from.c;
+      const dy = move.to.r - move.from.r;
+      const nudge = 0.12 * cellPx();
+      hintAnims.push(playAnim(a, [
+        { transform: 'translate(0px,0px)', offset: 0 },
+        { transform: `translate(${dx * nudge}px,${dy * nudge}px)`, offset: 0.18 },
+        { transform: 'translate(0px,0px)', offset: 0.34 },
+        { transform: `translate(${dx * nudge}px,${dy * nudge}px)`, offset: 0.52 },
+        { transform: 'translate(0px,0px)', offset: 0.70 },
+        { transform: 'translate(0px,0px)', offset: 1 },
+      ], { duration: 2000, easing: 'ease-in-out' }).anim);
+    }
+
+    // Auto clear after 2s (animation end).
+    // Use one of the animations we already started.
+    const animToWait = hintAnims[0];
+    if (animToWait && animToWait.finished) animToWait.finished.then(() => clearHint());
+    else setTimeout(() => clearHint(), 2000);
+  }
+
+  // ---------- Multiplier / score popup ----------
+  function showMultiplier(n) {
+    dom.multiplier.textContent = `x${n}`;
+    playAnim(dom.multiplier, [
+      { opacity: 0, transform: 'translateX(-50%) translateY(6px)' },
+      { opacity: 1, transform: 'translateX(-50%) translateY(0px)', offset: 0.15 },
+      { opacity: 1, transform: 'translateX(-50%) translateY(0px)', offset: 0.80 },
+      { opacity: 0, transform: 'translateX(-50%) translateY(-6px)' },
+    ], { duration: 500, easing: 'ease-out' });
+  }
+
+  function showScorePopup(points, clearKeys) {
+    if (points <= 0) return;
+    // Center over cleared cells.
+    let sumX = 0, sumY = 0, n = 0;
+    for (const key of clearKeys) {
+      const [r, c] = key.split(',').map(Number);
+      const p = posFor(r, c);
+      sumX += p.x + p.s / 2;
+      sumY += p.y + p.s / 2;
+      n++;
+    }
+    if (!n) return;
+    const x = sumX / n;
+    const y = sumY / n;
+    const pop = document.createElement('div');
+    pop.className = 'scorePopup';
+    pop.textContent = `+${points}`;
+    // Place relative to boardWrap
+    const wrap = dom.board.parentElement;
+    pop.style.left = `${x}px`;
+    pop.style.top = `${y}px`;
+    wrap.appendChild(pop);
+    playAnim(pop, [
+      { opacity: 0, transform: 'translate(-50%,-50%) translateY(8px) scale(0.98)' },
+      { opacity: 1, transform: 'translate(-50%,-50%) translateY(0px) scale(1)', offset: 0.12 },
+      { opacity: 1, transform: 'translate(-50%,-50%) translateY(-6px) scale(1)', offset: 0.75 },
+      { opacity: 0, transform: 'translate(-50%,-50%) translateY(-14px) scale(1.02)' },
+    ], { duration: 700, easing: 'ease-out' }).finished.then(() => pop.remove());
+  }
+
+  // ---------- Input helpers ----------
+  function isStable() {
+    return state.screen === 'playing' && !state.resolving && !pausedByUser && !pausedByVisibility;
+  }
+
+  function resetIdle() { state.idleMs = 0; }
+
+  function adjacent(a, b) {
+    return Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
+  }
+
+  function setSelected(pos) {
+    state.selected = pos ? { ...pos } : null;
+    renderBoard();
+  }
+
+  function setCursor(pos) {
+    state.cursor = { r: Math.max(0, Math.min(ROWS - 1, pos.r)), c: Math.max(0, Math.min(COLS - 1, pos.c)) };
+    renderBoard();
+  }
+
+  // ---------- Resolution / animations ----------
+  async function animateSwap(from, to) {
+    const a = document.getElementById(`cell-${from.r}-${from.c}`);
+    const b = document.getElementById(`cell-${to.r}-${to.c}`);
+    if (!a || !b) return;
+    const p1 = posFor(from.r, from.c);
+    const p2 = posFor(to.r, to.c);
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const dur = motionDur(120, 80);
+    audio.slide();
+    const aa = playAnim(a, [{ transform: 'translate(0px,0px)' }, { transform: `translate(${dx}px,${dy}px)` }], { duration: dur, easing: 'ease-in-out' });
+    const bb = playAnim(b, [{ transform: 'translate(0px,0px)' }, { transform: `translate(${-dx}px,${-dy}px)` }], { duration: dur, easing: 'ease-in-out' });
+    await Promise.all([aa.finished, bb.finished]);
+  }
+
+  async function animateInvalid(selectedPos) {
+    const el = document.getElementById(`cell-${selectedPos.r}-${selectedPos.c}`);
+    if (!el) return;
+    audio.dull();
+    if (state.motion) {
+      const n = 0.12 * cellPx();
+      const { finished } = playAnim(el, [
+        { transform: 'translate(0px,0px)' },
+        { transform: `translate(${n}px,0px)`, offset: 0.33 },
+        { transform: `translate(${-n}px,0px)`, offset: 0.66 },
+        { transform: 'translate(0px,0px)' },
+      ], { duration: 180, easing: 'ease-in-out' });
+      await finished;
+    } else {
+      const { finished } = playAnim(el, [
+        { opacity: 1 },
+        { opacity: 0.55, offset: 0.5 },
+        { opacity: 1 },
+      ], { duration: 80, easing: 'ease-out' });
+      await finished;
+    }
+  }
+
+  async function animateBrighten(keys) {
+    const dur = motionDur(120, 80);
+    const promises = [];
+    for (const key of keys) {
+      const [r, c] = key.split(',').map(Number);
+      const el = document.getElementById(`cell-${r}-${c}`);
+      if (!el) continue;
+      promises.push(playAnim(el, [
+        { filter: 'brightness(1)' },
+        { filter: 'brightness(1.25)' },
+      ], { duration: dur, easing: 'ease-out', fill: 'forwards' }).finished);
+    }
+    await Promise.all(promises);
+    // reset filter after
+    for (const key of keys) {
+      const [r, c] = key.split(',').map(Number);
+      const el = document.getElementById(`cell-${r}-${c}`);
+      if (el) el.style.filter = '';
+    }
+  }
+
+  async function animateClear(keys) {
+    const dur = motionDur(180, 80);
+    const promises = [];
+    for (const key of keys) {
+      const [r, c] = key.split(',').map(Number);
+      const el = document.getElementById(`cell-${r}-${c}`);
+      if (!el) continue;
+      if (state.motion) {
+        promises.push(playAnim(el, [
+          { opacity: 1, transform: 'translate(0px,0px) scale(1)' },
+          { opacity: 0, transform: 'translate(0px,0px) scale(0.82)' },
+        ], { duration: dur, easing: 'ease-in', fill: 'forwards' }).finished);
+      } else {
+        promises.push(playAnim(el, [
+          { opacity: 1 },
+          { opacity: 0 },
+        ], { duration: dur, easing: 'ease-out', fill: 'forwards' }).finished);
+      }
+    }
+    await Promise.all(promises);
+  }
+
+  async function animateLineFlash(effectMap) {
+    const dur = motionDur(120, 80);
+    // Determine rows/cols fully hit by line effect (8 cells marked line or higher).
+    const rowCount = new Array(ROWS).fill(0);
+    const colCount = new Array(COLS).fill(0);
+    if (effectMap) {
+      for (const [k, eff] of effectMap.entries()) {
+        if (eff !== 'line') continue;
+        const [r, c] = k.split(',').map(Number);
+        rowCount[r]++; colCount[c]++;
+      }
+    }
+    const overlays = [];
+    const s = cellPx();
+    const makeStrip = (x, y, w, h) => {
+      const d = document.createElement('div');
+      d.style.position = 'absolute';
+      d.style.left = `${x}px`;
+      d.style.top = `${y}px`;
+      d.style.width = `${w}px`;
+      d.style.height = `${h}px`;
+      d.style.background = 'rgba(255,255,255,0.00)';
+      d.style.pointerEvents = 'none';
+      d.style.borderRadius = '12px';
+      dom.board.appendChild(d);
+      overlays.push(d);
+      return d;
+    };
+    for (let r = 0; r < ROWS; r++) {
+      if (rowCount[r] >= COLS) makeStrip(0, r * s, s * COLS, s);
+    }
+    for (let c = 0; c < COLS; c++) {
+      if (colCount[c] >= ROWS) makeStrip(c * s, 0, s, s * ROWS);
+    }
+    if (!overlays.length) return;
+    await Promise.all(overlays.map(o => playAnim(o, [
+      { background: 'rgba(255,255,255,0.00)' },
+      { background: 'rgba(255,255,255,0.18)' },
+      { background: 'rgba(255,255,255,0.00)' },
+    ], { duration: dur, easing: 'ease-out' }).finished));
+    overlays.forEach(o => o.remove());
+  }
+
+  async function animateBurstGlow(effectMap) {
+    const dur = motionDur(120, 80);
+    // Build connected components of burst-hit cells to approximate glows per affected area.
+    const burstKeys = [];
+    if (effectMap) {
+      for (const [k, eff] of effectMap.entries()) if (eff === 'burst') burstKeys.push(k);
+    }
+    if (!burstKeys.length) return;
+    const set = new Set(burstKeys);
+    const seen = new Set();
+    const comps = [];
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (const k0 of burstKeys) {
+      if (seen.has(k0)) continue;
+      const [r0, c0] = k0.split(',').map(Number);
+      const q = [{ r: r0, c: c0 }];
+      seen.add(k0);
+      let minR = r0, minC = c0, maxR = r0, maxC = c0;
+      while (q.length) {
+        const cur = q.pop();
+        minR = Math.min(minR, cur.r); minC = Math.min(minC, cur.c);
+        maxR = Math.max(maxR, cur.r); maxC = Math.max(maxC, cur.c);
+        for (const [dr, dc] of dirs) {
+          const rr = cur.r + dr, cc = cur.c + dc;
+          const kk = `${rr},${cc}`;
+          if (!set.has(kk) || seen.has(kk)) continue;
+          seen.add(kk);
+          q.push({ r: rr, c: cc });
+        }
+      }
+      comps.push({ minR, minC, maxR, maxC });
+    }
+    const s = cellPx();
+    const overlays = comps.map(comp => {
+      const overlay = document.createElement('div');
+      overlay.style.position = 'absolute';
+      overlay.style.left = `${comp.minC * s}px`;
+      overlay.style.top = `${comp.minR * s}px`;
+      overlay.style.width = `${(comp.maxC - comp.minC + 1) * s}px`;
+      overlay.style.height = `${(comp.maxR - comp.minR + 1) * s}px`;
+      overlay.style.pointerEvents = 'none';
+      overlay.style.borderRadius = '14px';
+      dom.board.appendChild(overlay);
+      return overlay;
+    });
+    await Promise.all(overlays.map(overlay => playAnim(overlay, [
+      { boxShadow: '0 0 0px rgba(183,124,255,0.00)', background: 'rgba(183,124,255,0.00)' },
+      { boxShadow: '0 0 18px rgba(183,124,255,0.35)', background: 'rgba(183,124,255,0.12)' },
+      { boxShadow: '0 0 0px rgba(183,124,255,0.00)', background: 'rgba(183,124,255,0.00)' },
+    ], { duration: dur, easing: 'ease-out' }).finished));
+    overlays.forEach(o => o.remove());
+  }
+
+  async function animateFallAndSpawn(moves, spawns) {
+    // moves: from computeFall with gem ids already moved in model
+    // spawns: from spawnNewGems with gem objects now in model
+    const promises = [];
+
+    // falling existing gems: animate translateY from old to new
+    for (const mv of moves) {
+      const el = state.gemEls.get(mv.id);
+      if (!el) continue;
+      const pFrom = posFor(mv.from.r, mv.from.c);
+      const pTo = posFor(mv.to.r, mv.to.c);
+      el.id = `cell-${mv.to.r}-${mv.to.c}`;
+      el.style.left = `${pTo.x}px`;
+      el.style.top = `${pTo.y}px`;
+      const dy = pFrom.y - pTo.y;
+      const dist = mv.distance;
+      const dur = state.motion ? (180 + 40 * Math.max(0, dist - 1)) : 80;
+      promises.push(playAnim(el, [
+        { transform: `translate(0px,${dy}px)` },
+        { transform: 'translate(0px,0px)' },
+      ], { duration: dur, easing: 'cubic-bezier(.2,.85,.2,1)' }).finished);
+    }
+
+    // spawned gems: create DOM elements above and animate down
+    for (const sp of spawns) {
+      const r = sp.to.r, c = sp.to.c;
+      const cell = state.board[r][c];
+      const el = document.createElement('div');
+      el.className = 'gem';
+      el.dataset.gemId = cell.id;
+      el.appendChild(gemSvgFor(cell));
+      el.setAttribute('role', 'gridcell');
+      el.setAttribute('aria-label', gemAriaLabelFor(cell, r, c, false, false));
+      state.gemEls.set(cell.id, el);
+      dom.gemLayer.appendChild(el);
+
+      const pTo = posFor(r, c);
+      const pFromY = pTo.y - (Math.abs(sp.fromRow) + r + 1) * pTo.s;
+      el.style.left = `${pTo.x}px`;
+      el.style.top = `${pTo.y}px`;
+      el.id = `cell-${r}-${c}`;
+      const dist = (pTo.y - pFromY) / pTo.s;
+      const dur = state.motion ? (180 + 40 * Math.max(0, dist - 1)) : 80;
+      promises.push(playAnim(el, [
+        { transform: `translate(0px,${pFromY - pTo.y}px)` },
+        { transform: 'translate(0px,0px)' },
+      ], { duration: dur, easing: 'cubic-bezier(.2,.85,.2,1)' }).finished);
+    }
+
+    await Promise.all(promises);
+  }
+
+  async function flashMeterOnce() {
+    const dur = motionDur(180, 80);
+    dom.meter.classList.add('flash');
+    const { finished } = playAnim(dom.meter, [
+      { filter: 'brightness(1)' },
+      { filter: 'brightness(1.35)' },
+      { filter: 'brightness(1)' },
+    ], { duration: dur, easing: 'ease-out' });
+    await finished;
+    dom.meter.classList.remove('flash');
+    dom.meter.style.filter = '';
+  }
+
+  function applyLevelProgress(points) {
+    state.progress += points;
+    let leveled = 0;
+    while (state.progress >= targetForLevel(state.level)) {
+      state.progress -= targetForLevel(state.level);
+      state.level += 1;
+      leveled++;
+    }
+    if (leveled > 0) {
+      // Flash once per level (sequential).
+      (async () => {
+        for (let i = 0; i < leveled; i++) {
+          audio.rise();
+          await flashMeterOnce();
+        }
+      })();
+    }
+  }
+
+  function applyBest(finalScore) {
+    let isNew = false;
+    if (finalScore > state.best) {
+      state.best = finalScore;
+      persist();
+      isNew = true;
+    }
+    dom.bestOnlyNum.textContent = String(state.best);
+    dom.bestScoreNum.textContent = String(state.best);
+    dom.newBestTag.style.display = isNew ? 'block' : 'none';
+  }
+
+  function clearSelectionAndHintOnAction() {
+    clearHint();
+  }
+
+  async function resolveClearStep({ movedDest, specialSwapEffectMap = null, specialSwapActivations = [] }, cascadeMultiplier) {
+    // Compute matches
+    const det = detectMatches(state.board);
+    const matchedSetOriginal = det.matchedSet; // Map
+
+    // Special creation based on matches
+    const specialCreate = chooseSpecialCreation(state.board, det, movedDest);
+    const createdKey = specialCreate ? `${specialCreate.at.r},${specialCreate.at.c}` : null;
+
+    // Matched keys for clearing (exclude created special position if any)
+    const matchClearKeys = new Set();
+    for (const key of matchedSetOriginal.keys()) {
+      if (createdKey && key === createdKey) continue;
+      matchClearKeys.add(key);
+    }
+
+    // Special activations from matched (existing specials only, not newly created special)
+    const matchedForActivation = new Map();
+    for (const key of matchClearKeys) matchedForActivation.set(key, true);
+    const activ = resolveSpecialActivations(state.board, matchedForActivation);
+
+    // Merge effect maps: special swap effects + activations.
+    const effectMap = new Map();
+    const rank = { line: 1, burst: 2, color: 3 };
+    function mergeEffectMap(m) {
+      if (!m) return;
+      for (const [k, eff] of m.entries()) {
+        const prev = effectMap.get(k);
+        if (!prev || rank[eff] > rank[prev]) effectMap.set(k, eff);
+      }
+    }
+    mergeEffectMap(specialSwapEffectMap);
+    mergeEffectMap(activ.effectMap);
+
+    // Union of clears: matchedClearKeys + effectMap keys
+    const clearKeys = new Set(matchClearKeys);
+    for (const k of effectMap.keys()) clearKeys.add(k);
+
+    if (clearKeys.size === 0 && (!specialSwapEffectMap || specialSwapEffectMap.size === 0)) {
+      return { didClear: false, clearKeys };
+    }
+
+    // Visual pre-effects for line/burst
+    const hasLine = Array.from(effectMap.values()).some(v => v === 'line');
+    const hasBurst = Array.from(effectMap.values()).some(v => v === 'burst');
+    if (hasLine) await animateLineFlash(effectMap);
+    if (hasBurst) await animateBurstGlow(effectMap);
+
+    // Brighten matched gems (only matched, not effect-only hits)
+    if (matchClearKeys.size > 0) await animateBrighten(matchClearKeys);
+
+    // Compute score for step
+    const boardBefore = state.board.map(row => row.map(cell => (cell ? { ...cell } : null)));
+    const scoreInfo = computeScoreForStep(boardBefore, matchedSetOriginal, effectMap, cascadeMultiplier);
+    const stepPoints = scoreInfo.stepPoints;
+
+    // Create special gem (after scoring snapshot and after we computed activation, so it doesn't auto-activate this step).
+    if (specialCreate) {
+      const r = specialCreate.at.r, c = specialCreate.at.c;
+      const cell = state.board[r][c];
+      if (cell) {
+        if (specialCreate.kind === Special.COLOR) {
+          cell.special = Special.COLOR;
+        } else {
+          cell.special = specialCreate.kind;
+          cell.type = specialCreate.baseType;
+        }
+        audio.sparkle();
+        renderBoard();
+      }
+    }
+
+    // Clear animation
+    await animateClear(clearKeys);
+
+    // Apply clears to model
+    applyClears(state.board, clearKeys);
+    // Remove cleared DOM elements
+    for (const key of clearKeys) {
+      const [r, c] = key.split(',').map(Number);
+      const el = document.getElementById(`cell-${r}-${c}`);
+      if (el) {
+        const gid = el.dataset.gemId;
+        el.remove();
+        if (gid) state.gemEls.delete(gid);
+      }
+    }
+
+    // Update score and progress
+    state.score += stepPoints;
+    applyLevelProgress(stepPoints);
+    updateHud();
+    showScorePopup(stepPoints, clearKeys);
+
+    // Falling + spawning
+    const moves = computeFall(state.board);
+    const spawns = spawnNewGems(state.board, state.level, idGen);
+    // Re-render board now for moved IDs? We'll animate with moves/spawns.
+    renderBoard();
+    await animateFallAndSpawn(moves, spawns);
+    renderBoard();
+
+    return { didClear: true, clearKeys };
+  }
+
+  async function resolveFromCurrentBoard({ movedDest, specialSwapEffectMap = null } = {}) {
+    let cascadeMultiplier = 1;
+    while (true) {
+      if (cascadeMultiplier >= 2) showMultiplier(cascadeMultiplier);
+      const step = await resolveClearStep({ movedDest, specialSwapEffectMap }, cascadeMultiplier);
+      specialSwapEffectMap = null; // only apply in first step
+      movedDest = null;
+      if (!step.didClear) break;
+      // Detect cascades after fall/spawn complete
+      const det = detectMatches(state.board);
+      if (det.matchedSet.size > 0) {
+        cascadeMultiplier += 1;
+        audio.chime(cascadeMultiplier <= 6 ? (1 + (cascadeMultiplier - 1) * 0.08) : 1.4);
+        continue;
+      }
+      break;
+    }
+
+    // Game over check after full resolution
+    if (!anyLegalMove(state.board)) {
+      audio.fall();
+      applyBest(state.score);
+      showGameOver(state.score);
+    }
+  }
+
+  async function attemptSwap(from, to) {
+    resetIdle();
+    if (state.resolving || state.screen !== 'playing') return;
+    if (!adjacent(from, to)) {
+      setSelected({ ...to });
+      state.cursor = { ...to };
+      updateCursor();
+      return;
+    }
+
+    clearSelectionAndHintOnAction();
+
+    // Pre-classify: special swap?
+    const cellA = state.board[from.r][from.c];
+    const cellB = state.board[to.r][to.c];
+    if (!cellA || !cellB) return;
+
+    // Special swap rule check
+    const specialKind = classifySpecialSwap(cellA, cellB);
+    const specialInfo = specialKind ? computeSpecialSwapClears(state.board, { a: from, b: to }, to) : null;
+
+    // Normal swap validity check (simulate)
+    let isNormalValid = false;
+    if (!specialInfo) {
+      const clone = state.board.map(row => row.map(cell => (cell ? { ...cell } : null)));
+      const tmp = clone[from.r][from.c];
+      clone[from.r][from.c] = clone[to.r][to.c];
+      clone[to.r][to.c] = tmp;
+      const det = detectMatches(clone);
+      isNormalValid = det.matchedSet.size > 0;
+    }
+
+    if (!specialInfo && !isNormalValid) {
+      state.resolving = true;
+      await animateInvalid(from);
+      state.resolving = false;
+      // Keep selection as per spec
+      setSelected(from);
+      return;
+    }
+
+    state.resolving = true;
+
+    // Perform swap animation and apply swap to model/DOM
+    await animateSwap(from, to);
+    const tmp = state.board[from.r][from.c];
+    state.board[from.r][from.c] = state.board[to.r][to.c];
+    state.board[to.r][to.c] = tmp;
+    // Update selection: clear selection after a valid swap resolution
+    state.selected = null;
+    state.cursor = { ...to };
+    renderBoard();
+
+    if (specialInfo) {
+      audio.burst();
+      await resolveFromCurrentBoard({ movedDest: to, specialSwapEffectMap: specialInfo.clears });
+    } else {
+      audio.chime(1);
+      await resolveFromCurrentBoard({ movedDest: to });
+    }
+
+    state.resolving = false;
+  }
+
+  // ---------- Start / restart ----------
+  function newGame() {
+    state.score = 0;
+    state.level = 1;
+    state.progress = 0;
+    state.idleMs = 0;
+    state.selected = null;
+    state.cursor = { r: 0, c: 0 };
+    state.resolving = false;
+    clearHint();
+    // Generate board with checks.
+    state.board = generateStartingBoard(idGen, 1);
+    clearBoardDom();
+    renderBoard();
+    updateHud();
+    showGame();
+  }
+
+  function playAgain() {
+    dom.gameOverOverlay.classList.remove('show');
+    dom.gameOverOverlay.setAttribute('aria-hidden', 'true');
+    newGame();
+  }
+
+  // ---------- Settings UI ----------
+  function renderSettingsButtons() {
+    setBtnIcon(dom.soundBtn, state.sound ? 'soundOn' : 'soundOff');
+    setBtnIcon(dom.motionBtn, 'motion');
+    setBtnIcon(dom.idleHintBtn, 'idleHint');
+    setBtnIcon(dom.contrastBtn, 'contrast');
+    setBtnIcon(dom.trashBtn, 'trash');
+    setBtnIcon(dom.settingsHomeBtn, 'home');
+    setBtnIcon(dom.confirmResetBtn, 'check');
+    setBtnIcon(dom.cancelResetBtn, 'x');
+
+    dom.soundBtn.classList.toggle('on', state.sound);
+    dom.soundBtn.classList.toggle('off', !state.sound);
+    dom.motionBtn.classList.toggle('on', state.motion);
+    dom.motionBtn.classList.toggle('off', !state.motion);
+    dom.idleHintBtn.classList.toggle('on', state.idleHint);
+    dom.idleHintBtn.classList.toggle('off', !state.idleHint);
+    dom.contrastBtn.classList.toggle('on', state.contrast);
+    dom.contrastBtn.classList.toggle('off', !state.contrast);
+  }
+
+  // ---------- Event wiring ----------
+  // Unlock audio on first user interaction
+  window.addEventListener('pointerdown', userInteracted, { once: true, passive: true });
+  window.addEventListener('keydown', userInteracted, { once: true });
+
+  dom.startBtn.addEventListener('click', () => {
+    resetIdle();
+    newGame();
+  });
+  dom.menuBestBtn.addEventListener('click', () => {
+    resetIdle();
+    dom.menuScreen.classList.remove('show');
+    dom.menuScreen.setAttribute('aria-hidden', 'true');
+    showBest();
+  });
+  dom.menuSettingsBtn.addEventListener('click', () => {
+    resetIdle();
+    showSettings('menu');
+  });
+
+  dom.bestHomeBtn.addEventListener('click', () => {
+    resetIdle();
+    hideBest();
+  });
+
+  dom.pauseBtn.addEventListener('click', () => {
+    resetIdle();
+    if (state.screen !== 'playing') return;
+    clearHint();
+    showPause();
+  });
+
+  dom.resumeBtn.addEventListener('click', () => {
+    resetIdle();
+    if (state.screen === 'paused') hidePause();
+  });
+  dom.restartBtn.addEventListener('click', () => {
+    resetIdle();
+    dom.pauseOverlay.classList.remove('show');
+    dom.pauseOverlay.setAttribute('aria-hidden', 'true');
+    pausedByUser = false;
+    if (!pausedByVisibility) resumeAllAnimations();
+    newGame();
+  });
+  dom.pauseSettingsBtn.addEventListener('click', () => {
+    resetIdle();
+    dom.pauseOverlay.classList.remove('show');
+    dom.pauseOverlay.setAttribute('aria-hidden', 'true');
+    showSettings('pause');
+  });
+  dom.pauseMenuBtn.addEventListener('click', () => {
+    resetIdle();
+    pausedByUser = false;
+    if (!pausedByVisibility) resumeAllAnimations();
+    showMenu();
+  });
+
+  dom.gameSettingsBtn.addEventListener('click', () => {
+    resetIdle();
+    showSettings('game');
+  });
+
+  dom.settingsHomeBtn.addEventListener('click', () => {
+    resetIdle();
+    hideSettings();
+  });
+
+  dom.soundBtn.addEventListener('click', () => {
+    resetIdle();
+    state.sound = !state.sound;
+    audio.setEnabled(state.sound);
+    persist();
+    renderSettingsButtons();
+  });
+  dom.motionBtn.addEventListener('click', () => {
+    resetIdle();
+    state.motion = !state.motion;
+    setMotionVars();
+    persist();
+    renderSettingsButtons();
+  });
+  dom.idleHintBtn.addEventListener('click', () => {
+    resetIdle();
+    state.idleHint = !state.idleHint;
+    persist();
+    renderSettingsButtons();
+  });
+  dom.contrastBtn.addEventListener('click', () => {
+    resetIdle();
+    state.contrast = !state.contrast;
+    setContrastVars();
+    persist();
+    renderSettingsButtons();
+  });
+  dom.trashBtn.addEventListener('click', () => {
+    resetIdle();
+    dom.confirmRow.classList.add('show');
+    dom.confirmRow.setAttribute('aria-hidden', 'false');
+  });
+  dom.cancelResetBtn.addEventListener('click', () => {
+    resetIdle();
+    dom.confirmRow.classList.remove('show');
+    dom.confirmRow.setAttribute('aria-hidden', 'true');
+  });
+  dom.confirmResetBtn.addEventListener('click', () => {
+    resetIdle();
+    state.best = 0;
+    persist();
+    dom.bestOnlyNum.textContent = String(state.best);
+    dom.bestScoreNum.textContent = String(state.best);
+    dom.confirmRow.classList.remove('show');
+    dom.confirmRow.setAttribute('aria-hidden', 'true');
+  });
+
+  dom.playAgainBtn.addEventListener('click', () => {
+    resetIdle();
+    playAgain();
+  });
+  dom.goMenuBtn.addEventListener('click', () => {
+    resetIdle();
+    dom.gameOverOverlay.classList.remove('show');
+    dom.gameOverOverlay.setAttribute('aria-hidden', 'true');
+    showMenu();
+  });
+
+  dom.hintBtn.addEventListener('click', () => {
+    resetIdle();
+    if (!isStable()) return;
+    const move = findHintMove(state.board);
+    if (move) showHint(move);
+  });
+
+  // Board pointer input: click select / drag swap.
+  let drag = null;
+  dom.gemLayer.addEventListener('pointerdown', (ev) => {
+    resetIdle();
+    if (!isStable()) return;
+    const target = ev.target.closest('.gem');
+    if (!target) return;
+    ev.preventDefault();
+    clearHint();
+    dom.board.focus({ preventScroll: true });
+    const id = target.id;
+    const m = id.match(/^cell-(\d+)-(\d+)$/);
+    if (!m) return;
+    const r = Number(m[1]), c = Number(m[2]);
+    drag = { startX: ev.clientX, startY: ev.clientY, pos: { r, c }, moved: false };
+    target.setPointerCapture(ev.pointerId);
+    // Click selection behavior
+    if (!state.selected) setSelected({ r, c });
+    else {
+      const sel = state.selected;
+      if (sel.r === r && sel.c === c) setSelected(null);
+      else if (adjacent(sel, { r, c })) {
+        // attempt swap using selection as moved gem
+        attemptSwap(sel, { r, c });
+      } else {
+        setSelected({ r, c });
+      }
+    }
+    state.cursor = { r, c };
+    updateCursor();
+    audio.click();
+  }, { passive: false });
+
+  dom.gemLayer.addEventListener('pointermove', (ev) => {
+    if (!drag || !isStable()) return;
+    const s = cellPx();
+    const dx = ev.clientX - drag.startX;
+    const dy = ev.clientY - drag.startY;
+    const adx = Math.abs(dx), ady = Math.abs(dy);
+    const thresh = 0.25 * s;
+    if (drag.moved) return;
+    if (adx < thresh && ady < thresh) return;
+    drag.moved = true;
+    // Determine direction
+    let dir = null;
+    if (adx >= ady) dir = dx > 0 ? { dr: 0, dc: 1 } : { dr: 0, dc: -1 };
+    else dir = dy > 0 ? { dr: 1, dc: 0 } : { dr: -1, dc: 0 };
+    const from = drag.pos;
+    const to = { r: from.r + dir.dr, c: from.c + dir.dc };
+    if (!isInBounds(to.r, to.c)) return;
+    // Attempt swap from dragged gem (moved gem is from)
+    setSelected(from);
+    attemptSwap(from, to);
+  }, { passive: true });
+
+  window.addEventListener('pointerup', () => { drag = null; }, { passive: true });
+  window.addEventListener('pointercancel', () => { drag = null; }, { passive: true });
+
+  // Keyboard
+  dom.board.addEventListener('keydown', (ev) => {
+    resetIdle();
+    if (state.screen === 'paused') {
+      if (ev.key.toLowerCase() === 'p') {
+        ev.preventDefault();
+        hidePause();
+      }
+      return;
+    }
+    if (state.screen !== 'playing') return;
+
+    if (ev.key.toLowerCase() === 'p') {
+      ev.preventDefault();
+      showPause();
+      clearHint();
+      return;
+    }
+    if (ev.key.toLowerCase() === 'h') {
+      ev.preventDefault();
+      if (isStable()) {
+        const move = findHintMove(state.board);
+        if (move) showHint(move);
+      }
+      return;
+    }
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      setSelected(null);
+      clearHint();
+      return;
+    }
+
+    const arrow = new Map([
+      ['ArrowUp', { dr: -1, dc: 0 }],
+      ['ArrowDown', { dr: 1, dc: 0 }],
+      ['ArrowLeft', { dr: 0, dc: -1 }],
+      ['ArrowRight', { dr: 0, dc: 1 }],
+    ]);
+
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      clearHint();
+      const cur = { ...state.cursor };
+      if (state.selected && state.selected.r === cur.r && state.selected.c === cur.c) setSelected(null);
+      else setSelected(cur);
+      audio.click();
+      return;
+    }
+
+    const d = arrow.get(ev.key);
+    if (!d) return;
+    ev.preventDefault();
+    clearHint();
+    if (state.selected) {
+      const from = { ...state.selected };
+      const to = { r: from.r + d.dr, c: from.c + d.dc };
+      if (!isInBounds(to.r, to.c)) return;
+      attemptSwap(from, to);
+    } else {
+      const next = { r: state.cursor.r + d.dr, c: state.cursor.c + d.dc };
+      setCursor(next);
+    }
+  });
+
+  // Ensure pause/hint hotkeys work even if focus isn't on the board (e.g., after pointer interactions).
+  window.addEventListener('keydown', (ev) => {
+    if (state.screen !== 'playing') return;
+    if (state.resolving) return;
+    if (ev.key.toLowerCase() === 'p') {
+      ev.preventDefault();
+      clearHint();
+      showPause();
+    } else if (ev.key.toLowerCase() === 'h') {
+      ev.preventDefault();
+      if (isStable()) {
+        const move = findHintMove(state.board);
+        if (move) showHint(move);
+      }
+    }
+  }, true);
+
+  // Idle hint timer
+  setInterval(() => {
+    if (state.screen !== 'playing') return;
+    if (state.resolving) return;
+    if (pausedByUser || pausedByVisibility) return;
+    if (!state.idleHint) return;
+    state.idleMs += 250;
+    if (state.idleMs >= 8000) {
+      state.idleMs = 0;
+      if (isStable()) {
+        const move = findHintMove(state.board);
+        if (move) showHint(move);
+      }
+    }
+  }, 250);
+
+  // Any pointer movement counts as input for idle timer purposes.
+  window.addEventListener('pointermove', () => {
+    if (state.screen !== 'playing') return;
+    resetIdle();
+  }, { passive: true });
+
+  // Load settings
+  const loaded = loadPersistedSettings(localStorage);
+  state.best = loaded.best;
+  state.sound = loaded.sound;
+  state.motion = loaded.motion;
+  state.idleHint = loaded.idleHint;
+  state.contrast = loaded.contrast;
+  audio.setEnabled(state.sound);
+  setMotionVars();
+  setContrastVars();
+
+  // Initialize settings buttons icons
+  renderSettingsButtons();
+
+  // Ensure menu best number stays current
+  dom.bestOnlyNum.textContent = String(state.best);
+
+  // Prevent accidental scroll with arrow keys when focused on board
+  dom.board.addEventListener('focus', () => {
+    // Cursor starts at row 1 col 1 when focus enters
+    state.cursor = { r: 0, c: 0 };
+    renderBoard();
+  });
+
+  // Non-visible debug hooks (useful for automated/manual testing).
+  window.__bb = {
+    getState: () => ({
+      screen: state.screen,
+      score: state.score,
+      level: state.level,
+      progress: state.progress,
+      best: state.best,
+      motion: state.motion,
+      sound: state.sound,
+      idleHint: state.idleHint,
+      contrast: state.contrast,
+    }),
+    getBoard: () => state.board,
+    hint: () => findHintMove(state.board),
+    newGame,
+  };
+
+})();
+
+</script>
+  </body>
+</html>

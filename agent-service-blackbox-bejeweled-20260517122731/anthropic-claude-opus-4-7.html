@@ -1,0 +1,1539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Gem</title>
+<style>
+  :root{
+    --bg1:#0b0d1f;
+    --bg2:#1a1240;
+    --panel:rgba(255,255,255,0.05);
+    --panel2:rgba(255,255,255,0.09);
+    --ink:#f4f5ff;
+    --ink-dim:#a9adcc;
+    --accent:#ffd86b;
+    --good:#7afc8d;
+    --grid:rgba(255,255,255,0.10);
+    --grid-strong:rgba(255,255,255,0.22);
+    --ring:#ffffff;
+    --glow:#fff7c2;
+    --cursor:#ffffff;
+    --shadow-strong:0 10px 30px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.05);
+    --cell:60px;
+    --board:480px;
+    --gem-outline:0px;
+    --grid-line:1px;
+  }
+  html,body{margin:0;padding:0;background:radial-gradient(1200px 800px at 20% -10%,#2a1a6a 0%,#0b0d1f 60%) fixed;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow-x:hidden;min-height:100%;}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:16px;box-sizing:border-box;}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0;}
+  button:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px;}
+  .hidden{display:none !important;}
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;}
+
+  /* Top bar (game screen) */
+  .topbar{
+    width:var(--board); max-width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px;
+  }
+  .score{font-size:32px; font-weight:700; letter-spacing:.5px; min-width:0;}
+  .level{display:flex; align-items:center; gap:8px; font-size:24px; font-weight:700;}
+  .meter{
+    width:var(--board); max-width:100%; height:10px; border-radius:999px; background:var(--panel); overflow:hidden; margin:10px 0 12px;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);
+  }
+  .meter > div{height:100%; width:0%; background:linear-gradient(90deg,#7c9bff,#c177ff,#ffb84d); transition:width 220ms ease;}
+  .meter.flash{animation:meterFlash 180ms ease;}
+  @keyframes meterFlash{0%{filter:brightness(1)}50%{filter:brightness(1.8)}100%{filter:brightness(1)}}
+  .nomotion .meter.flash{animation:meterFlash 80ms ease;}
+
+  /* Board */
+  .board-wrap{position:relative; width:var(--board); max-width:100%;}
+  .board{
+    position:relative; width:var(--board); height:var(--board); max-width:100%;
+    background:rgba(0,0,0,0.35); border-radius:14px; box-shadow:var(--shadow-strong);
+    overflow:hidden; touch-action:none; user-select:none;
+    background-image:
+      linear-gradient(to right, var(--grid) var(--grid-line), transparent var(--grid-line)),
+      linear-gradient(to bottom, var(--grid) var(--grid-line), transparent var(--grid-line));
+    background-size: calc(var(--cell)) calc(var(--cell));
+    background-position: 0 0;
+  }
+  .board.dim{opacity:.4;}
+  .gem{
+    position:absolute; left:0; top:0; width:var(--cell); height:var(--cell);
+    display:flex; align-items:center; justify-content:center;
+    transition: transform 180ms ease, opacity 180ms ease, filter 120ms ease;
+    will-change: transform, opacity;
+  }
+  .gem.fast{transition: transform 80ms linear, opacity 80ms linear, filter 80ms linear;}
+  .gem svg{width:84%; height:84%; display:block; filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));}
+  .gem.hover svg{filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)) brightness(1.10);}
+  .gem.flash svg{filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)) brightness(1.25);}
+  .gem.shake{animation:shake 180ms ease;}
+  .nomotion .gem.shake{animation:flash80 80ms ease;}
+  @keyframes shake{
+    0%{transform:translate(var(--tx),var(--ty))}
+    25%{transform:translate(calc(var(--tx) - var(--cell)*0.12),var(--ty))}
+    50%{transform:translate(calc(var(--tx) + var(--cell)*0.12),var(--ty))}
+    75%{transform:translate(calc(var(--tx) - var(--cell)*0.12),var(--ty))}
+    100%{transform:translate(var(--tx),var(--ty))}
+  }
+  @keyframes flash80{0%{opacity:1}50%{opacity:.45}100%{opacity:1}}
+  .gem.clearing{opacity:0;transform:translate(var(--tx),var(--ty)) scale(.55) rotate(20deg);}
+  .nomotion .gem.clearing{transform:translate(var(--tx),var(--ty)) scale(1) rotate(0);opacity:0;transition: opacity 80ms linear;}
+  .gem.selected::after{
+    content:""; position:absolute; left:6%; top:6%; right:6%; bottom:6%;
+    border-radius:14px; box-shadow: 0 0 0 3px var(--ring), 0 0 14px 4px var(--glow);
+    pointer-events:none;
+  }
+  .gem.nudge{animation:nudge 600ms ease infinite;}
+  @keyframes nudge{
+    0%,100%{transform:translate(var(--tx),var(--ty))}
+    50%{transform:translate(calc(var(--tx) + var(--nx,0px)),calc(var(--ty) + var(--ny,0px)))}
+  }
+  .gem.pulse svg{animation:pulse 600ms ease 2;}
+  @keyframes pulse{0%,100%{filter:drop-shadow(0 0 0 rgba(255,255,200,0)) brightness(1)}50%{filter:drop-shadow(0 0 12px rgba(255,255,180,.95)) brightness(1.25)}}
+  .cursor-cell{
+    position:absolute; pointer-events:none; box-sizing:border-box;
+    width:var(--cell); height:var(--cell); border:2px solid var(--cursor);
+    border-radius:8px; transition: transform 100ms ease; z-index:5;
+  }
+
+  /* Effects */
+  .fx-line, .fx-burst{position:absolute; pointer-events:none; z-index:4;}
+  .fx-line{background:rgba(255,255,255,.7); box-shadow:0 0 18px 6px rgba(255,255,255,.6); border-radius:6px;}
+  .fx-burst{border-radius:12px; background:radial-gradient(circle, rgba(255,255,180,.7), rgba(255,255,180,0));}
+  .popup{
+    position:absolute; pointer-events:none; font-size:22px; font-weight:800; color:#fff;
+    text-shadow:0 2px 6px rgba(0,0,0,.7), 0 0 12px rgba(255,255,200,.7);
+    transition: transform 700ms ease, opacity 700ms ease;
+    z-index:6;
+  }
+  .multiplier{
+    position:absolute; left:50%; top:-44px; transform:translateX(-50%);
+    font-size:30px; font-weight:900; color:#fff;
+    text-shadow:0 2px 6px rgba(0,0,0,.7), 0 0 18px rgba(255,200,80,.8);
+    pointer-events:none; opacity:0; transition: opacity 120ms ease;
+  }
+  .multiplier.show{opacity:1;}
+
+  /* Controls under board */
+  .controls{display:flex; gap:14px; justify-content:center; align-items:center; margin-top:14px;}
+  .icon-btn{
+    width:48px; height:48px; min-width:44px; min-height:44px;
+    display:inline-flex; align-items:center; justify-content:center;
+    background:var(--panel); border-radius:12px;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.08), 0 4px 14px rgba(0,0,0,.35);
+    transition: transform 120ms ease, background 120ms ease;
+  }
+  .icon-btn:hover{background:var(--panel2); transform:translateY(-1px);}
+  .icon-btn:active{transform:translateY(0);}
+  .icon-btn svg{width:24px; height:24px;}
+  .corner-btn{position:fixed; top:14px; width:48px; height:48px;}
+  .corner-btn.left{left:14px;} .corner-btn.right{right:14px;}
+
+  /* Overlays */
+  .overlay{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(8,6,28,.6); backdrop-filter: blur(6px); z-index:50; padding:20px;
+  }
+  .panel{
+    background:linear-gradient(180deg, rgba(40,30,90,.95), rgba(20,14,50,.95));
+    border-radius:18px; padding:28px; min-width:280px; max-width:360px;
+    box-shadow:var(--shadow-strong); display:flex; flex-direction:column; align-items:center; gap:18px;
+    text-align:center;
+  }
+  .big-text{font-size:34px; font-weight:800; letter-spacing:.5px;}
+  .new-best{color:var(--accent); font-weight:800; font-size:18px;}
+  .btn-primary{
+    padding:14px 22px; border-radius:14px; font-size:18px; font-weight:800;
+    background:linear-gradient(180deg,#5d7bff,#3a51d8);
+    box-shadow:0 8px 22px rgba(60,80,255,.45), inset 0 0 0 1px rgba(255,255,255,.18);
+  }
+  .btn-primary:hover{filter:brightness(1.08);}
+  .row{display:flex; gap:14px; align-items:center; justify-content:center;}
+  .stat{display:flex; align-items:center; gap:10px; font-size:24px; font-weight:800;}
+
+  /* Main menu */
+  .menu{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:28px; padding-top:6vh;
+  }
+  .logo{width:180px; height:180px;}
+
+  /* Toggle button "on"/"off" via opacity + slash icon */
+  .toggle.off .icon-on{display:none;} .toggle .icon-off{display:none;}
+  .toggle.off .icon-off{display:inline;}
+  .toggle.off{opacity:.7;}
+
+  /* Responsive */
+  @media (max-width:599px){
+    .controls{flex-wrap:wrap;}
+  }
+
+  /* High contrast */
+  .hc .gem svg [data-gemfill]{stroke:#fff;}
+  .hc .board{background-image:
+      linear-gradient(to right, var(--grid-strong) var(--grid-line), transparent var(--grid-line)),
+      linear-gradient(to bottom, var(--grid-strong) var(--grid-line), transparent var(--grid-line));}
+
+  /* Pause freezes transitions */
+  .frozen .gem{transition:none !important; animation-play-state:paused !important;}
+  .frozen .multiplier, .frozen .popup{transition:none !important;}
+
+  /* Reduced motion */
+  .nomotion .gem.nudge{animation:none !important;}
+  .nomotion .gem.pulse svg{animation:none !important; filter:drop-shadow(0 0 12px rgba(255,255,180,.95)) brightness(1.25) !important;}
+
+</style>
+</head>
+<body>
+
+<!-- SVG defs for icons & gems -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Gem gradients -->
+    <linearGradient id="gradRed" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ff8a8a"/><stop offset="1" stop-color="#c41818"/></linearGradient>
+    <linearGradient id="gradBlue" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#9bd1ff"/><stop offset="1" stop-color="#1657c4"/></linearGradient>
+    <linearGradient id="gradGreen" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#9bf0a0"/><stop offset="1" stop-color="#1c8a32"/></linearGradient>
+    <linearGradient id="gradYellow" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff19a"/><stop offset="1" stop-color="#d39600"/></linearGradient>
+    <linearGradient id="gradPurple" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e8b3ff"/><stop offset="1" stop-color="#7a1fc4"/></linearGradient>
+    <linearGradient id="gradOrange" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffd29b"/><stop offset="1" stop-color="#d8631a"/></linearGradient>
+    <linearGradient id="gradWhite" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#b8c8e0"/></linearGradient>
+
+    <radialGradient id="gradColor" cx=".35" cy=".3" r=".75">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".25" stop-color="#ffd1ff"/>
+      <stop offset=".5" stop-color="#9bd1ff"/>
+      <stop offset=".75" stop-color="#b4ffb6"/>
+      <stop offset="1" stop-color="#ffd86b"/>
+    </radialGradient>
+  </defs>
+</svg>
+
+<!-- MAIN MENU -->
+<div id="screen-menu" class="menu">
+  <button class="icon-btn corner-btn left" id="btn-menu-trophy" aria-label="best score">
+    <!-- trophy -->
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h12v3a6 6 0 0 1-12 0V4z"/><path d="M4 5h2v2a2 2 0 0 1-2 2"/><path d="M20 5h-2v2a2 2 0 0 0 2 2"/><path d="M9 18h6l-1 3h-4z"/><path d="M12 13v5"/></svg>
+  </button>
+  <button class="icon-btn corner-btn right" id="btn-menu-gear" aria-label="settings">
+    <!-- gear -->
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4.8a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.5a7 7 0 0 0-2 1.2l-2.4-.8-2 3.4 2 1.5A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.2l-2 1.5 2 3.4 2.4-.8a7 7 0 0 0 2 1.2L10 21h4l.5-2.5a7 7 0 0 0 2-1.2l2.4.8 2-3.4-2-1.5c0-.4.1-.8.1-1.2z"/></svg>
+  </button>
+
+  <!-- Big gem logo -->
+  <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <linearGradient id="logoG" x1="0" x2="1" y1="0" y2="1">
+        <stop offset="0" stop-color="#ff7ad0"/>
+        <stop offset=".3" stop-color="#ffd86b"/>
+        <stop offset=".6" stop-color="#7afc8d"/>
+        <stop offset="1" stop-color="#7c9bff"/>
+      </linearGradient>
+    </defs>
+    <polygon points="50,5 90,35 75,90 25,90 10,35" fill="url(#logoG)" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+    <polygon points="50,5 75,90 10,35" fill="rgba(255,255,255,.18)"/>
+    <polygon points="50,5 90,35 75,90" fill="rgba(0,0,0,.18)"/>
+  </svg>
+
+  <button class="btn-primary" id="btn-start">Start Game</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="screen-game" class="hidden" style="display:none">
+  <div class="topbar">
+    <div class="score" id="score-num" aria-live="polite">0</div>
+    <div class="level" aria-live="polite">
+      <!-- star -->
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="#ffd86b" aria-label="level"><polygon points="12,2 14.6,8.6 22,9.3 16.5,14.2 18.1,21.4 12,17.6 5.9,21.4 7.5,14.2 2,9.3 9.4,8.6"/></svg>
+      <span id="level-num">1</span>
+    </div>
+  </div>
+  <div class="meter" id="meter" aria-label="progress" role="progressbar"><div id="meter-fill"></div></div>
+
+  <div class="board-wrap">
+    <div class="multiplier" id="multiplier"></div>
+    <div class="board" id="board" tabindex="0" role="grid" aria-label="board"></div>
+  </div>
+
+  <div class="controls">
+    <button class="icon-btn" id="btn-pause" aria-label="pause">
+      <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-hint" aria-label="hint">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-gear" aria-label="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4.8a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.5a7 7 0 0 0-2 1.2l-2.4-.8-2 3.4 2 1.5A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.2l-2 1.5 2 3.4 2.4-.8a7 7 0 0 0 2 1.2L10 21h4l.5-2.5a7 7 0 0 0 2-1.2l2.4.8 2-3.4-2-1.5c0-.4.1-.8.1-1.2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- PAUSE OVERLAY -->
+<div id="screen-pause" class="overlay hidden">
+  <div class="panel">
+    <div class="big-text">Paused</div>
+    <div class="row">
+      <button class="icon-btn" id="btn-resume" aria-label="resume">
+        <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="7,4 20,12 7,20"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-restart" aria-label="restart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><polyline points="20 3 20 8 15 8"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-pause-gear" aria-label="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4.8a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.5a7 7 0 0 0-2 1.2l-2.4-.8-2 3.4 2 1.5A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.2l-2 1.5 2 3.4 2.4-.8a7 7 0 0 0 2 1.2L10 21h4l.5-2.5a7 7 0 0 0 2-1.2l2.4.8 2-3.4-2-1.5c0-.4.1-.8.1-1.2z"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-home" aria-label="main menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div id="screen-settings" class="overlay hidden">
+  <div class="panel">
+    <div class="row">
+      <button class="icon-btn toggle" id="btn-sound" aria-label="sound">
+        <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8a5 5 0 0 1 0 8"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+        <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6h4l5 4V5L8 9H4z"/><line x1="16" y1="8" x2="22" y2="16"/><line x1="22" y1="8" x2="16" y2="16"/></svg>
+      </button>
+      <button class="icon-btn toggle" id="btn-motion" aria-label="motion">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="4"/><circle cx="15" cy="12" r="4"/><line x1="2" y1="8" x2="5" y2="8"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="2" y1="16" x2="5" y2="16"/></svg>
+      </button>
+      <button class="icon-btn toggle" id="btn-idle" aria-label="idle hints">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/><circle cx="18.5" cy="18.5" r="2.2" fill="#ffd86b" stroke="#000" stroke-width=".5"/></svg>
+      </button>
+      <button class="icon-btn toggle" id="btn-contrast" aria-label="high contrast">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <div class="row">
+      <button class="icon-btn" id="btn-reset" aria-label="reset best score">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-settings-home" aria-label="back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      </button>
+    </div>
+    <div class="row hidden" id="reset-confirm">
+      <button class="icon-btn" id="btn-confirm" aria-label="confirm reset">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#7afc8d" stroke-width="3"><polyline points="4 12 10 18 20 6"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-cancel" aria-label="cancel reset">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ff7a7a" stroke-width="3"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- BEST SCORE OVERLAY -->
+<div id="screen-best" class="overlay hidden">
+  <div class="panel">
+    <div class="stat">
+      <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#ffd86b" stroke-width="2"><path d="M6 4h12v3a6 6 0 0 1-12 0V4z"/><path d="M4 5h2v2a2 2 0 0 1-2 2"/><path d="M20 5h-2v2a2 2 0 0 0 2 2"/><path d="M9 18h6l-1 3h-4z"/><path d="M12 13v5"/></svg>
+      <span id="best-num">0</span>
+    </div>
+    <button class="icon-btn" id="btn-best-home" aria-label="main menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- GAME OVER OVERLAY -->
+<div id="screen-over" class="overlay hidden">
+  <div class="panel">
+    <div class="big-text">Game Over</div>
+    <div class="stat" id="final-score">0</div>
+    <div class="stat">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#ffd86b" stroke-width="2"><path d="M6 4h12v3a6 6 0 0 1-12 0V4z"/><path d="M4 5h2v2a2 2 0 0 1-2 2"/><path d="M20 5h-2v2a2 2 0 0 0 2 2"/><path d="M9 18h6l-1 3h-4z"/><path d="M12 13v5"/></svg>
+      <span id="over-best">0</span>
+    </div>
+    <div class="new-best hidden" id="new-best">New Best</div>
+    <button class="btn-primary" id="btn-play-again">Play Again</button>
+    <button class="btn-primary" id="btn-over-menu" style="background:linear-gradient(180deg,#444,#222)">Menu</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ---------- Constants ----------
+const ROWS = 8, COLS = 8;
+const TYPES_BY_LEVEL = (lv) => {
+  if (lv <= 2) return ['R','B','G','Y','P'];
+  if (lv <= 5) return ['R','B','G','Y','P','O'];
+  return ['R','B','G','Y','P','O','W'];
+};
+const ALL_TYPES = ['R','B','G','Y','P','O','W'];
+
+// ---------- Audio ----------
+let audioCtx = null;
+function ensureAudio(){
+  if (!state.settings.sound) return null;
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ audioCtx = null; }
+  }
+  return audioCtx;
+}
+function tone(freq, dur=0.1, type='sine', vol=0.15){
+  if (!state.settings.sound) return;
+  const ctx = ensureAudio(); if (!ctx) return;
+  const o = ctx.createOscillator(); const g = ctx.createGain();
+  o.type=type; o.frequency.value=freq;
+  g.gain.value=0; g.gain.linearRampToValueAtTime(vol, ctx.currentTime+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+dur);
+  o.connect(g).connect(ctx.destination);
+  o.start(); o.stop(ctx.currentTime+dur+0.02);
+}
+const sfx = {
+  select: ()=>tone(660,0.06,'square',0.08),
+  swap:   ()=>tone(520,0.10,'sine',0.10),
+  invalid:()=>tone(150,0.10,'square',0.10),
+  clear:  ()=>tone(880,0.12,'triangle',0.10),
+  cascade:(n)=>tone(880 * Math.pow(1.12, n-1),0.12,'triangle',0.12),
+  spark:  ()=>{ tone(1320,0.08,'sine',0.08); setTimeout(()=>tone(1760,0.08,'sine',0.06),60); },
+  burst:  ()=>tone(220,0.18,'sawtooth',0.12),
+  rise:   ()=>{tone(440,0.10,'sine',0.10); setTimeout(()=>tone(660,0.10,'sine',0.10),100); setTimeout(()=>tone(880,0.16,'sine',0.10),200);},
+  over:   ()=>{tone(440,0.20,'sine',0.10); setTimeout(()=>tone(330,0.20,'sine',0.10),180); setTimeout(()=>tone(220,0.30,'sine',0.12),360);}
+};
+
+// ---------- State ----------
+const state = {
+  screen: 'menu', // menu|game|pause|settings|best|over
+  prevScreenForSettings: 'menu',
+  board: [], // 2D [r][c] = {type:'R'|...|'C', special:null|'L-h'|'L-v'|'B', el:null} or null
+  score: 0,
+  level: 1,
+  progress: 0,
+  best: 0,
+  multiplier: 1,
+  resolving: false,
+  selected: null, // {r,c}
+  cursor: {r:0,c:0},
+  hintTimer: 0,
+  idleTimerId: null,
+  hintEl1:null, hintEl2:null,
+  settings: { sound:true, motion:true, idleHints:true, highContrast:false },
+  cellPx: 60,
+  pauseFreeze: false,
+};
+
+// ---------- DOM refs ----------
+const $ = (id) => document.getElementById(id);
+const boardEl = $('board');
+const meterEl = $('meter');
+const meterFill = $('meter-fill');
+const multiplierEl = $('multiplier');
+const scoreEl = $('score-num');
+const levelEl = $('level-num');
+
+// ---------- Persistence ----------
+function loadStore(){
+  try{
+    const s = JSON.parse(localStorage.getItem('gemgame') || '{}');
+    if (typeof s.best === 'number') state.best = s.best;
+    if (s.settings) Object.assign(state.settings, s.settings);
+  }catch(e){}
+}
+function saveStore(){
+  try{
+    localStorage.setItem('gemgame', JSON.stringify({best:state.best, settings:state.settings}));
+  }catch(e){}
+}
+
+// ---------- Gem rendering ----------
+function gemSvg(type, special){
+  // type: R B G Y P O W C; special: null | 'L-h' | 'L-v' | 'B'
+  const colorGrad = {R:'gradRed',B:'gradBlue',G:'gradGreen',Y:'gradYellow',P:'gradPurple',O:'gradOrange',W:'gradWhite',C:'gradColor'}[type];
+  let shape='';
+  // shapes
+  const fillAttr = `fill="url(#${colorGrad})" data-gemfill stroke="rgba(255,255,255,.55)" stroke-width="1.5" stroke-linejoin="round"`;
+  if (type==='C'){
+    shape = `<circle cx="50" cy="50" r="38" fill="url(#${colorGrad})" stroke="#fff" stroke-width="2"/>
+      <circle cx="38" cy="38" r="10" fill="rgba(255,255,255,.6)"/>`;
+  } else if (type==='R'){
+    // angular diamond
+    shape = `<polygon points="50,8 88,50 50,92 12,50" ${fillAttr}/>
+      <polygon points="50,8 88,50 50,50" fill="rgba(255,255,255,.18)"/>
+      <polygon points="50,50 88,50 50,92" fill="rgba(0,0,0,.15)"/>`;
+  } else if (type==='B'){
+    // droplet (rounded teardrop)
+    shape = `<path d="M50 8 C 80 40, 86 60, 70 78 C 60 90, 40 90, 30 78 C 14 60, 20 40, 50 8 Z" ${fillAttr}/>
+      <ellipse cx="38" cy="40" rx="8" ry="14" fill="rgba(255,255,255,.45)"/>`;
+  } else if (type==='G'){
+    // hexagon
+    shape = `<polygon points="50,8 88,30 88,70 50,92 12,70 12,30" ${fillAttr}/>
+      <polygon points="50,8 88,30 50,50 12,30" fill="rgba(255,255,255,.20)"/>`;
+  } else if (type==='Y'){
+    // square-cut gem
+    shape = `<rect x="14" y="14" width="72" height="72" rx="8" ${fillAttr}/>
+      <polygon points="14,14 86,14 70,30 30,30" fill="rgba(255,255,255,.25)"/>
+      <polygon points="14,86 86,86 70,70 30,70" fill="rgba(0,0,0,.18)"/>`;
+  } else if (type==='P'){
+    // kite
+    shape = `<polygon points="50,6 86,42 50,94 14,42" ${fillAttr}/>
+      <polygon points="50,6 86,42 50,42" fill="rgba(255,255,255,.22)"/>`;
+  } else if (type==='O'){
+    // sunstone -- 8 pointed star-like
+    shape = `<polygon points="50,8 60,32 86,32 66,48 74,72 50,58 26,72 34,48 14,32 40,32" ${fillAttr}/>`;
+  } else if (type==='W'){
+    // white crystal -- elongated diamond
+    shape = `<polygon points="50,6 78,30 50,94 22,30" ${fillAttr}/>
+      <polygon points="50,6 78,30 50,30" fill="rgba(255,255,255,.5)"/>`;
+  }
+  let overlay='';
+  if (special==='L-h') overlay = `<rect x="6" y="46" width="88" height="8" fill="#fff" stroke="#000" stroke-width="0.5"/>`;
+  else if (special==='L-v') overlay = `<rect x="46" y="6" width="8" height="88" fill="#fff" stroke="#000" stroke-width="0.5"/>`;
+  else if (special==='B'){
+    // 8-point star
+    const pts = [];
+    for (let i=0;i<16;i++){
+      const a = (i*Math.PI)/8 - Math.PI/2;
+      const r = (i%2===0)?22:9;
+      pts.push((50+Math.cos(a)*r).toFixed(1)+','+(50+Math.sin(a)*r).toFixed(1));
+    }
+    overlay = `<polygon points="${pts.join(' ')}" fill="#fff" stroke="#000" stroke-width="0.5"/>`;
+  }
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">${shape}${overlay}</svg>`;
+}
+
+function makeGemEl(gem, r, c){
+  const el = document.createElement('div');
+  el.className = 'gem';
+  el.dataset.r = r; el.dataset.c = c;
+  el.setAttribute('role','gridcell');
+  el.setAttribute('aria-label', `cell row ${r+1} column ${c+1}`);
+  el.dataset.gemType = gem.type;
+  el.dataset.specialType = gem.special || 'none';
+  el.dataset.focused = 'false';
+  el.dataset.selected = 'false';
+  el.innerHTML = gemSvg(gem.type, gem.special);
+  positionEl(el, r, c, 0);
+  if (!state.settings.motion) el.classList.add('fast');
+  boardEl.appendChild(el);
+  return el;
+}
+
+function positionEl(el, r, c, dropFromRow){
+  const cell = state.cellPx;
+  const tx = c * cell + 'px';
+  // dropFromRow: rows above current to start from (positive moves up by dropFromRow*cell)
+  const ty = ((r - (dropFromRow||0)) * cell) + 'px';
+  el.style.setProperty('--tx', tx);
+  el.style.setProperty('--ty', ty);
+  el.style.transform = `translate(${tx}, ${ty})`;
+}
+
+function rerenderGem(gem){
+  if (!gem.el) return;
+  gem.el.innerHTML = gemSvg(gem.type, gem.special);
+  gem.el.dataset.gemType = gem.type;
+  gem.el.dataset.specialType = gem.special || 'none';
+}
+
+// ---------- Board generation ----------
+function rngType(types){ return types[Math.floor(Math.random()*types.length)]; }
+
+function newBoardData(){
+  const b = [];
+  for (let r=0;r<ROWS;r++){
+    const row=[];
+    for (let c=0;c<COLS;c++) row.push({type:rngType(TYPES_BY_LEVEL(1)),special:null,el:null});
+    b.push(row);
+  }
+  return b;
+}
+
+function findMatchesData(b){
+  const matched = new Set();
+  // horizontal
+  for (let r=0;r<ROWS;r++){
+    let run=1;
+    for (let c=1;c<=COLS;c++){
+      const same = c<COLS && b[r][c] && b[r][c-1] && b[r][c].type===b[r][c-1].type && b[r][c].type!=='C';
+      if (same) run++;
+      else {
+        if (run>=3){ for (let k=0;k<run;k++) matched.add((r)*COLS + (c-1-k)); }
+        run=1;
+      }
+    }
+  }
+  // vertical
+  for (let c=0;c<COLS;c++){
+    let run=1;
+    for (let r=1;r<=ROWS;r++){
+      const same = r<ROWS && b[r][c] && b[r-1][c] && b[r][c].type===b[r-1][c].type && b[r][c].type!=='C';
+      if (same) run++;
+      else {
+        if (run>=3){ for (let k=0;k<run;k++) matched.add((r-1-k)*COLS + c); }
+        run=1;
+      }
+    }
+  }
+  return matched;
+}
+
+function hasAnyMatchData(b){ return findMatchesData(b).size>0; }
+
+function countLegalSwaps(b){
+  let count = 0;
+  for (let r=0;r<ROWS;r++){
+    for (let c=0;c<COLS;c++){
+      const tries = [[0,1],[1,0]];
+      for (const [dr,dc] of tries){
+        const r2=r+dr,c2=c+dc; if(r2>=ROWS||c2>=COLS) continue;
+        // swap
+        const a=b[r][c],bb=b[r2][c2];
+        b[r][c]=bb; b[r2][c2]=a;
+        if (hasAnyMatchData(b)) count++;
+        b[r][c]=a; b[r2][c2]=bb;
+      }
+    }
+  }
+  return count;
+}
+
+function generateBoard(){
+  while(true){
+    const b = newBoardData();
+    if (findMatchesData(b).size===0 && countLegalSwaps(b) >= 3) return b;
+  }
+}
+
+// ---------- Renderer ----------
+function clearBoardDOM(){
+  while (boardEl.firstChild) boardEl.removeChild(boardEl.firstChild);
+}
+
+function renderBoardInitial(){
+  clearBoardDOM();
+  for (let r=0;r<ROWS;r++){
+    for (let c=0;c<COLS;c++){
+      const g = state.board[r][c]; if (!g) continue;
+      g.el = makeGemEl(g, r, c);
+    }
+  }
+  updateCursor();
+}
+
+function recomputeSize(){
+  const vw = window.innerWidth;
+  let board;
+  if (vw >= 600) board = 480;
+  else if (vw >= 360) board = vw - 32;
+  else board = vw - 16;
+  state.cellPx = board / 8;
+  document.documentElement.style.setProperty('--board', board+'px');
+  document.documentElement.style.setProperty('--cell', state.cellPx+'px');
+  // reposition all gems
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++){
+    const g = state.board[r] && state.board[r][c]; if (g && g.el) positionEl(g.el, r, c, 0);
+  }
+}
+
+window.addEventListener('resize', recomputeSize);
+
+// ---------- Selection / cursor ----------
+function setSelected(r,c){
+  clearSelected();
+  if (r==null) return;
+  state.selected = {r,c};
+  const g = state.board[r][c]; if (g && g.el){ g.el.classList.add('selected'); g.el.dataset.selected='true'; }
+}
+function clearSelected(){
+  if (state.selected){
+    const g = state.board[state.selected.r][state.selected.c];
+    if (g && g.el) { g.el.classList.remove('selected'); g.el.dataset.selected='false'; }
+  }
+  state.selected=null;
+}
+let cursorEl=null;
+function updateCursor(){
+  if (state.screen!=='game') return;
+  if (!cursorEl){
+    cursorEl = document.createElement('div'); cursorEl.className='cursor-cell';
+    boardEl.appendChild(cursorEl);
+  }
+  if (document.activeElement === boardEl){
+    cursorEl.style.display='block';
+    cursorEl.style.transform = `translate(${state.cursor.c*state.cellPx}px, ${state.cursor.r*state.cellPx}px)`;
+    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++){
+      const g = state.board[r][c]; if (g && g.el) g.el.dataset.focused = (r===state.cursor.r && c===state.cursor.c)?'true':'false';
+    }
+  } else {
+    cursorEl.style.display='none';
+  }
+}
+
+// ---------- Animation helpers ----------
+function wait(ms){
+  return new Promise(res => setTimeout(res, ms));
+}
+
+// ---------- Match / Resolution ----------
+function findMatchGroups(b){
+  // Return list of {cells:[[r,c]...], type, dir:'h'|'v', length, shape:'line'|'TL'}
+  const groups=[];
+  // horizontal runs
+  for (let r=0;r<ROWS;r++){
+    let c=0;
+    while (c<COLS){
+      const g=b[r][c];
+      if (!g || g.type==='C'){ c++; continue; }
+      let c2=c+1;
+      while (c2<COLS && b[r][c2] && b[r][c2].type===g.type) c2++;
+      const len = c2-c;
+      if (len>=3){
+        const cells=[]; for (let k=c;k<c2;k++) cells.push([r,k]);
+        groups.push({cells, type:g.type, dir:'h', length:len});
+      }
+      c=c2;
+    }
+  }
+  for (let c=0;c<COLS;c++){
+    let r=0;
+    while (r<ROWS){
+      const g=b[r][c];
+      if (!g || g.type==='C'){ r++; continue; }
+      let r2=r+1;
+      while (r2<ROWS && b[r2][c] && b[r2][c].type===g.type) r2++;
+      const len = r2-r;
+      if (len>=3){
+        const cells=[]; for (let k=r;k<r2;k++) cells.push([k,c]);
+        groups.push({cells, type:g.type, dir:'v', length:len});
+      }
+      r=r2;
+    }
+  }
+  return groups;
+}
+
+function mergeIntoMatches(groups){
+  // Returns: matches array combining T/L; each match has {cells:Set,key, type, shapes:[group...], isTL:boolean, dir, length}
+  // Two groups belong to same match if they share a cell and same type
+  const n=groups.length;
+  const parent = Array.from({length:n},(_,i)=>i);
+  function find(i){return parent[i]===i?i:(parent[i]=find(parent[i]));}
+  function uni(a,b){a=find(a);b=find(b);if(a!==b)parent[a]=b;}
+  for (let i=0;i<n;i++) for (let j=i+1;j<n;j++){
+    if (groups[i].type!==groups[j].type) continue;
+    const sa = new Set(groups[i].cells.map(p=>p[0]+','+p[1]));
+    let shared=false;
+    for (const p of groups[j].cells) if (sa.has(p[0]+','+p[1])){ shared=true; break; }
+    if (shared) uni(i,j);
+  }
+  const buckets = new Map();
+  for (let i=0;i<n;i++){
+    const k = find(i);
+    if (!buckets.has(k)) buckets.set(k,[]);
+    buckets.get(k).push(groups[i]);
+  }
+  const matches=[];
+  for (const gs of buckets.values()){
+    const cells = new Map();
+    let type = gs[0].type;
+    let hMax=0,vMax=0;
+    for (const g of gs){
+      if (g.dir==='h') hMax = Math.max(hMax,g.length);
+      else vMax = Math.max(vMax,g.length);
+      for (const p of g.cells) cells.set(p[0]+','+p[1],p);
+    }
+    const cellArr = Array.from(cells.values());
+    const isTL = gs.length>=2 && hMax>=3 && vMax>=3;
+    matches.push({cells:cellArr, type, groups:gs, hMax, vMax, isTL});
+  }
+  return matches;
+}
+
+// ---------- Specials ----------
+function specialOfMatch(match, movedTo){
+  // Decide whether match creates a special and what
+  // movedTo: {r,c} or null
+  // Priority done outside; here we report capacity.
+  if (match.isTL) return {kind:'B'};
+  // straight
+  const longest = Math.max(match.hMax,match.vMax);
+  if (longest>=5) return {kind:'C'};
+  if (longest===4){
+    if (match.hMax===4) return {kind:'L-h'};
+    if (match.vMax===4) return {kind:'L-v'};
+  }
+  return null;
+}
+
+function pickCreationCell(match, movedTo){
+  // see section 12
+  const inMatch = (r,c)=> match.cells.some(([rr,cc])=>rr===r&&cc===c);
+  if (movedTo && inMatch(movedTo.r,movedTo.c)) return [movedTo.r,movedTo.c];
+  // intersection for TL
+  if (match.isTL){
+    // find cell present in both an h and v group
+    const hCells=new Set(), vCells=new Set();
+    for (const g of match.groups){
+      const s = (g.dir==='h')?hCells:vCells;
+      for (const p of g.cells) s.add(p[0]+','+p[1]);
+    }
+    for (const k of hCells) if (vCells.has(k)){ const [r,c]=k.split(',').map(Number); return [r,c]; }
+  }
+  // straight
+  // sort cells by row,col
+  const cells = match.cells.slice();
+  if (match.hMax>=match.vMax){
+    cells.sort((a,b)=>a[1]-b[1]);
+  } else {
+    cells.sort((a,b)=>a[0]-b[0]);
+  }
+  const L = cells.length;
+  if (L%2===1) return cells[(L-1)/2];
+  // even: center-most closest to moved
+  const left = cells[L/2-1], right = cells[L/2];
+  if (movedTo){
+    const dL = Math.abs(movedTo.r-left[0])+Math.abs(movedTo.c-left[1]);
+    const dR = Math.abs(movedTo.r-right[0])+Math.abs(movedTo.c-right[1]);
+    return (dL<=dR)?left:right;
+  }
+  return left;
+}
+
+// ---------- Scoring helpers ----------
+function pointsForMatchShape(match){
+  // T/L match -> 120
+  if (match.isTL) return 120;
+  const L = match.cells.length;
+  if (L===3) return 30;
+  if (L===4) return 60;
+  if (L===5) return 120;
+  if (L===6) return 150;
+  if (L===7) return 180;
+  if (L>=8) return 210;
+  return 0;
+}
+
+// ---------- Resolution flow ----------
+async function doSwap(a,b){
+  // a,b are {r,c}
+  if (Math.abs(a.r-b.r)+Math.abs(a.c-b.c) !== 1){ return; }
+  state.resolving = true;
+  clearHint();
+  clearSelected();
+  resetIdleTimer();
+
+  const ga = state.board[a.r][a.c], gb = state.board[b.r][b.c];
+
+  // Classify
+  const special = trySpecialSwap(ga,gb,a,b);
+  let isNormalSwap = false;
+  // Swap visually first
+  await animateSwap(a,b);
+
+  // commit data swap
+  state.board[a.r][a.c] = gb; state.board[b.r][b.c] = ga;
+  ga.el.dataset.r = b.r; ga.el.dataset.c = b.c;
+  gb.el.dataset.r = a.r; gb.el.dataset.c = a.c;
+
+  if (special){
+    sfx.swap();
+    await resolveSpecialSwap(special, a, b);
+    await postCascadeLoop({r:b.r,c:b.c});
+    await checkGameOver();
+    state.resolving = false;
+    setSelected(b.r,b.c);
+    clearSelected();
+    updateCursor();
+    return;
+  }
+
+  // Check normal match created
+  const groups = findMatchGroups(state.board);
+  if (groups.length===0){
+    // invalid -> revert
+    sfx.invalid();
+    // revert data
+    state.board[a.r][a.c] = ga; state.board[b.r][b.c] = gb;
+    ga.el.dataset.r = a.r; ga.el.dataset.c = a.c;
+    gb.el.dataset.r = b.r; gb.el.dataset.c = b.c;
+    await animateSwap(a,b); // swap back
+    // shake
+    const g = state.board[a.r][a.c];
+    g.el.classList.add('shake');
+    await wait(state.settings.motion?180:80);
+    g.el.classList.remove('shake');
+    setSelected(a.r,a.c);
+    state.resolving = false;
+    return;
+  }
+
+  // valid normal swap
+  sfx.swap();
+  state.multiplier = 1;
+  await resolveMatchesStep(groups, {r:b.r, c:b.c});
+  await postCascadeLoop(null);
+  await checkGameOver();
+  state.resolving = false;
+  updateCursor();
+}
+
+async function animateSwap(a,b){
+  const ga = state.board[a.r][a.c], gb = state.board[b.r][b.c];
+  if (!ga || !gb) return;
+  const motion = state.settings.motion;
+  const dur = motion?120:80;
+  ga.el.style.transition = `transform ${dur}ms ease`;
+  gb.el.style.transition = `transform ${dur}ms ease`;
+  positionEl(ga.el, b.r, b.c, 0);
+  positionEl(gb.el, a.r, a.c, 0);
+  await wait(dur+10);
+  ga.el.style.transition = '';
+  gb.el.style.transition = '';
+}
+
+function trySpecialSwap(ga,gb,a,b){
+  // section 16
+  const ka = classifyGem(ga), kb = classifyGem(gb);
+  // color+x
+  if (ka==='C' || kb==='C'){
+    const colorPos = ka==='C'?a:b;
+    const otherPos = ka==='C'?b:a;
+    const other = ka==='C'?gb:ga;
+    return {type:'color', otherType: classifyGem(other), otherGem:other, colorPos, otherPos};
+  }
+  if (ka==='line' && kb==='line') return {type:'line-line', destPos:b};
+  if ((ka==='line' && kb==='burst') || (ka==='burst' && kb==='line')) return {type:'line-burst', destPos:b};
+  if (ka==='burst' && kb==='burst') return {type:'burst-burst', destPos:b};
+  return null;
+}
+function classifyGem(g){
+  if (!g) return 'normal';
+  if (g.type==='C') return 'C';
+  if (g.special && (g.special==='L-h'||g.special==='L-v')) return 'line';
+  if (g.special==='B') return 'burst';
+  return 'normal';
+}
+
+function inBounds(r,c){return r>=0 && r<ROWS && c>=0 && c<COLS;}
+
+function expandSpecialClears(initialCells){
+  // Initial set; activate any specials encountered. Returns {cells (set "r,c"), lineCells, burstCells, colorCells}
+  const todo = initialCells.slice();
+  const lineSet=new Set(), burstSet=new Set(), colorSet=new Set();
+  const all=new Set();
+  while (todo.length){
+    const [r,c] = todo.shift();
+    const key = r+','+c;
+    if (all.has(key)) continue;
+    if (!inBounds(r,c)) continue;
+    all.add(key);
+    const g = state.board[r] && state.board[r][c];
+    if (!g) continue;
+    if (g.special==='L-h'){
+      lineSet.add(key);
+      for (let cc=0;cc<COLS;cc++) if (!all.has(r+','+cc)) todo.push([r,cc]);
+    } else if (g.special==='L-v'){
+      lineSet.add(key);
+      for (let rr=0;rr<ROWS;rr++) if (!all.has(rr+','+c)) todo.push([rr,c]);
+    } else if (g.special==='B'){
+      burstSet.add(key);
+      for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++){
+        const nr=r+dr,nc=c+dc;
+        if (inBounds(nr,nc) && !all.has(nr+','+nc)) todo.push([nr,nc]);
+      }
+    } else if (g.type==='C'){
+      // bare color (only happens during expansions via other actions; usually handled separately)
+      // treat as normal
+    }
+  }
+  return {all, lineSet, burstSet, colorSet};
+}
+
+async function resolveSpecialSwap(special, a, b){
+  // a,b are positions (data already swapped).
+  // After swap, gb is at a, ga is at b.
+  const dest = b; // moved gem's destination cell
+  let clears = []; // initial cells (and source specials)
+  let extraColorClears = new Set(); // for color+normal
+  // We need to activate underlying specials too, which expandSpecialClears does naturally if they have special markers; for color, we add a set of cells.
+  if (special.type==='line-line'){
+    for (let c=0;c<COLS;c++) clears.push([dest.r,c]);
+    for (let r=0;r<ROWS;r++) clears.push([r,dest.c]);
+  } else if (special.type==='line-burst'){
+    for (let dr=-1;dr<=1;dr++){
+      const r=dest.r+dr; if (!inBounds(r,0)) continue;
+      for (let c=0;c<COLS;c++) clears.push([r,c]);
+    }
+    for (let dc=-1;dc<=1;dc++){
+      const c=dest.c+dc; if (!inBounds(0,c)) continue;
+      for (let r=0;r<ROWS;r++) clears.push([r,c]);
+    }
+  } else if (special.type==='burst-burst'){
+    for (let dr=-2;dr<=2;dr++) for (let dc=-2;dc<=2;dc++){
+      const r=dest.r+dr,c=dest.c+dc; if (inBounds(r,c)) clears.push([r,c]);
+    }
+  } else if (special.type==='color'){
+    // Color combos
+    const otherType = special.otherType;
+    if (otherType==='normal'){
+      const t = special.otherGem.type;
+      // clear color + every gem of type t
+      clears.push([special.colorPos.r, special.colorPos.c]);
+      clears.push([special.otherPos.r, special.otherPos.c]);
+      for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++){
+        const g=state.board[r][c]; if (g && g.type===t) clears.push([r,c]);
+      }
+    } else if (otherType==='line'){
+      const t = special.otherGem.type;
+      // convert all of type t to line gems then activate
+      for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++){
+        const g=state.board[r][c];
+        if (g && g.type===t){
+          g.special = (Math.random()<0.5?'L-h':'L-v');
+          rerenderGem(g);
+        }
+      }
+      // remove color and other from board first by adding to clears
+      clears.push([special.colorPos.r, special.colorPos.c]);
+      // include all of type t as starting clears (which expand because they have special)
+      for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++){
+        const g=state.board[r][c]; if (g && g.type===t) clears.push([r,c]);
+      }
+    } else if (otherType==='burst'){
+      const t = special.otherGem.type;
+      for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++){
+        const g=state.board[r][c];
+        if (g && g.type===t){ g.special='B'; rerenderGem(g); }
+      }
+      clears.push([special.colorPos.r, special.colorPos.c]);
+      for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++){
+        const g=state.board[r][c]; if (g && g.type===t) clears.push([r,c]);
+      }
+    } else if (otherType==='C'){
+      // clear all 64
+      for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) clears.push([r,c]);
+    }
+  }
+
+  // Visual flash
+  sfx.burst();
+  // expand activation
+  const {all, lineSet, burstSet} = expandSpecialClears(clears);
+  // ensure colorPos itself cleared for color combos
+  if (special.type==='color'){
+    all.add(special.colorPos.r+','+special.colorPos.c);
+  }
+
+  // Score special effects
+  let lineClears=0, burstClears=0, colorClears=0;
+  // priority among effects per gem
+  for (const key of all){
+    // determine the highest-priority effect that caused this clear (color>burst>line)
+    // approximation: if special.type==='color' then any cell hit considered color effect for color+normal/C
+    let effect = 'line';
+    if (special.type==='color' && (special.otherType==='normal' || special.otherType==='C')) effect = 'color';
+    else if (burstSet.size>0) effect = 'burst';
+    // Better per-cell: check if cell adj to a burst source = burst; cell in line row/col = line. For simplicity, prefer color for color combos.
+    if (special.type==='color' && (special.otherType==='normal' || special.otherType==='C')) colorClears++;
+    else if (special.type==='burst-burst' || special.type==='line-burst') burstClears++;
+    else lineClears++;
+  }
+  state.multiplier = 1;
+  const subtotal = colorClears*20 + burstClears*15 + lineClears*10;
+  const gained = subtotal * state.multiplier;
+  addScore(gained, dest);
+
+  await flashAndClear(Array.from(all).map(k=>k.split(',').map(Number)));
+
+  await fallAndSpawn();
+}
+
+async function resolveMatchesStep(initialGroups, movedTo){
+  // movedTo: where the moved gem ended up (the destination of the moved gem)
+  // Show multiplier indicator at start of this resolution (x1 for player move; >1 for cascades).
+  await showMultiplier(state.multiplier);
+  // Detect matches & include any specials triggered as part of same-type matches
+  const matches = mergeIntoMatches(initialGroups);
+  // Decide special creation (one)
+  let createdSpecial = null;
+  let createCell = null;
+  // Priority: color > burst > line
+  let bestMatch = null, bestKind = null, bestRank = 0;
+  for (const m of matches){
+    const s = specialOfMatch(m, movedTo);
+    if (!s) continue;
+    const rank = s.kind==='C'?3 : s.kind==='B'?2 : 1;
+    if (rank>bestRank){ bestRank=rank; bestMatch=m; bestKind=s.kind; }
+  }
+  if (bestMatch){
+    createCell = pickCreationCell(bestMatch, movedTo);
+    createdSpecial = bestKind;
+  }
+
+  // Determine cells to clear and which specials in those cells activate (same-type match including them)
+  const initialClearList = [];
+  for (const m of matches){
+    for (const [r,c] of m.cells){
+      // skip the create cell when a special is being created at that position (it stays)
+      if (createdSpecial && createCell && createCell[0]===r && createCell[1]===c) continue;
+      initialClearList.push([r,c]);
+    }
+  }
+
+  // Activations: any special gem in matched cells of the same type activates (it's already in initialClearList; expandSpecialClears will activate by its marker)
+  const {all, lineSet, burstSet} = expandSpecialClears(initialClearList);
+
+  // Scoring
+  let total = 0;
+  for (const m of matches) total += pointsForMatchShape(m);
+  // Special effect contributions
+  // Count unique cells hit by special effects (the activated specials, beyond their own normal-match contribution)
+  const matchCellSet = new Set();
+  for (const m of matches) for (const [r,c] of m.cells) matchCellSet.add(r+','+c);
+  let lineUnique=0, burstUnique=0;
+  for (const key of all){
+    if (matchCellSet.has(key)) continue;
+    if (burstSet.size>0){
+      // approximate: classify by which effect — prefer burst > line
+      // (we already lumped activations together; choose highest priority)
+      burstUnique++;
+    } else if (lineSet.size>0){
+      lineUnique++;
+    }
+  }
+  total += lineUnique*10 + burstUnique*15;
+  total = total * state.multiplier;
+  addScore(total, movedTo || {r:bestMatch?bestMatch.cells[0][0]:0, c:bestMatch?bestMatch.cells[0][1]:0});
+  sfx.clear();
+
+  // Create the special gem first (mutate at createCell), then clear other cells
+  if (createdSpecial && createCell){
+    const [cr,cc] = createCell;
+    const g = state.board[cr][cc];
+    if (createdSpecial==='C'){ g.type='C'; g.special=null; }
+    else if (createdSpecial==='B'){ g.special='B'; }
+    else if (createdSpecial==='L-h' || createdSpecial==='L-v'){ g.special = createdSpecial; }
+    rerenderGem(g);
+    sfx.spark();
+  }
+
+  // Visual brighten
+  const motion = state.settings.motion;
+  for (const key of all){
+    const [r,c] = key.split(',').map(Number);
+    const g = state.board[r] && state.board[r][c]; if (g && g.el) g.el.classList.add('flash');
+  }
+  await wait(motion?120:80);
+
+  await flashAndClear(Array.from(all).map(k=>k.split(',').map(Number)));
+  await fallAndSpawn();
+}
+
+async function flashAndClear(cells){
+  const motion = state.settings.motion;
+  // Clear gems visually then remove from board
+  for (const [r,c] of cells){
+    const g = state.board[r] && state.board[r][c];
+    if (g && g.el){
+      g.el.classList.add('clearing');
+    }
+  }
+  await wait(motion?180:80);
+  for (const [r,c] of cells){
+    const g = state.board[r] && state.board[r][c];
+    if (g){
+      if (g.el && g.el.parentNode) g.el.parentNode.removeChild(g.el);
+      state.board[r][c] = null;
+    }
+  }
+}
+
+async function fallAndSpawn(){
+  const motion = state.settings.motion;
+  let maxFall = 0;
+  // For each column, gather non-null from bottom up and shift down
+  for (let c=0;c<COLS;c++){
+    let write = ROWS-1;
+    for (let r=ROWS-1;r>=0;r--){
+      const g = state.board[r][c];
+      if (g){
+        if (write !== r){
+          state.board[write][c] = g;
+          state.board[r][c] = null;
+          const dist = write - r;
+          if (dist>maxFall) maxFall=dist;
+          // animate fall
+          positionEl(g.el, write, c, 0);
+          g.el.style.transition = `transform ${motion?(180 + 40*(dist-1)):80}ms ease`;
+          // dataset
+          g.el.dataset.r = write; g.el.dataset.c = c;
+        }
+        write--;
+      }
+    }
+    // Spawn new gems for rows 0..write
+    const types = TYPES_BY_LEVEL(state.level);
+    let spawnedCount = 0;
+    for (let r=write;r>=0;r--){
+      spawnedCount++;
+      const gtype = types[Math.floor(Math.random()*types.length)];
+      const g = {type:gtype, special:null, el:null};
+      state.board[r][c] = g;
+      g.el = makeGemEl(g,r,c);
+      // start above
+      g.el.style.transition='none';
+      positionEl(g.el, r, c, write+1 + (spawnedCount-1));
+      // force reflow then animate to position
+      // eslint-disable-next-line no-unused-expressions
+      g.el.offsetHeight;
+      const dist = (write+1) + (spawnedCount-1) + 0; // rows it must travel
+      g.el.style.transition = `transform ${motion?(180 + 40*(Math.max(1,dist)-1)):80}ms ease`;
+      positionEl(g.el, r, c, 0);
+      if (dist>maxFall) maxFall=dist;
+    }
+  }
+  const totalMs = motion ? (180 + 40*Math.max(0,maxFall-1)) : 80;
+  await wait(totalMs + 30);
+  // cleanup transitions
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++){
+    const g = state.board[r][c]; if (g && g.el) { g.el.style.transition=''; if (!state.settings.motion) g.el.classList.add('fast'); else g.el.classList.remove('fast'); }
+  }
+}
+
+async function postCascadeLoop(movedTo){
+  state.multiplier = 1;
+  while (true){
+    const groups = findMatchGroups(state.board);
+    if (groups.length===0) break;
+    state.multiplier += 1; // first cascade x2
+    sfx.cascade(state.multiplier);
+    await resolveMatchesStep(groups, null);
+  }
+  // ensure multiplier hidden
+  hideMultiplier();
+}
+
+function showMultiplier(n){
+  if (n<=1){ hideMultiplier(); return Promise.resolve(); }
+  multiplierEl.textContent = `x${n}`;
+  multiplierEl.classList.add('show');
+  return new Promise(res=>{
+    setTimeout(()=>{ hideMultiplier(); res(); }, 500);
+  });
+}
+function hideMultiplier(){ multiplierEl.classList.remove('show'); multiplierEl.textContent=''; }
+
+// ---------- Score / level ----------
+function targetForLevel(lv){ return 1000 + 400*(lv-1) + 100*(lv-1)*(lv-1); }
+
+function addScore(gained, atCell){
+  if (gained<=0) return;
+  state.score += gained;
+  scoreEl.textContent = state.score;
+  scoreEl.setAttribute('aria-label','score '+state.score);
+  // popup
+  if (atCell){
+    const cellPx = state.cellPx;
+    const el = document.createElement('div');
+    el.className='popup';
+    el.textContent = `+${gained}`;
+    el.style.left = (atCell.c*cellPx + cellPx/2) + 'px';
+    el.style.top  = (atCell.r*cellPx + cellPx/2) + 'px';
+    el.style.transform='translate(-50%,-50%) scale(1)';
+    el.style.opacity='1';
+    boardEl.appendChild(el);
+    requestAnimationFrame(()=>{
+      el.style.transform='translate(-50%,-150%) scale(1.2)';
+      el.style.opacity='0';
+    });
+    setTimeout(()=>{ if (el.parentNode) el.parentNode.removeChild(el); }, 720);
+  }
+  // level progress
+  let p = state.progress + gained;
+  while (p >= targetForLevel(state.level)){
+    p -= targetForLevel(state.level);
+    state.level += 1;
+    sfx.rise();
+    levelEl.textContent = state.level;
+    meterEl.classList.add('flash');
+    setTimeout(()=>meterEl.classList.remove('flash'), state.settings.motion?180:80);
+  }
+  state.progress = p;
+  const tgt = targetForLevel(state.level);
+  meterFill.style.width = (Math.min(100, (p/tgt)*100)) + '%';
+  meterEl.setAttribute('aria-valuenow', p);
+  meterEl.setAttribute('aria-valuemax', tgt);
+}
+
+// ---------- Game over check ----------
+function hasLegalMove(){
+  const b = state.board;
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++){
+    for (const [dr,dc] of [[0,1],[1,0]]){
+      const r2=r+dr,c2=c+dc; if (r2>=ROWS||c2>=COLS) continue;
+      const ga=b[r][c], gb=b[r2][c2];
+      // special swap?
+      if (trySpecialSwap(ga,gb,{r,c},{r:r2,c:c2})) return true;
+      // normal swap test
+      b[r][c]=gb; b[r2][c2]=ga;
+      const has = hasAnyMatchData(b);
+      b[r][c]=ga; b[r2][c2]=gb;
+      if (has) return true;
+    }
+  }
+  return false;
+}
+async function checkGameOver(){
+  if (hasLegalMove()) return;
+  // game over
+  sfx.over();
+  boardEl.classList.add('dim');
+  $('final-score').textContent = state.score;
+  let newBest=false;
+  if (state.score > state.best){ state.best = state.score; saveStore(); newBest=true; }
+  $('over-best').textContent = state.best;
+  $('new-best').classList.toggle('hidden', !newBest);
+  show('over');
+}
+
+// ---------- Hint ----------
+function clearHint(){
+  if (state.hintEl1) { state.hintEl1.classList.remove('pulse','nudge'); state.hintEl1.style.removeProperty('--nx'); state.hintEl1.style.removeProperty('--ny'); }
+  if (state.hintEl2) { state.hintEl2.classList.remove('pulse'); }
+  state.hintEl1 = state.hintEl2 = null;
+  if (state._hintTimeout){ clearTimeout(state._hintTimeout); state._hintTimeout=null; }
+}
+function showHint(){
+  if (state.resolving) return;
+  clearHint();
+  const b = state.board;
+  const dirs = [[0,1],[1,0],[0,-1],[-1,0]];
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++){
+    for (const [dr,dc] of dirs){
+      const r2=r+dr,c2=c+dc; if(!inBounds(r2,c2)) continue;
+      const ga=b[r][c], gb=b[r2][c2];
+      let ok=false;
+      if (trySpecialSwap(ga,gb,{r,c},{r:r2,c:c2})) ok=true;
+      else {
+        b[r][c]=gb; b[r2][c2]=ga;
+        ok = hasAnyMatchData(b);
+        b[r][c]=ga; b[r2][c2]=gb;
+      }
+      if (ok){
+        const g1 = b[r][c], g2 = b[r2][c2];
+        if (!g1.el || !g2.el) return;
+        state.hintEl1 = g1.el; state.hintEl2 = g2.el;
+        if (state.settings.motion){
+          g1.el.style.setProperty('--nx', (dc*state.cellPx*0.12)+'px');
+          g1.el.style.setProperty('--ny', (dr*state.cellPx*0.12)+'px');
+          g1.el.classList.add('nudge');
+        }
+        g1.el.classList.add('pulse'); g2.el.classList.add('pulse');
+        state._hintTimeout = setTimeout(clearHint, 2000);
+        return;
+      }
+    }
+  }
+}
+
+function resetIdleTimer(){
+  if (state.idleTimerId) clearTimeout(state.idleTimerId);
+  if (!state.settings.idleHints) return;
+  state.idleTimerId = setTimeout(()=>{
+    if (state.screen==='game' && !state.resolving) showHint();
+  }, 8000);
+}
+
+// ---------- Screens ----------
+function show(screen){
+  state.screen = screen;
+  $('screen-menu').classList.toggle('hidden', screen!=='menu');
+  $('screen-game').classList.toggle('hidden', screen!=='game' && screen!=='pause' && screen!=='settings' && screen!=='over');
+  // game stays under overlays
+  $('screen-pause').classList.toggle('hidden', screen!=='pause');
+  $('screen-settings').classList.toggle('hidden', screen!=='settings');
+  $('screen-best').classList.toggle('hidden', screen!=='best');
+  $('screen-over').classList.toggle('hidden', screen!=='over');
+  $('screen-menu').style.display = (screen==='menu')?'flex':'none';
+  $('screen-game').style.display = (screen==='game'||screen==='pause'||screen==='settings'||screen==='over')?'block':'none';
+
+  // freeze board during pause
+  document.body.classList.toggle('frozen', screen==='pause');
+  if (screen==='pause'){ /* freeze */ }
+  if (screen==='game'){ resetIdleTimer(); updateCursor(); }
+  if (screen==='best'){ $('best-num').textContent = state.best; }
+}
+
+// ---------- Game lifecycle ----------
+function newGame(){
+  state.score=0; state.level=1; state.progress=0; state.multiplier=1;
+  state.resolving=false; state.selected=null; state.cursor={r:0,c:0};
+  state.board = generateBoard();
+  scoreEl.textContent=0; levelEl.textContent=1; meterFill.style.width='0%';
+  boardEl.classList.remove('dim');
+  show('game');
+  renderBoardInitial();
+  recomputeSize();
+  resetIdleTimer();
+  boardEl.focus();
+}
+
+// ---------- Input ----------
+function handleClickOrTap(r,c){
+  if (state.resolving) return;
+  resetIdleTimer();
+  clearHint();
+  if (!state.selected){
+    setSelected(r,c); sfx.select(); return;
+  }
+  const s = state.selected;
+  if (s.r===r && s.c===c){ clearSelected(); return; }
+  if (Math.abs(s.r-r)+Math.abs(s.c-c)===1){
+    doSwap(s,{r,c});
+  } else {
+    setSelected(r,c);
+  }
+}
+
+function getCellFromEvent(ev){
+  const rect = boardEl.getBoundingClientRect();
+  const x = (ev.clientX!=null?ev.clientX:(ev.touches&&ev.touches[0]?ev.touches[0].clientX:0)) - rect.left;
+  const y = (ev.clientY!=null?ev.clientY:(ev.touches&&ev.touches[0]?ev.touches[0].clientY:0)) - rect.top;
+  if (x<0||y<0||x>=rect.width||y>=rect.height) return null;
+  const cellPx = state.cellPx;
+  return {r:Math.floor(y/cellPx), c:Math.floor(x/cellPx)};
+}
+
+let dragStart=null, dragCell=null, dragMoved=false;
+boardEl.addEventListener('pointerdown', (ev)=>{
+  if (state.screen!=='game' || state.resolving) return;
+  const cell = getCellFromEvent(ev); if (!cell) return;
+  dragStart={x:ev.clientX, y:ev.clientY};
+  dragCell=cell;
+  dragMoved=false;
+  ev.preventDefault();
+  try{ boardEl.setPointerCapture(ev.pointerId); }catch(e){}
+});
+boardEl.addEventListener('pointermove', (ev)=>{
+  if (!dragStart||!dragCell) return;
+  const dx = ev.clientX - dragStart.x, dy = ev.clientY - dragStart.y;
+  const thresh = state.cellPx*0.25;
+  if (Math.abs(dx) > thresh || Math.abs(dy) > thresh){
+    let dr=0,dc=0;
+    if (Math.abs(dx)>Math.abs(dy)) dc = dx>0?1:-1; else dr = dy>0?1:-1;
+    const r2=dragCell.r+dr, c2=dragCell.c+dc;
+    if (inBounds(r2,c2)){
+      dragMoved=true;
+      const src = dragCell; dragStart=null; dragCell=null;
+      setSelected(src.r,src.c);
+      doSwap(src,{r:r2,c:c2});
+    }
+  }
+});
+function endDrag(ev){
+  if (dragStart && dragCell && !dragMoved){
+    // treat as tap
+    handleClickOrTap(dragCell.r, dragCell.c);
+  }
+  dragStart=null; dragCell=null; dragMoved=false;
+}
+boardEl.addEventListener('pointerup', endDrag);
+boardEl.addEventListener('pointercancel', endDrag);
+boardEl.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
+boardEl.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
+
+boardEl.addEventListener('focus', ()=>{ state.cursor={r:0,c:0}; updateCursor(); });
+boardEl.addEventListener('blur', ()=>{ updateCursor(); });
+
+document.addEventListener('keydown', (ev)=>{
+  if (state.screen==='game'){
+    if (document.activeElement!==boardEl){
+      if (ev.key==='p'||ev.key==='P'){ openPause(); ev.preventDefault(); return; }
+      if (ev.key==='h'||ev.key==='H'){ showHint(); ev.preventDefault(); return; }
+      return;
+    }
+    if (state.resolving) return;
+    resetIdleTimer();
+    const dirs = {ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+    if (dirs[ev.key]){
+      const [dr,dc] = dirs[ev.key];
+      if (state.selected){
+        const s=state.selected; const r2=s.r+dr,c2=s.c+dc;
+        if (inBounds(r2,c2)) { doSwap(s,{r:r2,c:c2}); }
+      } else {
+        const r2=Math.max(0,Math.min(ROWS-1,state.cursor.r+dr));
+        const c2=Math.max(0,Math.min(COLS-1,state.cursor.c+dc));
+        state.cursor={r:r2,c:c2};
+        updateCursor();
+      }
+      ev.preventDefault();
+    } else if (ev.key==='Enter' || ev.key===' '){
+      if (state.selected) clearSelected(); else { setSelected(state.cursor.r,state.cursor.c); sfx.select(); }
+      ev.preventDefault();
+    } else if (ev.key==='Escape'){
+      clearSelected(); ev.preventDefault();
+    } else if (ev.key==='p'||ev.key==='P'){ openPause(); ev.preventDefault(); }
+    else if (ev.key==='h'||ev.key==='H'){ showHint(); ev.preventDefault(); }
+  } else if (state.screen==='pause'){
+    if (ev.key==='p'||ev.key==='P'){ closePause(); ev.preventDefault(); }
+  }
+});
+
+// ---------- UI bindings ----------
+$('btn-start').addEventListener('click', ()=>{ ensureAudio(); newGame(); });
+$('btn-menu-trophy').addEventListener('click', ()=>{ show('best'); });
+$('btn-menu-gear').addEventListener('click', ()=>{ state.prevScreenForSettings='menu'; show('settings'); });
+$('btn-pause').addEventListener('click', openPause);
+$('btn-hint').addEventListener('click', ()=>showHint());
+$('btn-gear').addEventListener('click', ()=>{ state.prevScreenForSettings='game'; show('settings'); });
+$('btn-resume').addEventListener('click', closePause);
+$('btn-restart').addEventListener('click', ()=>{ closePauseSilently(); newGame(); });
+$('btn-pause-gear').addEventListener('click', ()=>{ state.prevScreenForSettings='pause'; show('settings'); });
+$('btn-home').addEventListener('click', ()=>{ closePauseSilently(); show('menu'); });
+$('btn-settings-home').addEventListener('click', ()=>{ show(state.prevScreenForSettings); });
+$('btn-best-home').addEventListener('click', ()=>show('menu'));
+$('btn-play-again').addEventListener('click', ()=>newGame());
+$('btn-over-menu').addEventListener('click', ()=>show('menu'));
+
+$('btn-sound').addEventListener('click', ()=>toggleSetting('sound'));
+$('btn-motion').addEventListener('click', ()=>toggleSetting('motion'));
+$('btn-idle').addEventListener('click', ()=>toggleSetting('idleHints'));
+$('btn-contrast').addEventListener('click', ()=>toggleSetting('highContrast'));
+$('btn-reset').addEventListener('click', ()=>{ $('reset-confirm').classList.remove('hidden'); });
+$('btn-confirm').addEventListener('click', ()=>{ state.best=0; saveStore(); $('reset-confirm').classList.add('hidden'); });
+$('btn-cancel').addEventListener('click', ()=>$('reset-confirm').classList.add('hidden'));
+
+function openPause(){ if (state.screen!=='game') return; show('pause'); }
+function closePause(){ if (state.screen!=='pause') return; show('game'); boardEl.focus(); resetIdleTimer(); }
+function closePauseSilently(){ document.body.classList.remove('frozen'); }
+
+function toggleSetting(name){
+  state.settings[name] = !state.settings[name];
+  applySettings();
+  saveStore();
+}
+function applySettings(){
+  document.body.classList.toggle('nomotion', !state.settings.motion);
+  document.body.classList.toggle('hc', state.settings.highContrast);
+  document.documentElement.style.setProperty('--gem-outline', state.settings.highContrast?'3px':'0px');
+  document.documentElement.style.setProperty('--grid-line', state.settings.highContrast?'2px':'1px');
+  $('btn-sound').classList.toggle('off', !state.settings.sound);
+  $('btn-motion').classList.toggle('off', !state.settings.motion);
+  $('btn-idle').classList.toggle('off', !state.settings.idleHints);
+  $('btn-contrast').classList.toggle('off', !state.settings.highContrast);
+}
+
+// ---------- Init ----------
+loadStore();
+applySettings();
+recomputeSize();
+show('menu');
+
+// Visibility freeze: when hidden, freeze; on visible, resume
+document.addEventListener('visibilitychange', ()=>{
+  if (document.hidden){ document.body.classList.add('frozen'); }
+  else { if (state.screen!=='pause') document.body.classList.remove('frozen'); }
+});
+
+</script>
+</body>
+</html>

@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Laser Mirror</title>
+<style>
+/* ===== VARIABLES ===== */
+:root {
+  --bg: #0b0d14;
+  --surface: #131620;
+  --cell: #181b28;
+  --cell-hover: #1e2236;
+  --border: #242738;
+  --text: #dde1f0;
+  --text-dim: #566070;
+  --accent: #5b6eea;
+  --emitter: #00ff88;
+  --emitter-glow: rgba(0,255,136,0.25);
+  --target: #ff6633;
+  --target-lit: #ffc800;
+  --target-lit-glow: rgba(255,200,0,0.35);
+  --blocker: #343749;
+  --mirror: #80b8ff;
+  --mirror-glow: rgba(128,184,255,0.4);
+  --laser: #ff2255;
+  --laser-glow: rgba(255,34,85,0.3);
+  --btn: #1c1f2e;
+  --btn-hover: #242840;
+  --radius: 10px;
+}
+.hc {
+  --border: #5060a0;
+  --mirror: #a0ccff;
+  --laser: #ff4466;
+  --cell: #141722;
+}
+
+/* ===== RESET ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;-webkit-tap-highlight-color:transparent}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  display:flex;align-items:center;justify-content:center;
+  touch-action:manipulation;
+}
+button{font-family:inherit;cursor:pointer}
+
+/* ===== SCREENS ===== */
+.screen{
+  position:absolute;inset:0;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:20px;gap:14px;
+}
+.screen.active{display:flex}
+
+/* ===== ICON BUTTONS ===== */
+.icon-btn{
+  background:none;border:none;
+  color:var(--text);font-size:26px;
+  width:44px;height:44px;
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s;
+  line-height:1;
+}
+.icon-btn:hover,.icon-btn:focus-visible{background:var(--btn-hover);outline:none}
+
+/* ===== PRIMARY BUTTON ===== */
+.primary-btn{
+  background:var(--accent);border:none;
+  color:#fff;font-size:18px;font-weight:700;
+  padding:15px 44px;border-radius:14px;
+  letter-spacing:.02em;
+  transition:opacity .15s,transform .1s,box-shadow .15s;
+  box-shadow:0 4px 24px rgba(91,110,234,.35);
+}
+.primary-btn:hover{opacity:.9;box-shadow:0 6px 28px rgba(91,110,234,.5)}
+.primary-btn:active{transform:scale(.97)}
+
+/* ===== MENU SCREEN ===== */
+#screen-menu .topbar{
+  position:absolute;top:20px;left:0;right:0;
+  display:flex;justify-content:space-between;padding:0 16px;
+}
+.logo-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:12px}
+.game-title{font-size:30px;font-weight:800;letter-spacing:.06em;color:var(--text)}
+
+/* ===== GAME SCREEN ===== */
+#screen-game{gap:10px;padding:16px}
+.game-topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  width:100%;max-width:520px;padding:0 2px;
+}
+.stat{font-size:22px;font-weight:700;min-width:52px;text-align:center;color:var(--text)}
+.level-display{display:flex;align-items:center;gap:6px;font-size:19px;font-weight:700}
+.level-display .star{font-size:18px}
+.game-bottombar{
+  display:flex;align-items:center;justify-content:center;gap:36px;
+  width:100%;
+}
+
+/* ===== BOARD ===== */
+#board-container{position:relative}
+#board{
+  display:grid;
+  gap:2px;
+  background:var(--border);
+  border:2px solid var(--border);
+  border-radius:10px;
+  overflow:hidden;
+}
+.hc #board{border-width:3px}
+
+/* ===== CELLS ===== */
+.cell{
+  background:var(--cell);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;user-select:none;
+  transition:background .1s;
+}
+.cell.mirror{cursor:pointer}
+.cell.mirror:hover,.cell.mirror:focus{background:var(--cell-hover);outline:none}
+.cell.focused{box-shadow:inset 0 0 0 2px var(--accent)}
+
+/* Emitter */
+.cell.emitter{background:rgba(0,255,136,.06)}
+.emitter-icon{
+  width:0;height:0;
+  border-top:9px solid transparent;
+  border-bottom:9px solid transparent;
+  border-left:15px solid var(--emitter);
+  filter:drop-shadow(0 0 5px var(--emitter));
+}
+
+/* Target */
+.cell.target{cursor:default}
+.target-ring{
+  width:60%;height:60%;
+  border-radius:50%;
+  background:var(--target);
+  border:2px solid color-mix(in srgb,var(--target),white 30%);
+  transition:background .25s,box-shadow .25s,border-color .25s;
+}
+.cell.target.lit .target-ring{
+  background:var(--target-lit);
+  border-color:color-mix(in srgb,var(--target-lit),white 40%);
+  box-shadow:0 0 10px var(--target-lit),0 0 22px var(--target-lit-glow);
+}
+.cell.target.pulse .target-ring{animation:tgt-pulse .5s ease-in-out}
+@keyframes tgt-pulse{
+  0%{transform:scale(1)}
+  40%{transform:scale(1.45);box-shadow:0 0 18px var(--target-lit),0 0 36px var(--target-lit-glow)}
+  100%{transform:scale(1)}
+}
+
+/* Blocker */
+.blocker-rect{
+  width:76%;height:76%;
+  background:var(--blocker);
+  border-radius:5px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+/* Mirror */
+.mirror-line{
+  position:absolute;
+  width:68%;height:3px;
+  background:var(--mirror);
+  border-radius:2px;
+  box-shadow:0 0 6px var(--mirror-glow);
+  transition:transform .12s ease;
+}
+.cell.mirror.slash .mirror-line{transform:rotate(-45deg)}
+.cell.mirror.backslash .mirror-line{transform:rotate(45deg)}
+.hc .mirror-line{height:4px}
+.hc .cell{box-shadow:inset 0 0 0 1px var(--border)}
+
+/* ===== LASER SVG ===== */
+#laser-svg{
+  position:absolute;top:0;left:0;
+  pointer-events:none;
+  overflow:visible;
+}
+.laser-glow{
+  fill:none;
+  stroke:var(--laser);
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.22;
+}
+.laser-core{
+  fill:none;
+  stroke:var(--laser);
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.95;
+}
+
+/* ===== BEST SCREEN ===== */
+#screen-best{gap:16px}
+.best-trophy{font-size:72px;line-height:1;filter:drop-shadow(0 0 16px rgba(255,200,0,.4))}
+.best-number{font-size:80px;font-weight:800;color:var(--target-lit);line-height:1}
+.best-caption{font-size:13px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase}
+
+/* ===== SETTINGS SCREEN ===== */
+#screen-settings{gap:0}
+.settings-inner{
+  width:100%;max-width:320px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.settings-card{
+  display:flex;align-items:center;gap:12px;
+  width:100%;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:13px 16px;
+}
+.settings-emoji{font-size:22px;width:28px;text-align:center}
+.settings-label{flex:1;font-size:15px;font-weight:500;color:var(--text)}
+.toggle{
+  width:46px;height:26px;
+  border-radius:13px;
+  background:var(--border);border:none;
+  position:relative;
+  transition:background .2s;
+}
+.toggle::after{
+  content:'';position:absolute;
+  width:20px;height:20px;
+  border-radius:50%;background:#fff;
+  top:3px;left:3px;
+  transition:transform .2s,box-shadow .2s;
+  box-shadow:0 1px 3px rgba(0,0,0,.4);
+}
+.toggle.on{background:var(--accent)}
+.toggle.on::after{transform:translateX(20px)}
+.danger-btn{
+  background:#1e1020;border:1px solid #4a1830;
+  color:#ff7090;font-size:13px;font-weight:600;
+  padding:5px 13px;border-radius:7px;
+  transition:background .15s;
+}
+.danger-btn:hover{background:#2a1530}
+.danger-btn.confirming{background:#0d2018;border-color:#1a5030;color:#60ff90}
+/* settings home handled inline */
+
+/* ===== NEW BEST NOTIF ===== */
+#new-best-notif{
+  position:fixed;top:20px;left:50%;
+  transform:translateX(-50%) translateY(-70px);
+  background:var(--target-lit);
+  color:#0a0800;font-size:13px;font-weight:800;
+  padding:8px 22px;border-radius:20px;
+  letter-spacing:.04em;
+  transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+  z-index:999;pointer-events:none;
+  box-shadow:0 4px 20px rgba(255,200,0,.5);
+}
+#new-best-notif.show{transform:translateX(-50%) translateY(0)}
+
+/* ===== OVERLAY FLASH ===== */
+#complete-flash{
+  position:fixed;inset:0;
+  background:rgba(91,110,234,0);
+  pointer-events:none;z-index:998;
+  transition:none;
+}
+#complete-flash.flash{animation:cflash .6s ease-out}
+@keyframes cflash{
+  0%{background:rgba(91,110,234,0)}
+  25%{background:rgba(91,110,234,.12)}
+  100%{background:rgba(91,110,234,0)}
+}
+
+/* ===== RESPONSIVE ===== */
+@media(max-height:600px){
+  #screen-game{gap:6px;padding:10px}
+  .game-topbar,.game-bottombar{max-width:100%}
+}
+
+/* ===== EMITTER CELL SPECIAL ===== */
+.cell.emitter{cursor:default!important}
+.cell.emitter:hover{background:rgba(0,255,136,.06)!important}
+
+/* ===== LASER HITS TARGET ===== */
+.cell.target.lit{
+  background:rgba(255,200,0,.04);
+}
+
+/* ===== EMPTY CELLS WITH LASER ===== */
+/* subtle tint when laser passes through */
+
+/* ===== MIRROR TOGGLE FEEDBACK ===== */
+.cell.mirror.toggled .mirror-line{
+  animation:mirror-flash .2s ease-out;
+}
+@keyframes mirror-flash{
+  0%{box-shadow:0 0 12px var(--mirror),0 0 24px rgba(128,184,255,.6)}
+  100%{box-shadow:0 0 6px var(--mirror-glow)}
+}
+
+/* ===== BOARD GLOW WHEN LASER ACTIVE ===== */
+#board-container::before{
+  content:'';
+  position:absolute;
+  inset:-1px;
+  border-radius:11px;
+  background:transparent;
+  transition:box-shadow .3s;
+  pointer-events:none;
+  z-index:1;
+}
+.laser-active #board-container::before{
+  box-shadow:0 0 0 1px rgba(255,34,85,.15), 0 0 20px rgba(255,34,85,.08);
+}
+</style>
+</head>
+<body>
+
+<!-- Menu Screen -->
+<div id="screen-menu" class="screen active">
+  <div class="topbar">
+    <button class="icon-btn" id="btn-trophy" aria-label="Best level">🏆</button>
+    <button class="icon-btn" id="btn-gear-menu" aria-label="Settings">⚙️</button>
+  </div>
+  <div class="logo-wrap">
+    <svg width="130" height="90" viewBox="0 0 130 90" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <!-- glow blobs -->
+      <ellipse cx="18" cy="48" rx="14" ry="8" fill="#00ff88" opacity=".12"/>
+      <ellipse cx="108" cy="22" rx="10" ry="10" fill="#ffc800" opacity=".18"/>
+      <!-- laser glow -->
+      <polyline points="18,48 78,48 78,22 108,22" stroke="#ff2255" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity=".2"/>
+      <!-- laser beam -->
+      <polyline points="18,48 78,48 78,22 108,22" stroke="#ff2255" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- mirror cell -->
+      <rect x="64" y="34" width="28" height="28" rx="5" fill="#181b28" stroke="#242738" stroke-width="2"/>
+      <line x1="70" y1="56" x2="86" y2="40" stroke="#80b8ff" stroke-width="3" stroke-linecap="round"/>
+      <line x1="70" y1="56" x2="86" y2="40" stroke="#80b8ff" stroke-width="7" stroke-linecap="round" opacity=".25"/>
+      <!-- emitter cell -->
+      <rect x="0" y="39" width="22" height="18" rx="4" fill="#181b28" stroke="#00ff88" stroke-width="2"/>
+      <polygon points="15,44 15,52 21,48" fill="#00ff88"/>
+      <!-- target glow + circle -->
+      <circle cx="108" cy="22" r="12" fill="#ffc800" opacity=".25"/>
+      <circle cx="108" cy="22" r="8" fill="#ffc800"/>
+      <circle cx="108" cy="22" r="5" fill="#fff" opacity=".3"/>
+    </svg>
+    <div class="game-title">Laser Mirror</div>
+  </div>
+  <button class="primary-btn" id="btn-start">Start Game</button>
+</div>
+
+<!-- Game Screen -->
+<div id="screen-game" class="screen">
+  <div class="game-topbar">
+    <span class="stat" id="move-count" aria-live="polite" aria-label="Move count">0</span>
+    <div class="level-display">
+      <span class="star" aria-hidden="true">⭐</span>
+      <span id="level-num" aria-label="Level">1</span>
+    </div>
+  </div>
+  <div id="board-container">
+    <div id="board" role="grid" aria-label="Laser puzzle grid"></div>
+    <svg id="laser-svg"></svg>
+  </div>
+  <div class="game-bottombar">
+    <button class="icon-btn" id="btn-gear-game" aria-label="Settings">⚙️</button>
+    <button class="icon-btn" id="btn-home-game" aria-label="Menu">🏠</button>
+  </div>
+</div>
+
+<!-- Best Screen -->
+<div id="screen-best" class="screen" aria-label="Best level screen">
+  <div class="best-trophy" aria-hidden="true">🏆</div>
+  <div class="best-number" id="best-level-display" aria-label="Best level">0</div>
+  <button class="icon-btn" id="btn-home-best" aria-label="Back to menu" style="margin-top:12px">🏠</button>
+</div>
+
+<!-- Settings Screen -->
+<div id="screen-settings" class="screen">
+  <div class="settings-inner">
+    <div class="settings-card">
+      <span class="settings-emoji" aria-hidden="true">🔊</span>
+      <span class="settings-label">Sound</span>
+      <button class="toggle" id="toggle-sound" role="switch" aria-label="Toggle sound"></button>
+    </div>
+    <div class="settings-card">
+      <span class="settings-emoji" aria-hidden="true">✨</span>
+      <span class="settings-label">Motion</span>
+      <button class="toggle" id="toggle-motion" role="switch" aria-label="Toggle motion"></button>
+    </div>
+    <div class="settings-card">
+      <span class="settings-emoji" aria-hidden="true">👁</span>
+      <span class="settings-label">High contrast</span>
+      <button class="toggle" id="toggle-contrast" role="switch" aria-label="Toggle high contrast"></button>
+    </div>
+    <div class="settings-card">
+      <span class="settings-emoji" aria-hidden="true">🗑️</span>
+      <span class="settings-label">Reset best</span>
+      <button class="danger-btn" id="btn-reset-best">Reset</button>
+    </div>
+    <div style="display:flex;justify-content:center;margin-top:6px">
+      <button class="icon-btn" id="btn-home-settings" aria-label="Back to game">🏠</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notifications -->
+<div id="new-best-notif" aria-live="polite" role="status">New Best</div>
+<div id="complete-flash" aria-hidden="true"></div>
+
+<script>
+/* ======================================================
+   LASER MIRROR PUZZLE  — complete implementation
+   ====================================================== */
+
+// ── Direction tables ──────────────────────────────────
+const DR = {right:0,left:0,up:-1,down:1};
+const DC = {right:1,left:-1,up:0,down:0};
+const SLASH    = {right:'up',  up:'right',  left:'down', down:'left'};
+const BACKSLASH= {right:'down',down:'right',left:'up',   up:'left'};
+const OPPOSITE = {right:'left',left:'right',up:'down',   down:'up'};
+
+// ── State ─────────────────────────────────────────────
+const S = {
+  screen: 'menu',
+  level: 1,
+  best:   +( localStorage.getItem('lm_best') || 0 ),
+  moves:  0,
+  grid:   null,   // 2-D array of cell objects
+  gsize:  0,
+  erow:   0,      // emitter row
+  trace:  { path:[], exitDir:null },
+  lit:    new Set(),   // "r,c" keys of lit targets
+  cursor: {r:0,c:0},
+  completing: false,
+  settingsFrom: 'menu',
+  confirmReset: false,
+  audioCtx: null,
+  settings: {
+    sound:    JSON.parse(localStorage.getItem('lm_sound')  ?? 'true'),
+    motion:   JSON.parse(localStorage.getItem('lm_motion') ?? 'true'),
+    contrast: JSON.parse(localStorage.getItem('lm_hc')     ?? 'false'),
+  }
+};
+
+// ── Audio ─────────────────────────────────────────────
+function ac() {
+  if (!S.audioCtx) S.audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return S.audioCtx;
+}
+function beep(freq, dur, vol=0.18, type='sine') {
+  if (!S.settings.sound) return;
+  try {
+    const ctx=ac(), o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);
+    o.start(ctx.currentTime); o.stop(ctx.currentTime+dur);
+  } catch(_){}
+}
+function sfxToggle()   { beep(480,.09); }
+function sfxComplete() {
+  beep(523,.14); setTimeout(()=>beep(659,.14),140); setTimeout(()=>beep(784,.28),280);
+}
+
+// ── Level formulas ────────────────────────────────────
+function formulas(lvl) {
+  return {
+    gsize:        Math.min(10, 5 + Math.floor((lvl-1)/2)),
+    targetCount:  Math.min(4,  1 + Math.floor((lvl-1)/3)),
+    blockerCount: Math.min(10, lvl-1),
+    mirrorCount:  Math.min(14, 4+lvl),
+  };
+}
+
+// ── Grid helpers ──────────────────────────────────────
+function inB(r,c,n){ return r>=0&&r<n&&c>=0&&c<n; }
+function adv(r,c,d){ return {r:r+DR[d], c:c+DC[d]}; }
+function reflect(d,t){ return t==='slash'?SLASH[d]:BACKSLASH[d]; }
+function mirrorFor(inD,outD){ return SLASH[inD]===outD?'slash':'backslash'; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=0|Math.random()*(i+1);[a[i],a[j]]=[a[j],a[i]];}return a; }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// ── Laser trace ───────────────────────────────────────
+function traceLaser(grid, erow, n) {
+  const path=[], vis=new Set();
+  let r=erow, c=0, d='right';
+  while(inB(r,c,n)) {
+    const key=`${r},${c},${d}`;
+    if(vis.has(key)) return {path, exitDir:null};
+    vis.add(key);
+    const cell=grid[r][c];
+    path.push({r,c,d});
+    if(cell.t==='blocker') return {path, exitDir:null};
+    const nd = cell.t==='mirror' ? reflect(d,cell.o) : d;
+    const nx = adv(r,c,nd);
+    if(!inB(nx.r,nx.c,n)) return {path, exitDir:nd};
+    r=nx.r; c=nx.c; d=nd;
+  }
+  return {path, exitDir:null};
+}
+
+function litSet(grid, path) {
+  const s=new Set();
+  path.forEach(({r,c})=>{ if(grid[r][c].t==='target') s.add(`${r},${c}`); });
+  return s;
+}
+
+function allTargets(grid, n) {
+  const s=new Set();
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(grid[r][c].t==='target') s.add(`${r},${c}`);
+  return s;
+}
+
+// ── Level generation ──────────────────────────────────
+function genLevel(lvl) {
+  const {gsize,targetCount,blockerCount,mirrorCount} = formulas(lvl);
+  for(let a=0;a<400;a++) {
+    const r=tryGen(gsize,targetCount,blockerCount,mirrorCount);
+    if(r) return r;
+  }
+  return fallbackGen(gsize,targetCount,blockerCount,mirrorCount);
+}
+
+function tryGen(n,tgt,blk,mir) {
+  const erow = 0|Math.random()*n;
+  const solMirrors={};    // "r,c" -> orientation
+  const targetSet=new Set(); // "r,c"
+  const pathKeys=new Set(); // "r,c"
+
+  // Simulate solution path — targets MUST come after at least 1 mirror redirect
+  let r=erow, c=0, d='right', targets=tgt;
+  const vis=new Set();
+
+  while(inB(r,c,n)) {
+    const kd=`${r},${c},${d}`;
+    if(vis.has(kd)) break;
+    vis.add(kd);
+    pathKeys.add(`${r},${c}`);
+
+    // Skip emitter cell
+    if(!(r===erow&&c===0)) {
+      const hasSolMirror = Object.keys(solMirrors).length>0;
+      // Targets only placed AFTER at least one solution mirror exists on path
+      if(targets>0 && hasSolMirror && !solMirrors[`${r},${c}`] && Math.random()<.32) {
+        targetSet.add(`${r},${c}`);
+        targets--;
+      } else if(!targetSet.has(`${r},${c}`) && !solMirrors[`${r},${c}`] && Math.random()<.40) {
+        const perp = (d==='right'||d==='left') ? ['up','down'] : ['left','right'];
+        const ok   = perp.filter(pd=>{ const nx=adv(r,c,pd); return inB(nx.r,nx.c,n); });
+        if(ok.length) {
+          const nd=ok[0|Math.random()*ok.length];
+          solMirrors[`${r},${c}`]=mirrorFor(d,nd);
+          d=nd;
+        }
+      }
+    }
+
+    const nx=adv(r,c,d);
+    if(!inB(nx.r,nx.c,n)) break;
+    r=nx.r; c=nx.c;
+  }
+
+  if(targetSet.size<tgt) return null;
+  // Must have at least one solution mirror
+  if(Object.keys(solMirrors).length===0) return null;
+
+  // Build grid
+  const grid=Array.from({length:n},()=>Array.from({length:n},()=>({t:'empty'})));
+  grid[erow][0]={t:'emitter'};
+
+  // Place solution mirrors — randomise initial orientation
+  // but GUARANTEE at least one is in WRONG orientation (board is never pre-solved)
+  const solKeys=Object.keys(solMirrors);
+  const wrongIdx=0|Math.random()*solKeys.length; // pick one to definitely be wrong
+  for(let i=0;i<solKeys.length;i++) {
+    const k=solKeys[i];
+    const so=solMirrors[k];
+    const [rr,cc]=k.split(',').map(Number);
+    let o;
+    if(i===wrongIdx) {
+      o = so==='slash'?'backslash':'slash'; // definitely wrong
+    } else {
+      o = Math.random()<.5 ? so : (so==='slash'?'backslash':'slash');
+    }
+    grid[rr][cc]={t:'mirror',o};
+  }
+
+  // Place targets
+  for(const k of targetSet) {
+    const [rr,cc]=k.split(',').map(Number);
+    if(grid[rr][cc].t==='empty') grid[rr][cc]={t:'target'};
+  }
+
+  // Collect off-path empties for blockers
+  const offPath=[];
+  for(let rr=0;rr<n;rr++) for(let cc=0;cc<n;cc++) {
+    if(grid[rr][cc].t==='empty'&&!pathKeys.has(`${rr},${cc}`)) offPath.push([rr,cc]);
+  }
+  shuffle(offPath);
+  let bLeft=blk;
+  for(const [rr,cc] of offPath) {
+    if(!bLeft) break;
+    grid[rr][cc]={t:'blocker'}; bLeft--;
+  }
+
+  // Fill remaining mirrors
+  let mLeft=mir-Object.keys(solMirrors).length;
+  if(mLeft>0) {
+    const free=[];
+    for(let rr=0;rr<n;rr++) for(let cc=0;cc<n;cc++) if(grid[rr][cc].t==='empty') free.push([rr,cc]);
+    shuffle(free);
+    for(const [rr,cc] of free) {
+      if(!mLeft) break;
+      grid[rr][cc]={t:'mirror',o:Math.random()<.5?'slash':'backslash'};
+      mLeft--;
+    }
+  }
+
+  // Final verification: ensure board is NOT pre-solved
+  const initTrace = traceLaser(grid, erow, n);
+  const initLit   = litSet(grid, initTrace.path);
+  const allSolved = [...targetSet].every(k => {
+    const [rr,cc]=k.split(',').map(Number);
+    return initLit.has(`${rr},${cc}`);
+  });
+  if(allSolved) return null; // retry
+
+  return {grid,n,erow};
+}
+
+function fallbackGen(n,tgt,blk,mir) {
+  const grid=Array.from({length:n},()=>Array.from({length:n},()=>({t:'empty'})));
+  const erow=0|n/2;
+  grid[erow][0]={t:'emitter'};
+  // Place targets straight ahead
+  for(let i=0;i<tgt;i++) if(i+2<n) grid[erow][i+2]={t:'target'};
+  // Mirrors elsewhere
+  let m=mir;
+  outer: for(let r=0;r<n;r++) for(let c=1;c<n;c++) {
+    if(!m) break outer;
+    if(grid[r][c].t==='empty'){ grid[r][c]={t:'mirror',o:Math.random()<.5?'slash':'backslash'}; m--; }
+  }
+  return {grid,n,erow};
+}
+
+// ── Cell size ─────────────────────────────────────────
+function cellPx() {
+  const avail = Math.min(window.innerWidth-36, window.innerHeight-160, 500);
+  const g = S.gsize;
+  return Math.max(28, Math.floor((avail-(g-1)*2)/g));
+}
+
+// ── Render board ──────────────────────────────────────
+function renderBoard() {
+  const board = document.getElementById('board');
+  const {grid,gsize:n,erow} = S;
+  const cs = cellPx();
+  const gap=2, bdr=2;
+
+  board.style.cssText=`
+    grid-template-columns:repeat(${n},${cs}px);
+    grid-template-rows:repeat(${n},${cs}px);
+    width:${n*cs+(n-1)*gap}px;
+    height:${n*cs+(n-1)*gap}px;
+  `;
+
+  board.innerHTML='';
+
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++) {
+    const cell=grid[r][c];
+    const div=document.createElement('div');
+    div.className='cell '+cell.t;
+    div.style.cssText=`width:${cs}px;height:${cs}px;font-size:${Math.floor(cs*.36)}px`;
+    div.dataset.r=r; div.dataset.c=c;
+
+    let aria=`Row ${r+1}, column ${c+1}: `;
+
+    if(cell.t==='emitter') {
+      const arr=document.createElement('div');
+      arr.className='emitter-icon';
+      arr.style.cssText=`border-top-width:${cs*.26}px;border-bottom-width:${cs*.26}px;border-left-width:${cs*.38}px`;
+      div.appendChild(arr);
+      aria+='emitter pointing right';
+    } else if(cell.t==='mirror') {
+      div.classList.add(cell.o);
+      const ml=document.createElement('div');
+      ml.className='mirror-line';
+      div.appendChild(ml);
+      div.setAttribute('tabindex','0');
+      div.setAttribute('role','button');
+      div.setAttribute('aria-pressed','false');
+      aria+=`${cell.o} mirror`;
+      div.addEventListener('click',()=>toggleMirror(r,c));
+      div.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleMirror(r,c);} });
+    } else if(cell.t==='target') {
+      const ring=document.createElement('div');
+      ring.className='target-ring';
+      ring.style.cssText=`width:${cs*.55}px;height:${cs*.55}px`;
+      div.appendChild(ring);
+      if(S.lit.has(`${r},${c}`)) div.classList.add('lit');
+      aria+=`target${S.lit.has(`${r},${c}`)?' (lit)':''}`;
+    } else if(cell.t==='blocker') {
+      const b=document.createElement('div');
+      b.className='blocker-rect';
+      b.style.cssText=`width:${cs*.72}px;height:${cs*.72}px`;
+      div.appendChild(b);
+      aria+='blocker';
+    } else {
+      aria+='empty';
+    }
+
+    const onLaser=S.trace.path.some(p=>p.r===r&&p.c===c);
+    if(onLaser) aria+=', laser present';
+    div.setAttribute('aria-label',aria);
+    board.appendChild(div);
+  }
+
+  renderLaser();
+  markCursor();
+}
+
+// ── Render laser ──────────────────────────────────────
+function renderLaser() {
+  const svg=document.getElementById('laser-svg');
+  const {trace:{path,exitDir},gsize:n,erow,grid} = S;
+  svg.innerHTML='';
+
+  const cs=cellPx(), gap=2, bdr=2;
+  const totalW = bdr + n*cs + (n-1)*gap + bdr;
+  const totalH = totalW;
+
+  svg.setAttribute('viewBox',`0 0 ${totalW} ${totalH}`);
+  svg.style.width=`${totalW}px`;
+  svg.style.height=`${totalH}px`;
+
+  if(!path.length) return;
+
+  const cx=c=>bdr+c*(cs+gap)+cs/2;
+  const cy=r=>bdr+r*(cs+gap)+cs/2;
+
+  const pts=[];
+  // Start from left edge of board at emitter row
+  pts.push({x:0, y:cy(erow)});
+  path.forEach(({r,c})=>pts.push({x:cx(c),y:cy(r)}));
+
+  // Exit point
+  if(exitDir) {
+    const lp=path[path.length-1];
+    let ex=cx(lp.c), ey=cy(lp.r);
+    if(exitDir==='right') ex=totalW;
+    else if(exitDir==='left') ex=0;
+    else if(exitDir==='down') ey=totalH;
+    else if(exitDir==='up') ey=0;
+    pts.push({x:ex,y:ey});
+  }
+
+  const pstr=pts.map(p=>`${p.x},${p.y}`).join(' ');
+  const sw = S.settings.contrast ? 5 : 3;
+
+  // Glow layer
+  const g=make('polyline');
+  g.setAttribute('points',pstr);
+  g.setAttribute('class','laser-glow');
+  g.setAttribute('stroke-width',sw*3.5);
+  svg.appendChild(g);
+
+  // Core beam
+  const b=make('polyline');
+  b.setAttribute('points',pstr);
+  b.setAttribute('class','laser-core');
+  b.setAttribute('stroke-width',sw);
+
+  if(S.settings.motion) {
+    let len=0;
+    for(let i=1;i<pts.length;i++){
+      const dx=pts[i].x-pts[i-1].x, dy=pts[i].y-pts[i-1].y;
+      len+=Math.sqrt(dx*dx+dy*dy);
+    }
+    len=Math.ceil(len)+20;
+    b.setAttribute('stroke-dasharray',len);
+    b.setAttribute('stroke-dashoffset',len);
+    const an=make('animate');
+    an.setAttribute('attributeName','stroke-dashoffset');
+    an.setAttribute('from',len);
+    an.setAttribute('to','0');
+    an.setAttribute('dur','0.25s');
+    an.setAttribute('fill','freeze');
+    b.appendChild(an);
+  }
+
+  svg.appendChild(b);
+
+  // Add laser-active class for board glow
+  const wrapper = document.getElementById('screen-game');
+  if(path.length>0) wrapper.classList.add('laser-active');
+  else wrapper.classList.remove('laser-active');
+}
+
+function make(tag){ return document.createElementNS('http://www.w3.org/2000/svg',tag); }
+
+// ── Cursor ────────────────────────────────────────────
+function markCursor() {
+  document.querySelectorAll('.cell.focused').forEach(el=>el.classList.remove('focused'));
+  const el=document.querySelector(`[data-r="${S.cursor.r}"][data-c="${S.cursor.c}"]`);
+  if(el) el.classList.add('focused');
+}
+
+// ── Toggle mirror ─────────────────────────────────────
+function toggleMirror(r,c) {
+  if(S.completing) return;
+  const cell=S.grid[r][c];
+  if(cell.t!=='mirror') return;
+
+  cell.o = cell.o==='slash'?'backslash':'slash';
+  S.moves++;
+  sfxToggle();
+
+  // Re-trace
+  S.trace = traceLaser(S.grid, S.erow, S.gsize);
+  S.lit   = litSet(S.grid, S.trace.path);
+
+  // Update toggled cell
+  const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+  if(el){
+    el.classList.toggle('slash',cell.o==='slash');
+    el.classList.toggle('backslash',cell.o==='backslash');
+    el.setAttribute('aria-label',`Row ${r+1}, column ${c+1}: ${cell.o} mirror`);
+    el.classList.remove('toggled');
+    void el.offsetWidth;
+    el.classList.add('toggled');
+    setTimeout(()=>el.classList.remove('toggled'),200);
+  }
+
+  // Update all targets
+  document.querySelectorAll('.cell.target').forEach(el2=>{
+    const rr=+el2.dataset.r, cc=+el2.dataset.c;
+    el2.classList.toggle('lit', S.lit.has(`${rr},${cc}`));
+  });
+
+  document.getElementById('move-count').textContent=S.moves;
+  renderLaser();
+
+  // Check win
+  const all=allTargets(S.grid,S.gsize);
+  if(all.size>0 && S.lit.size===all.size) onComplete();
+}
+
+// ── Level completion ──────────────────────────────────
+async function onComplete() {
+  if(S.completing) return;
+  S.completing=true;
+  sfxComplete();
+
+  // Flash overlay
+  const fl=document.getElementById('complete-flash');
+  fl.classList.remove('flash');
+  void fl.offsetWidth;
+  fl.classList.add('flash');
+
+  // Pulse all lit targets
+  document.querySelectorAll('.cell.target.lit').forEach(el=>{
+    el.classList.add('pulse');
+  });
+
+  await sleep(600);
+
+  document.querySelectorAll('.cell.target.pulse').forEach(el=>el.classList.remove('pulse'));
+
+  S.level++;
+  const isNewBest = S.level > S.best;
+  if(isNewBest) {
+    S.best = S.level;
+    localStorage.setItem('lm_best', S.best);
+    showNewBest();
+  }
+
+  await sleep(100);
+  startLevel(S.level);
+  S.completing=false;
+}
+
+function showNewBest() {
+  const n=document.getElementById('new-best-notif');
+  n.classList.add('show');
+  setTimeout(()=>n.classList.remove('show'),2800);
+}
+
+// ── Start level ───────────────────────────────────────
+function startLevel(lvl) {
+  const {grid,n,erow}=genLevel(lvl);
+  S.grid=grid; S.gsize=n; S.erow=erow;
+  S.moves=0; S.cursor={r:0,c:0};
+  S.trace=traceLaser(grid,erow,n);
+  S.lit=litSet(grid,S.trace.path);
+
+  document.getElementById('level-num').textContent=lvl;
+  document.getElementById('move-count').textContent=0;
+  renderBoard();
+
+  // Safety: detect if board is somehow pre-solved (shouldn't happen, but just in case)
+  const all=allTargets(grid,n);
+  if(all.size>0&&S.lit.size===all.size) setTimeout(onComplete,800);
+}
+
+// ── Screen navigation ─────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(`screen-${id}`).classList.add('active');
+  S.screen=id;
+}
+
+// ── Settings ─────────────────────────────────────────
+function applyUI() {
+  document.body.classList.toggle('hc', S.settings.contrast);
+  document.getElementById('toggle-sound').classList.toggle('on',S.settings.sound);
+  document.getElementById('toggle-sound').setAttribute('aria-checked',S.settings.sound);
+  document.getElementById('toggle-motion').classList.toggle('on',S.settings.motion);
+  document.getElementById('toggle-motion').setAttribute('aria-checked',S.settings.motion);
+  document.getElementById('toggle-contrast').classList.toggle('on',S.settings.contrast);
+  document.getElementById('toggle-contrast').setAttribute('aria-checked',S.settings.contrast);
+}
+function saveSettings() {
+  localStorage.setItem('lm_sound',  S.settings.sound);
+  localStorage.setItem('lm_motion', S.settings.motion);
+  localStorage.setItem('lm_hc',     S.settings.contrast);
+}
+
+// ── Keyboard ──────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  if(S.screen!=='game') return;
+  const {cursor:{r,c},gsize:n,grid}=S;
+  switch(e.key) {
+    case 'ArrowUp':    e.preventDefault(); if(r>0)   { S.cursor.r--; markCursor(); } break;
+    case 'ArrowDown':  e.preventDefault(); if(r<n-1) { S.cursor.r++; markCursor(); } break;
+    case 'ArrowLeft':  e.preventDefault(); if(c>0)   { S.cursor.c--; markCursor(); } break;
+    case 'ArrowRight': e.preventDefault(); if(c<n-1) { S.cursor.c++; markCursor(); } break;
+    case 'Enter':
+    case ' ':
+      e.preventDefault();
+      if(grid[S.cursor.r][S.cursor.c].t==='mirror') toggleMirror(S.cursor.r,S.cursor.c);
+      break;
+  }
+});
+
+// ── Event wiring ──────────────────────────────────────
+// Menu
+document.getElementById('btn-start').addEventListener('click',()=>{
+  S.level=1; S.moves=0;
+  showScreen('game');
+  startLevel(1);
+});
+document.getElementById('btn-trophy').addEventListener('click',()=>{
+  document.getElementById('best-level-display').textContent=S.best;
+  S.settingsFrom='menu';
+  showScreen('best');
+});
+document.getElementById('btn-gear-menu').addEventListener('click',()=>{
+  S.settingsFrom='menu'; applyUI(); showScreen('settings');
+});
+
+// Game
+document.getElementById('btn-gear-game').addEventListener('click',()=>{
+  S.settingsFrom='game'; applyUI(); showScreen('settings');
+});
+document.getElementById('btn-home-game').addEventListener('click',()=>{
+  showScreen('menu');
+});
+
+// Best
+document.getElementById('btn-home-best').addEventListener('click',()=>{
+  showScreen(S.settingsFrom==='game'?'game':'menu');
+});
+
+// Settings
+document.getElementById('btn-home-settings').addEventListener('click',()=>{
+  showScreen(S.settingsFrom);
+  if(S.settingsFrom==='game') renderLaser();
+});
+document.getElementById('toggle-sound').addEventListener('click',()=>{
+  S.settings.sound=!S.settings.sound; saveSettings(); applyUI();
+});
+document.getElementById('toggle-motion').addEventListener('click',()=>{
+  S.settings.motion=!S.settings.motion; saveSettings(); applyUI();
+  if(S.screen==='game') renderLaser();
+});
+document.getElementById('toggle-contrast').addEventListener('click',()=>{
+  S.settings.contrast=!S.settings.contrast; saveSettings(); applyUI();
+  if(S.screen==='game') renderLaser();
+});
+document.getElementById('btn-reset-best').addEventListener('click',()=>{
+  const btn=document.getElementById('btn-reset-best');
+  if(S.confirmReset) {
+    S.best=0; localStorage.setItem('lm_best','0');
+    btn.textContent='Reset'; btn.classList.remove('confirming');
+    S.confirmReset=false;
+  } else {
+    btn.textContent='✓ Confirm'; btn.classList.add('confirming');
+    S.confirmReset=true;
+    setTimeout(()=>{
+      if(S.confirmReset){ btn.textContent='Reset'; btn.classList.remove('confirming'); S.confirmReset=false; }
+    },3000);
+  }
+});
+
+// Resize
+window.addEventListener('resize',()=>{ if(S.screen==='game'&&S.grid) renderBoard(); });
+
+// ── Init ──────────────────────────────────────────────
+applyUI();
+</script>
+</body>
+</html>

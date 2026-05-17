@@ -1,0 +1,1502 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Laser Mirror Puzzle</title>
+    <style>
+      :root{
+  --bg0:#070a14;
+  --bg1:#0a1030;
+  --card:rgba(255,255,255,.06);
+  --card2:rgba(255,255,255,.08);
+  --fg:#eaf1ff;
+  --muted:rgba(234,241,255,.7);
+  --laserA:#ff2bd6;
+  --laserB:#33e1ff;
+  --outline:rgba(255,255,255,.18);
+  --cell:56px;
+}
+
+html,body{height:100%;}
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  background: radial-gradient(1200px 800px at 20% 10%, #1b2a6b 0%, var(--bg0) 45%), radial-gradient(900px 700px at 90% 30%, #3a1360 0%, var(--bg0) 55%);
+  color:var(--fg);
+  overflow:hidden;
+}
+
+.hc{
+  --outline:rgba(255,255,255,.35);
+}
+
+#app{height:100%;}
+
+.screen{
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  padding:18px 18px 22px;
+  box-sizing:border-box;
+  gap:14px;
+}
+
+.topBar{
+  width:min(560px, 100%);
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.spacer{flex:1;}
+
+.menuCenter{
+  margin-top:22px;
+  width:min(560px, 100%);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:18px;
+}
+.logo{width:min(440px, 100%);}
+.logo svg{width:100%; height:auto; display:block;}
+
+.primaryBtn{
+  appearance:none;
+  border:1px solid rgba(255,255,255,.14);
+  background: linear-gradient(135deg, rgba(255,255,255,.16), rgba(255,255,255,.07));
+  color:var(--fg);
+  padding:14px 18px;
+  border-radius:14px;
+  font-size:20px;
+  font-weight:750;
+  letter-spacing:.2px;
+  cursor:pointer;
+  box-shadow: 0 14px 40px rgba(0,0,0,.35);
+}
+.primaryBtn:focus-visible{
+  outline:3px solid rgba(51,225,255,.55);
+  outline-offset:3px;
+}
+.primaryBtn.small{
+  font-size:16px;
+  padding:10px 14px;
+  border-radius:12px;
+}
+
+.iconBtn{
+  width:44px;
+  height:44px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.06);
+  color:var(--fg);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.iconBtn.big{width:58px; height:58px; border-radius:18px;}
+.iconBtn:focus-visible{outline:3px solid rgba(255,43,214,.5); outline-offset:3px;}
+.iconBtn.danger{border-color:rgba(255,85,85,.25); background:rgba(255,85,85,.08);}
+
+.icon svg{width:24px; height:24px; display:block;}
+.iconBtn.big .icon svg{width:28px; height:28px;}
+.bestIcon svg{width:76px; height:76px;}
+
+.bestCenter{
+  margin-top:72px;
+  width:min(560px, 100%);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:22px;
+}
+.bigNumber{
+  font-size:72px;
+  font-weight:850;
+  letter-spacing:1px;
+  line-height:1;
+  text-shadow: 0 24px 50px rgba(0,0,0,.45);
+}
+
+.hud{
+  width:min(560px, 100%);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:6px;
+}
+.hudLeft{
+  font-size:26px;
+  font-weight:800;
+  color:var(--fg);
+}
+.hudRight{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:26px;
+  font-weight:800;
+}
+.icon.star svg{width:22px; height:22px;}
+
+.boardWrap{
+  position:relative;
+  width:fit-content;
+  max-width:min(560px, 100%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:8px;
+  border-radius:22px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow: 0 22px 60px rgba(0,0,0,.38);
+}
+
+.board{
+  display:grid;
+  grid-template-columns: repeat(var(--n), var(--cell));
+  grid-template-rows: repeat(var(--n), var(--cell));
+  gap:8px;
+}
+
+.cell{
+  appearance:none;
+  border:1px solid var(--outline);
+  background: rgba(255,255,255,.035);
+  border-radius:14px;
+  color:var(--fg);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  transition: transform .06s ease, background .12s ease, border-color .12s ease;
+}
+.cell:focus-visible{outline:3px solid rgba(51,225,255,.6); outline-offset:3px;}
+.cell:hover{background: rgba(255,255,255,.055);}
+.cell:active{transform: translateY(1px) scale(.99);}
+
+.cell.empty{cursor:default;}
+.cell.blocker{background: rgba(255,255,255,.02);}
+.cell.emitter{background: rgba(255,255,255,.04);}
+.cell.mirror{background: rgba(255,255,255,.04);}
+.cell.target{background: rgba(255,255,255,.03);}
+
+.cell svg{width:26px; height:26px;}
+
+.cell.laser{
+  border-color: rgba(255,255,255,.24);
+}
+.hc .cell.laser{
+  border-color: rgba(255,255,255,.40);
+}
+
+.cell.target.lit{
+  border-color: rgba(51,225,255,.35);
+  background: rgba(51,225,255,.08);
+}
+.hc .cell.target.lit{
+  border-color: rgba(51,225,255,.65);
+}
+
+.cell.target.lit svg{
+  filter: drop-shadow(0 8px 18px rgba(51,225,255,.26));
+}
+
+.cell.pulse{
+  animation: pulse .5s ease-out 1;
+}
+@keyframes pulse{
+  0%{transform:scale(1);}
+  45%{transform:scale(1.05);}
+  100%{transform:scale(1);}
+}
+
+.laserSvg{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+.laserPath{
+  fill:none;
+  stroke: url(#lg);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
+}
+.hc .laserPath{stroke-width:6;}
+
+.laserSvg{
+  overflow:visible;
+}
+
+.laserSvg defs{display:none;}
+.laserSvg .laserPath{
+  stroke: linear-gradient(90deg, var(--laserA), var(--laserB));
+}
+
+/* Gradient stroke for browsers that support it via CSS is spotty; use an SVG gradient. */
+.laserSvg{
+  --dummy: 0;
+}
+.laserSvg path{
+  stroke: url(#laserGradient);
+}
+.laserSvg{
+  contain: paint;
+}
+.laserSvg::before{content:""; display:none;}
+.laserSvg{
+  /* Insert gradient via innerHTML in JS? We'll do it in HTML template. */
+}
+
+.laserPath.anim{
+  animation: draw .26s ease-out forwards;
+}
+@keyframes draw{to{stroke-dashoffset:0;}}
+
+.footer{
+  width:min(560px, 100%);
+  display:flex;
+  justify-content:space-between;
+  margin-top:6px;
+}
+
+.overlay{
+  position:fixed;
+  inset:0;
+  background: rgba(0,0,0,.55);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  box-sizing:border-box;
+}
+.panel{
+  width:min(560px, 100%);
+  background: rgba(12,18,44,.82);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:22px;
+  padding:16px;
+  box-shadow: 0 30px 90px rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.settingsRow{
+  display:flex;
+  gap:12px;
+  align-items:center;
+}
+.confirmRow{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  justify-content:flex-start;
+}
+
+.newBest{
+  position:absolute;
+  top:18px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:10px 14px;
+  border-radius:999px;
+  background: rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.14);
+  font-weight:850;
+  letter-spacing:.2px;
+  backdrop-filter: blur(10px);
+}
+
+@media (max-width: 520px){
+  :root{--cell:50px;}
+  .board{gap:7px;}
+}
+@media (max-width: 420px){
+  :root{--cell:44px;}
+  .board{gap:6px;}
+  .primaryBtn{font-size:18px;}
+  .hudLeft,.hudRight{font-size:24px;}
+}
+
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <!-- Gradient definition used for the laser stroke -->
+    <svg width="0" height="0" style="position:absolute">
+      <defs>
+        <linearGradient id="laserGradient" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#ff2bd6" />
+          <stop offset="1" stop-color="#33e1ff" />
+        </linearGradient>
+      </defs>
+    </svg>
+
+    <script>
+      /* eslint-disable no-var */
+(function (root, factory) {
+  if (typeof module === "object" && typeof module.exports === "object") {
+    module.exports = factory();
+  } else {
+    root.LaserCore = factory();
+  }
+})(typeof globalThis !== "undefined" ? globalThis : window, function () {
+  "use strict";
+
+  /** @typedef {"up"|"right"|"down"|"left"} DirName */
+  /** @typedef {0|1|2|3} Dir */
+  const DIR = /** @type {const} */ ({
+    up: 0,
+    right: 1,
+    down: 2,
+    left: 3
+  });
+
+  const DIRS = /** @type {const} */ ([
+    { name: "up", dr: -1, dc: 0 },
+    { name: "right", dr: 0, dc: 1 },
+    { name: "down", dr: 1, dc: 0 },
+    { name: "left", dr: 0, dc: -1 }
+  ]);
+
+  /** @param {number} n */
+  function clampInt(n, min, max) {
+    return Math.max(min, Math.min(max, Math.trunc(n)));
+  }
+
+  /** Mulberry32 RNG */
+  function makeRng(seed) {
+    var t = seed >>> 0;
+    return function rand() {
+      t += 0x6d2b79f5;
+      var x = Math.imul(t ^ (t >>> 15), 1 | t);
+      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /**
+   * @param {Dir} dir
+   * @param {"slash"|"backslash"} mirror
+   * @returns {Dir}
+   */
+  function reflectDir(dir, mirror) {
+    // Spec:
+    // Slash: up->right, right->up, down->left, left->down
+    // Backslash: up->left, left->up, down->right, right->down
+    if (mirror === "slash") {
+      if (dir === DIR.up) return DIR.right;
+      if (dir === DIR.right) return DIR.up;
+      if (dir === DIR.down) return DIR.left;
+      return DIR.down;
+    }
+    // backslash
+    if (dir === DIR.up) return DIR.left;
+    if (dir === DIR.left) return DIR.up;
+    if (dir === DIR.down) return DIR.right;
+    return DIR.down;
+  }
+
+  /**
+   * @typedef {{
+   *  type: "empty" | "emitter" | "target" | "blocker" | "mirror",
+   *  mirrorType?: "slash"|"backslash",
+   *  targetLit?: boolean,
+   * }} Tile
+   */
+
+  /**
+   * @typedef {{
+   *  level: number,
+   *  gridSize: number,
+   *  tiles: Tile[][],
+   *  emitter: { r: number, c: number, dir: Dir },
+   *  targets: { r: number, c: number }[],
+   *  seed: number,
+   *  solutionMirrors: { r: number, c: number, mirrorType: "slash"|"backslash" }[]
+   * }} GeneratedLevel
+   */
+
+  /**
+   * @param {number} level
+   * @returns {{gridSize:number,targetCount:number,blockerCount:number,mirrorCount:number}}
+   */
+  function levelCounts(level) {
+    var gridSize = Math.min(10, 5 + Math.floor((level - 1) / 2));
+    var targetCount = Math.min(4, 1 + Math.floor((level - 1) / 3));
+    var blockerCount = Math.min(10, level - 1);
+    var mirrorCount = Math.min(14, 4 + level);
+    return { gridSize, targetCount, blockerCount, mirrorCount };
+  }
+
+  function makeEmptyTiles(n) {
+    /** @type {Tile[][]} */
+    var tiles = Array.from({ length: n }, function () {
+      return Array.from({ length: n }, function () {
+        return { type: "empty" };
+      });
+    });
+    return tiles;
+  }
+
+  /**
+   * @param {number} n
+   * @param {() => number} rand
+   * @param {number} excludeMin
+   * @param {number} excludeMax
+   */
+  function randomInt(rand, n) {
+    return clampInt(Math.floor(rand() * n), 0, n - 1);
+  }
+
+  function keyOf(r, c) {
+    return r + "," + c;
+  }
+
+  /**
+   * Generates a board with at least one solution by constructing a monotonic laser path
+   * (always moving right between turns) and placing targets along that solution path.
+   *
+   * @param {number} level
+   * @param {{seed?: number}} [opts]
+   * @returns {GeneratedLevel}
+   */
+  function generateLevel(level, opts) {
+    opts = opts || {};
+    var counts = levelCounts(level);
+    var n = counts.gridSize;
+
+    var seed =
+      typeof opts.seed === "number"
+        ? opts.seed >>> 0
+        : ((Math.random() * 2 ** 32) >>> 0);
+    var rand = makeRng(seed);
+
+    var tiles = makeEmptyTiles(n);
+
+    var top = 1;
+    var bottom = n - 2;
+    var emitterRow = randomInt(rand, bottom - top + 1) + top;
+    tiles[emitterRow][0] = { type: "emitter" };
+
+    /** @type {Set<string>} */
+    var reserved = new Set();
+    reserved.add(keyOf(emitterRow, 0));
+
+    // Choose number of vertical segments (pairs). Each pair needs 2 mirrors.
+    var maxPairsByWidth = Math.max(1, Math.floor((n - 3) / 2)); // n=5 =>1, n=7=>2, n=9=>3
+    var desiredPairs = Math.max(1, Math.floor((level + 1) / 2)); // 1,1,2,2,3...
+    var pairs = Math.min(3, maxPairsByWidth, desiredPairs);
+    var neededSolutionMirrors = 2 * pairs;
+    if (neededSolutionMirrors > counts.mirrorCount) {
+      pairs = Math.floor(counts.mirrorCount / 2);
+    }
+    pairs = Math.max(1, pairs);
+
+    /** @type {{r:number,c:number,mirrorType:"slash"|"backslash"}[]} */
+    var solutionMirrors = [];
+
+    /** @type {{r:number,c:number}[]} */
+    var pathCells = [];
+
+    function reserveCell(r, c) {
+      reserved.add(keyOf(r, c));
+      pathCells.push({ r: r, c: c });
+    }
+
+    var row = emitterRow;
+    var col = 0;
+    var firstTurnCol = null;
+
+    // Decide vertical endpoints to keep within bounds and avoid zero-length segments.
+    var firstEnd = row <= (top + bottom) / 2 ? bottom : top;
+    if (firstEnd === row) firstEnd = firstEnd === top ? bottom : top;
+
+    for (var i = 1; i <= pairs; i++) {
+      var turnCol = 1 + 2 * i;
+      if (turnCol > n - 2) break;
+      if (firstTurnCol === null) firstTurnCol = turnCol;
+
+
+      // Horizontal to turnCol
+      for (var c = col + 1; c <= turnCol; c++) reserveCell(row, c);
+
+      var endRow = i % 2 === 1 ? firstEnd : (firstEnd === top ? bottom : top);
+      if (endRow === row) endRow = endRow === top ? bottom : top;
+      var verticalDir = endRow > row ? DIR.down : DIR.up;
+
+      // Mirror at (row, turnCol) to turn RIGHT->UP/DOWN
+      var m1 = verticalDir === DIR.up ? "slash" : "backslash";
+      solutionMirrors.push({ r: row, c: turnCol, mirrorType: m1 });
+
+      // Vertical segment to endRow (inclusive)
+      var step = endRow > row ? 1 : -1;
+      for (var rr = row + step; rr !== endRow + step; rr += step) reserveCell(rr, turnCol);
+
+      // Mirror at (endRow, turnCol) to turn UP/DOWN->RIGHT
+      var m2 = verticalDir === DIR.up ? "slash" : "backslash";
+      solutionMirrors.push({ r: endRow, c: turnCol, mirrorType: m2 });
+
+      row = endRow;
+      col = turnCol;
+    }
+
+    // Final horizontal to right edge.
+    for (var c2 = col + 1; c2 <= n - 1; c2++) reserveCell(row, c2);
+
+    // Place mirrors for the solution.
+    for (var sm of solutionMirrors) {
+      tiles[sm.r][sm.c] = { type: "mirror", mirrorType: sm.mirrorType };
+    }
+
+    // Candidate cells for targets: on the solution path but not on mirrors.
+    var mirrorKeys = new Set(solutionMirrors.map(function (m) { return keyOf(m.r, m.c); }));
+    var candidates = pathCells.filter(function (p) {
+      var k = keyOf(p.r, p.c);
+      if (mirrorKeys.has(k)) return false;
+      if (p.c === 0) return false;
+      // Avoid placing targets on the initial straight segment before the first turn.
+      // Targets there can be lit regardless of mirror orientation, which can make
+      // early levels start already solved.
+      if (firstTurnCol !== null && p.r === emitterRow && p.c < firstTurnCol) return false;
+      return true;
+    });
+
+    // In the unlikely case path is too short (very small boards), fallback to placing
+    // targets along the first row segment.
+    if (candidates.length < counts.targetCount) {
+      candidates = [];
+      for (var cc = 1; cc < n; cc++) {
+        var k2 = keyOf(emitterRow, cc);
+        if (!mirrorKeys.has(k2)) candidates.push({ r: emitterRow, c: cc });
+      }
+    }
+
+    /** @type {{r:number,c:number}[]} */
+    var targets = [];
+    var used = new Set();
+    for (var t = 0; t < counts.targetCount; t++) {
+      var picked = null;
+      for (var tries = 0; tries < 200; tries++) {
+        var p = candidates[randomInt(rand, candidates.length)];
+        var k = keyOf(p.r, p.c);
+        if (used.has(k)) continue;
+        picked = p;
+        used.add(k);
+        break;
+      }
+      if (!picked) break;
+      targets.push({ r: picked.r, c: picked.c });
+      tiles[picked.r][picked.c] = { type: "target", targetLit: false };
+      reserved.add(keyOf(picked.r, picked.c));
+    }
+
+    // Place blockers not on reserved path/tiles.
+    var blockerCount = counts.blockerCount;
+    for (var b = 0; b < blockerCount; b++) {
+      var placed = false;
+      for (var tries2 = 0; tries2 < 500 && !placed; tries2++) {
+        var rr2 = randomInt(rand, n);
+        var cc2 = randomInt(rand, n);
+        var k3 = keyOf(rr2, cc2);
+        if (reserved.has(k3)) continue;
+        if (tiles[rr2][cc2].type !== "empty") continue;
+        tiles[rr2][cc2] = { type: "blocker" };
+        reserved.add(k3);
+        placed = true;
+      }
+    }
+
+    // Add remaining mirrors off the solution path to avoid accidental interference.
+    var totalMirrorsNeeded = counts.mirrorCount;
+    var extraMirrors = Math.max(0, totalMirrorsNeeded - solutionMirrors.length);
+    for (var m = 0; m < extraMirrors; m++) {
+      var placed2 = false;
+      for (var tries3 = 0; tries3 < 500 && !placed2; tries3++) {
+        var rr3 = randomInt(rand, n);
+        var cc3 = randomInt(rand, n);
+        var k4 = keyOf(rr3, cc3);
+        if (reserved.has(k4)) continue;
+        if (tiles[rr3][cc3].type !== "empty") continue;
+        tiles[rr3][cc3] = { type: "mirror", mirrorType: rand() < 0.5 ? "slash" : "backslash" };
+        reserved.add(k4);
+        placed2 = true;
+      }
+    }
+
+    // Randomize initial state for solution mirrors so it's not auto-solved.
+    for (var s = 0; s < solutionMirrors.length; s++) {
+      var pos = solutionMirrors[s];
+      if (rand() < 0.6) {
+        tiles[pos.r][pos.c].mirrorType =
+          tiles[pos.r][pos.c].mirrorType === "slash" ? "backslash" : "slash";
+      }
+    }
+
+    // Ensure not already solved; if it is, flip solution mirrors until it isn't.
+    var check = traceLaser({
+      gridSize: n,
+      tiles: tiles,
+      emitter: { r: emitterRow, c: 0, dir: DIR.right },
+      targets: targets
+    });
+    if (check.allTargetsLit && solutionMirrors.length > 0) {
+      for (var fi = 0; fi < solutionMirrors.length; fi++) {
+        var flip = solutionMirrors[fi];
+        tiles[flip.r][flip.c].mirrorType =
+          tiles[flip.r][flip.c].mirrorType === "slash" ? "backslash" : "slash";
+        check = traceLaser({
+          gridSize: n,
+          tiles: tiles,
+          emitter: { r: emitterRow, c: 0, dir: DIR.right },
+          targets: targets
+        });
+        if (!check.allTargetsLit) break;
+      }
+    }
+
+    return {
+      level: level,
+      gridSize: n,
+      tiles: tiles,
+      emitter: { r: emitterRow, c: 0, dir: DIR.right },
+      targets: targets,
+      seed: seed,
+      solutionMirrors: solutionMirrors
+    };
+  }
+
+  /**
+   * @typedef {{
+   *  gridSize: number,
+   *  tiles: Tile[][],
+   *  emitter: { r: number, c: number, dir: Dir },
+   *  targets?: { r: number, c: number }[]
+   * }} TraceInput
+   */
+
+  /**
+   * @typedef {{
+   *  points: { r:number, c:number }[],
+   *  entered: Set<string>,
+   *  litTargets: Set<string>,
+   *  allTargetsLit: boolean,
+   *  stopReason: "out" | "blocker" | "loop",
+   * }} TraceResult
+   */
+
+  /** @param {TraceInput} input */
+  function traceLaser(input) {
+    var n = input.gridSize;
+    var tiles = input.tiles;
+    var targets = input.targets || [];
+
+    /** @type {{r:number,c:number}[]} */
+    var points = [];
+    /** @type {Set<string>} */
+    var entered = new Set(); // cell-direction keys: r,c,dir
+    /** @type {Set<string>} */
+    var litTargets = new Set();
+
+    // Reset target lit state in tiles (in-place).
+    for (var t = 0; t < targets.length; t++) {
+      var trg = targets[t];
+      var tile = tiles[trg.r][trg.c];
+      if (tile && tile.type === "target") tile.targetLit = false;
+    }
+
+    var r = input.emitter.r;
+    var c = input.emitter.c;
+    var dir = input.emitter.dir;
+
+    // Include emitter as the starting visual origin.
+    points.push({ r: r, c: c });
+
+    /** @type {"out"|"blocker"|"loop"} */
+    var stopReason = "out";
+
+    while (true) {
+      var step = DIRS[dir];
+      var nr = r + step.dr;
+      var nc = c + step.dc;
+
+      if (nr < 0 || nr >= n || nc < 0 || nc >= n) {
+        stopReason = "out";
+        break;
+      }
+
+      var stateKey = nr + "," + nc + "," + dir;
+      if (entered.has(stateKey)) {
+        stopReason = "loop";
+        break;
+      }
+      entered.add(stateKey);
+
+      points.push({ r: nr, c: nc });
+      var tile2 = tiles[nr][nc];
+
+      if (tile2.type === "blocker") {
+        stopReason = "blocker";
+        break;
+      }
+
+      if (tile2.type === "target") {
+        tile2.targetLit = true;
+        litTargets.add(keyOf(nr, nc));
+        // Pass through.
+      } else if (tile2.type === "mirror") {
+        dir = reflectDir(dir, tile2.mirrorType || "slash");
+      } else {
+        // empty/emitter: pass through (emitter won't be re-entered in our generated levels).
+      }
+
+      r = nr;
+      c = nc;
+    }
+
+    var allTargetsLit = true;
+    for (var i = 0; i < targets.length; i++) {
+      var k = keyOf(targets[i].r, targets[i].c);
+      if (!litTargets.has(k)) {
+        allTargetsLit = false;
+        break;
+      }
+    }
+
+    return {
+      points: points,
+      entered: entered,
+      litTargets: litTargets,
+      allTargetsLit: allTargetsLit,
+      stopReason: stopReason
+    };
+  }
+
+  return {
+    DIR: DIR,
+    DIRS: DIRS,
+    levelCounts: levelCounts,
+    makeRng: makeRng,
+    reflectDir: reflectDir,
+    generateLevel: generateLevel,
+    traceLaser: traceLaser
+  };
+});
+
+
+/* global LaserCore */
+(function () {
+  "use strict";
+
+  var core = LaserCore;
+
+  var STORAGE_KEYS = {
+    best: "laser.bestLevel",
+    sound: "laser.soundOn",
+    motion: "laser.motionOn",
+    contrast: "laser.highContrast"
+  };
+
+  function loadBool(key, fallback) {
+    try {
+      var v = localStorage.getItem(key);
+      if (v === null) return fallback;
+      return v === "1";
+    } catch {
+      return fallback;
+    }
+  }
+  function saveBool(key, v) {
+    try {
+      localStorage.setItem(key, v ? "1" : "0");
+    } catch {}
+  }
+  function loadInt(key, fallback) {
+    try {
+      var v = localStorage.getItem(key);
+      if (v === null) return fallback;
+      var n = Number(v);
+      return Number.isFinite(n) ? Math.trunc(n) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+  function saveInt(key, v) {
+    try {
+      localStorage.setItem(key, String(Math.trunc(v)));
+    } catch {}
+  }
+
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    if (attrs) {
+      for (var k in attrs) {
+        if (k === "class") node.className = attrs[k];
+        else if (k === "text") node.textContent = attrs[k];
+        else if (k === "html") node.innerHTML = attrs[k];
+        else if (k.startsWith("on") && typeof attrs[k] === "function") {
+          node.addEventListener(k.slice(2), attrs[k]);
+        } else node.setAttribute(k, attrs[k]);
+      }
+    }
+    if (children) children.forEach(function (c) { node.appendChild(c); });
+    return node;
+  }
+
+  function iconSvg(name) {
+    // Minimal icon set. All icons are purely visual; accessible name comes from aria-label on button.
+    if (name === "gear") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 1 0 12 8.5Zm9 3.5-.9.5.1 1.1-1.8 3.2-1.1-.3-.8.8.3 1.1-3.2 1.8-1.1-.1-.5.9H9.4l-.5-.9-1.1.1-3.2-1.8.3-1.1-.8-.8-1.1.3-1.8-3.2.1-1.1L3 12l-.5-.9.5-2.6.9-.5-.1-1.1 1.8-3.2 1.1.3.8-.8-.3-1.1 3.2-1.8 1.1.1.5-.9h3.2l.5.9 1.1-.1 3.2 1.8-.3 1.1.8.8 1.1-.3 1.8 3.2-.1 1.1.9.5.5 2.6-.5.9Z" fill="currentColor"/></svg>'
+      );
+    }
+    if (name === "trophy") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v2h2v3a5 5 0 0 1-5 5h-1a5 5 0 0 1-4 0H8A5 5 0 0 1 3 8V5h2V3Zm-2 4v1a3 3 0 0 0 3 3h.2A7 7 0 0 1 7 7H5Zm14 0h-2a7 7 0 0 1-1.2 4H16a3 3 0 0 0 3-3V7ZM9 17h6v2H9v-2Zm-2 4h10v2H7v-2Z" fill="currentColor"/></svg>'
+      );
+    }
+    if (name === "house") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 10v11h6v-7h6v7h6V10l-9-7Z" fill="currentColor"/></svg>'
+      );
+    }
+    if (name === "star") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.2 6.6 7.3 1.1-5.3 5.1 1.3 7.2L12 18.6 5.5 22l1.3-7.2L1.5 9.7l7.3-1.1L12 2Z" fill="currentColor"/></svg>'
+      );
+    }
+    if (name === "speaker") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6h4l5 4V5L9 9H5Zm12.5 3a4.5 4.5 0 0 0-2.1-3.8v7.6a4.5 4.5 0 0 0 2.1-3.8Z" fill="currentColor"/></svg>'
+      );
+    }
+    if (name === "speakerOff") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6h4l5 4V5L9 9H5Zm14.2-3.2 1.4 1.4L6.8 21 5.4 19.6 19.2 5.8Z" fill="currentColor"/></svg>'
+      );
+    }
+    if (name === "motion") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM9 20l1.5-6.2-2.2 2.2L6 13.7l4.2-4.2c.8-.8 2-.9 3-.4l2.8 1.4 2 2.5-1.6 1.2-1.6-2-1.8-.9-.7 2.8 3.1 2.2V20h-2v-1.7l-2.9-2-1.1 3.7H9Z" fill="currentColor"/></svg>'
+      );
+    }
+    if (name === "contrast") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20V2Zm0 2v16a8 8 0 0 1 0-16Z" fill="currentColor"/></svg>'
+      );
+    }
+    if (name === "trash") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v10h-2V9Zm4 0h2v10h-2V9ZM6 9h2v10H6V9Z" fill="currentColor"/></svg>'
+      );
+    }
+    if (name === "check") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 16.6 4.9 12.3l1.4-1.4 2.9 2.9 8.5-8.5 1.4 1.4-9.9 9.9Z" fill="currentColor"/></svg>'
+      );
+    }
+    if (name === "x") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12-1.4 1.4L4.6 7.4 6 6Zm12 0 1.4 1.4-12 12L6 18l12-12Z" fill="currentColor"/></svg>'
+      );
+    }
+    // Laser mirror logo
+    if (name === "logo") {
+      return (
+        '<svg viewBox="0 0 320 120" aria-hidden="true">' +
+        '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0">' +
+        '<stop offset="0" stop-color="#ff2bd6"/><stop offset="1" stop-color="#33e1ff"/>' +
+        "</linearGradient></defs>" +
+        '<rect x="0" y="0" width="320" height="120" rx="22" fill="rgba(255,255,255,.04)"/>' +
+        '<path d="M52 60h170" stroke="url(#g)" stroke-width="6" stroke-linecap="round"/>' +
+        '<path d="M222 40l26 20-26 20" fill="none" stroke="url(#g)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<path d="M120 32l20 56" stroke="#e9f0ff" stroke-opacity=".85" stroke-width="6" stroke-linecap="round"/>' +
+        '<path d="M115 40h40" stroke="#e9f0ff" stroke-opacity=".2" stroke-width="20" stroke-linecap="round"/>' +
+        "</svg>"
+      );
+    }
+    return "";
+  }
+
+  function makeBeep() {
+    var ctx = null;
+    function ensure() {
+      if (ctx) return ctx;
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      return ctx;
+    }
+    function play(freq, dur) {
+      try {
+        var c = ensure();
+        var o = c.createOscillator();
+        var g = c.createGain();
+        o.type = "sine";
+        o.frequency.value = freq;
+        g.gain.value = 0.06;
+        o.connect(g);
+        g.connect(c.destination);
+        o.start();
+        o.stop(c.currentTime + dur);
+      } catch {}
+    }
+    return { play: play };
+  }
+
+  var beep = makeBeep();
+
+  var state = {
+    screen: "menu", // menu | game | best
+    level: 1,
+    best: loadInt(STORAGE_KEYS.best, 0),
+    moveCount: 0,
+    gen: null,
+    trace: null,
+    focused: { r: 0, c: 0 },
+    soundOn: loadBool(STORAGE_KEYS.sound, true),
+    motionOn: loadBool(STORAGE_KEYS.motion, true),
+    highContrast: loadBool(STORAGE_KEYS.contrast, false),
+    showSettings: false,
+    confirmReset: false,
+    showNewBest: false,
+    hasPlayed: false
+  };
+
+  function applyContrast() {
+    document.documentElement.classList.toggle("hc", !!state.highContrast);
+  }
+
+  function startLevel(level) {
+    state.level = level;
+    state.moveCount = 0;
+    state.gen = core.generateLevel(level, {});
+    state.trace = core.traceLaser(state.gen);
+    state.screen = "game";
+    state.showSettings = false;
+    state.confirmReset = false;
+    state.hasPlayed = true;
+    state.focused = { r: state.gen.emitter.r, c: 1 };
+    render();
+    focusCell();
+    checkCompletion(false);
+  }
+
+  function focusCell() {
+    var btn = document.querySelector('[data-cell="' + state.focused.r + "," + state.focused.c + '"]');
+    if (btn) btn.focus();
+  }
+
+  function toggleMirror(r, c) {
+    var tile = state.gen.tiles[r][c];
+    if (!tile || tile.type !== "mirror") return;
+    tile.mirrorType = tile.mirrorType === "slash" ? "backslash" : "slash";
+    state.moveCount += 1;
+
+    // HUD is outside the board, so update it without a full re-render.
+    var hudLeft = document.querySelector(".hudLeft");
+    if (hudLeft) hudLeft.textContent = String(state.moveCount);
+
+    if (state.soundOn) beep.play(620, 0.05);
+    state.trace = core.traceLaser(state.gen);
+    renderBoardOnly();
+    checkCompletion(true);
+  }
+
+  var completionLock = false;
+  function checkCompletion(allowAdvance) {
+    if (!allowAdvance) return;
+    if (completionLock) return;
+    if (!state.trace || !state.trace.allTargetsLit) return;
+
+    completionLock = true;
+    animateTargetsOnce();
+    if (state.soundOn) beep.play(880, 0.09);
+
+    setTimeout(function () {
+      var next = state.level + 1;
+      var bestBefore = state.best;
+      if (next > bestBefore) {
+        state.best = next;
+        saveInt(STORAGE_KEYS.best, state.best);
+        state.showNewBest = true;
+        setTimeout(function () {
+          state.showNewBest = false;
+          render();
+        }, 900);
+      }
+      completionLock = false;
+      startLevel(next);
+    }, 520);
+  }
+
+  function animateTargetsOnce() {
+    var cells = document.querySelectorAll(".cell.target.lit");
+    cells.forEach(function (c) {
+      c.classList.remove("pulse");
+      // Force reflow.
+      void c.offsetWidth;
+      c.classList.add("pulse");
+    });
+  }
+
+  function setScreen(screen) {
+    state.screen = screen;
+    state.showSettings = false;
+    state.confirmReset = false;
+    render();
+  }
+
+  function openSettings() {
+    state.showSettings = true;
+    state.confirmReset = false;
+    render();
+  }
+  function closeSettings() {
+    state.showSettings = false;
+    state.confirmReset = false;
+    render();
+  }
+
+  function resetBest() {
+    state.best = 0;
+    saveInt(STORAGE_KEYS.best, 0);
+  }
+
+  function renderBoardOnly() {
+    var board = document.querySelector("#board");
+    if (!board) return;
+    board.replaceWith(renderBoard());
+    renderLaser();
+  }
+
+  function renderLaser() {
+    var svg = document.querySelector("#laserSvg");
+    if (!svg) return;
+
+    var boardWrap = document.querySelector(".boardWrap");
+    var board = document.querySelector("#board");
+    if (!boardWrap || !board) return;
+
+    var wrapRect = boardWrap.getBoundingClientRect();
+    svg.setAttribute("viewBox", "0 0 " + wrapRect.width + " " + wrapRect.height);
+
+    function centerOfCell(r, c) {
+      var cell = document.querySelector('[data-cell="' + r + "," + c + '"]');
+      if (!cell) return { x: 0, y: 0 };
+      var rect = cell.getBoundingClientRect();
+      return {
+        x: rect.left - wrapRect.left + rect.width / 2,
+        y: rect.top - wrapRect.top + rect.height / 2
+      };
+    }
+
+    var pts = state.trace.points.map(function (p) {
+      return centerOfCell(p.r, p.c);
+    });
+    var d = "";
+    for (var i = 0; i < pts.length; i++) {
+      d += (i === 0 ? "M" : "L") + pts[i].x.toFixed(2) + " " + pts[i].y.toFixed(2) + " ";
+    }
+
+    var path = svg.querySelector("path");
+    path.setAttribute("d", d.trim());
+
+    if (!state.motionOn) {
+      path.classList.remove("anim");
+      path.style.strokeDasharray = "none";
+      path.style.strokeDashoffset = "0";
+      return;
+    }
+
+    // Animate draw using stroke-dash.
+    if (!path || typeof path.getTotalLength !== "function") return;
+
+    var length = path.getTotalLength();
+    path.style.strokeDasharray = String(length);
+    path.style.strokeDashoffset = String(length);
+    path.classList.remove("anim");
+    void path.getBoundingClientRect();
+    path.classList.add("anim");
+  }
+
+  function renderBoard() {
+    var n = state.gen.gridSize;
+    var grid = el("div", { id: "board", class: "board", role: "grid", "aria-rowcount": String(n), "aria-colcount": String(n) });
+    grid.style.setProperty("--n", String(n));
+
+    var laserEntered = state.trace.entered;
+    var lit = state.trace.litTargets;
+
+    for (var r = 0; r < n; r++) {
+      for (var c = 0; c < n; c++) {
+        var tile = state.gen.tiles[r][c];
+        var isMirror = tile.type === "mirror";
+        var isTarget = tile.type === "target";
+        var isBlock = tile.type === "blocker";
+        var isEmitter = tile.type === "emitter";
+        var mirrorType = tile.mirrorType;
+
+        var laserPresent = false;
+        // Laser presence: if we ever entered this cell from any direction.
+        // (entered keys are r,c,dir; check any dir)
+        if (laserEntered) {
+          for (var d = 0; d < 4; d++) {
+            if (laserEntered.has(r + "," + c + "," + d)) {
+              laserPresent = true;
+              break;
+            }
+          }
+        }
+
+        var targetLit = isTarget && lit.has(r + "," + c);
+
+        var classes = ["cell"];
+        classes.push(tile.type);
+        if (isMirror) classes.push(mirrorType === "slash" ? "slash" : "backslash");
+        if (laserPresent) classes.push("laser");
+        if (targetLit) classes.push("lit");
+
+        var labelParts = [];
+        labelParts.push("Row " + (r + 1));
+        labelParts.push("Column " + (c + 1));
+        if (tile.type === "mirror") labelParts.push("Mirror " + (mirrorType === "slash" ? "Slash" : "Backslash"));
+        else labelParts.push(tile.type[0].toUpperCase() + tile.type.slice(1));
+        labelParts.push(laserPresent ? "Laser On" : "Laser Off");
+        if (isTarget) labelParts.push(targetLit ? "Target Lit" : "Target Unlit");
+
+        var btn = el("button", {
+          class: classes.join(" "),
+          type: "button",
+          role: "gridcell",
+          "aria-label": labelParts.join(". "),
+          "data-cell": r + "," + c,
+          tabindex: r === state.focused.r && c === state.focused.c ? "0" : "-1",
+          onclick: (function (rr, cc, canToggle) {
+            return function () {
+              state.focused = { r: rr, c: cc };
+              if (canToggle) {
+                toggleMirror(rr, cc);
+              } else {
+                renderBoardOnly();
+              }
+              focusCell();
+            };
+          })(r, c, isMirror)
+        });
+
+        // Visual content
+        btn.innerHTML = renderCellSvg(tile, targetLit);
+
+        grid.appendChild(btn);
+      }
+    }
+    return grid;
+  }
+
+  function renderCellSvg(tile, targetLit) {
+    if (tile.type === "emitter") {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h8l6 6-6 6H4V6Zm8 3v6l3-3-3-3Z" fill="currentColor" opacity=".9"/></svg>';
+    }
+    if (tile.type === "blocker") {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" opacity=".75"/></svg>';
+    }
+    if (tile.type === "target") {
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+        '<circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2" opacity=".8"/>' +
+        (targetLit ? '<circle cx="12" cy="12" r="3.5" fill="currentColor" opacity=".95"/>' : "") +
+        "</svg>"
+      );
+    }
+    if (tile.type === "mirror") {
+      var slash = tile.mirrorType === "slash";
+      return (
+        '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path d="' +
+        (slash ? "M7 17 17 7" : "M7 7 17 17") +
+        '" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".95"/>' +
+        "</svg>"
+      );
+    }
+    return "";
+  }
+
+  function render() {
+    applyContrast();
+    var root = document.querySelector("#app");
+    root.innerHTML = "";
+
+    if (state.screen === "menu") root.appendChild(renderMenu());
+    if (state.screen === "best") root.appendChild(renderBest());
+    if (state.screen === "game") root.appendChild(renderGame());
+  }
+
+  function renderMenu() {
+    var wrap = el("div", { class: "screen" });
+
+    var top = el("div", { class: "topBar" }, [
+      el("button", {
+        class: "iconBtn",
+        type: "button",
+        "aria-label": "Best",
+        onclick: function () { setScreen("best"); }
+      }, [el("span", { class: "icon", html: iconSvg("trophy") })]),
+      el("div", { class: "spacer" }),
+      el("button", {
+        class: "iconBtn",
+        type: "button",
+        "aria-label": "Settings",
+        onclick: openSettings
+      }, [el("span", { class: "icon", html: iconSvg("gear") })])
+    ]);
+
+    var logo = el("div", { class: "logo", html: iconSvg("logo") });
+    var startText = state.hasPlayed ? "Play Again" : "Start Game";
+    var startBtn = el("button", {
+      class: "primaryBtn",
+      type: "button",
+      text: startText,
+      onclick: function () { startLevel(1); }
+    });
+
+    wrap.appendChild(top);
+    wrap.appendChild(el("div", { class: "menuCenter" }, [logo, startBtn]));
+
+    if (state.showSettings) wrap.appendChild(renderSettingsOverlay());
+    return wrap;
+  }
+
+  function renderBest() {
+    var wrap = el("div", { class: "screen" });
+    wrap.appendChild(el("div", { class: "bestCenter" }, [
+      el("div", { class: "bestIcon", html: iconSvg("trophy") }),
+      el("div", { class: "bigNumber", text: String(state.best) }),
+      el("button", {
+        class: "iconBtn big",
+        type: "button",
+        "aria-label": "Menu",
+        onclick: function () { setScreen("menu"); }
+      }, [el("span", { class: "icon", html: iconSvg("house") })])
+    ]));
+    if (state.showSettings) wrap.appendChild(renderSettingsOverlay());
+    return wrap;
+  }
+
+  function renderGame() {
+    var wrap = el("div", { class: "screen" });
+
+    var header = el("div", { class: "hud" }, [
+      el("div", { class: "hudLeft", text: String(state.moveCount) }),
+      el("div", { class: "hudRight" }, [
+        el("span", { class: "icon star", html: iconSvg("star") }),
+        el("span", { class: "levelNum", text: String(state.level) })
+      ])
+    ]);
+
+    var boardWrap = el("div", { class: "boardWrap" });
+    var svgOverlay = el("svg", { id: "laserSvg", class: "laserSvg", width: "100%", height: "100%", viewBox: "0 0 1 1", preserveAspectRatio: "none" });
+
+    // Create SVG path with the proper namespace (innerHTML on <svg> can create HTML elements).
+    var NS = "http://www.w3.org/2000/svg";
+    var laserPath = document.createElementNS(NS, "path");
+    laserPath.setAttribute("d", "");
+    laserPath.setAttribute("class", "laserPath");
+    svgOverlay.appendChild(laserPath);
+
+    boardWrap.appendChild(renderBoard());
+    boardWrap.appendChild(svgOverlay);
+
+    var footer = el("div", { class: "footer" }, [
+      el("button", {
+        class: "iconBtn",
+        type: "button",
+        "aria-label": "Settings",
+        onclick: openSettings
+      }, [el("span", { class: "icon", html: iconSvg("gear") })]),
+      el("button", {
+        class: "iconBtn",
+        type: "button",
+        "aria-label": "Menu",
+        onclick: function () { setScreen("menu"); }
+      }, [el("span", { class: "icon", html: iconSvg("house") })])
+    ]);
+
+    wrap.appendChild(header);
+    wrap.appendChild(boardWrap);
+    wrap.appendChild(footer);
+
+    if (state.showNewBest) wrap.appendChild(el("div", { class: "newBest", text: "New Best" }));
+
+    if (state.showSettings) wrap.appendChild(renderSettingsOverlay());
+
+    // After insertion, compute correct viewBox for laser overlay and draw.
+    requestAnimationFrame(function () {
+      renderLaser();
+    });
+
+    return wrap;
+  }
+
+  function renderSettingsOverlay() {
+    var overlay = el("div", { class: "overlay", role: "dialog", "aria-modal": "true", "aria-label": "Settings" });
+    var panel = el("div", { class: "panel" });
+
+    function toggleSound() {
+      state.soundOn = !state.soundOn;
+      saveBool(STORAGE_KEYS.sound, state.soundOn);
+      render();
+    }
+    function toggleMotion() {
+      state.motionOn = !state.motionOn;
+      saveBool(STORAGE_KEYS.motion, state.motionOn);
+      render();
+    }
+    function toggleContrast() {
+      state.highContrast = !state.highContrast;
+      saveBool(STORAGE_KEYS.contrast, state.highContrast);
+      applyContrast();
+      render();
+    }
+
+    var row1 = el("div", { class: "settingsRow" }, [
+      el("button", {
+        class: "iconBtn big",
+        type: "button",
+        "aria-label": "Sound",
+        onclick: toggleSound
+      }, [el("span", { class: "icon", html: iconSvg(state.soundOn ? "speaker" : "speakerOff") })]),
+      el("button", {
+        class: "iconBtn big",
+        type: "button",
+        "aria-label": "Motion",
+        onclick: toggleMotion
+      }, [el("span", { class: "icon", html: iconSvg("motion") })]),
+      el("button", {
+        class: "iconBtn big",
+        type: "button",
+        "aria-label": "High contrast",
+        onclick: toggleContrast
+      }, [el("span", { class: "icon", html: iconSvg("contrast") })])
+    ]);
+
+    var row2 = el("div", { class: "settingsRow" }, [
+      el("button", {
+        class: "iconBtn big danger",
+        type: "button",
+        "aria-label": "Reset best",
+        onclick: function () {
+          state.confirmReset = !state.confirmReset;
+          render();
+        }
+      }, [el("span", { class: "icon", html: iconSvg("trash") })]),
+      el("div", { class: "spacer" }),
+      el("button", {
+        class: "primaryBtn small",
+        type: "button",
+        text: "Menu",
+        onclick: function () {
+          closeSettings();
+          setScreen("menu");
+        }
+      })
+    ]);
+
+    panel.appendChild(row1);
+    panel.appendChild(row2);
+
+    if (state.confirmReset) {
+      var confirm = el("div", { class: "confirmRow" }, [
+        el("button", {
+          class: "iconBtn big danger",
+          type: "button",
+          "aria-label": "Confirm reset best",
+          onclick: function () {
+            resetBest();
+            state.confirmReset = false;
+            render();
+          }
+        }, [el("span", { class: "icon", html: iconSvg("check") })]),
+        el("button", {
+          class: "iconBtn big",
+          type: "button",
+          "aria-label": "Cancel reset best",
+          onclick: function () {
+            state.confirmReset = false;
+            render();
+          }
+        }, [el("span", { class: "icon", html: iconSvg("x") })])
+      ]);
+      panel.appendChild(confirm);
+    }
+
+    overlay.appendChild(panel);
+    overlay.addEventListener("pointerdown", function (e) {
+      if (e.target === overlay) closeSettings();
+    });
+    return overlay;
+  }
+
+  function handleKey(e) {
+    if (state.screen !== "game") return;
+    if (state.showSettings) return;
+
+    var n = state.gen.gridSize;
+    var r = state.focused.r;
+    var c = state.focused.c;
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      state.focused.r = Math.max(0, r - 1);
+      renderBoardOnly();
+      focusCell();
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      state.focused.r = Math.min(n - 1, r + 1);
+      renderBoardOnly();
+      focusCell();
+      return;
+    }
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      state.focused.c = Math.max(0, c - 1);
+      renderBoardOnly();
+      focusCell();
+      return;
+    }
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      state.focused.c = Math.min(n - 1, c + 1);
+      renderBoardOnly();
+      focusCell();
+      return;
+    }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleMirror(state.focused.r, state.focused.c);
+      return;
+    }
+  }
+
+  function init() {
+    document.addEventListener("keydown", handleKey);
+    applyContrast();
+    render();
+  }
+
+  init();
+})();
+
+    </script>
+  </body>
+</html>

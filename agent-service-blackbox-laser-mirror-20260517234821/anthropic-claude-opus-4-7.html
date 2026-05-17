@@ -1,0 +1,1169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Laser Mirror</title>
+<style>
+  :root {
+    --bg-0: #05070d;
+    --bg-1: #0b1020;
+    --bg-2: #131a30;
+    --grid: #1a2240;
+    --grid-line: #283360;
+    --ink: #e9eefc;
+    --ink-dim: #8794c1;
+    --accent: #7cf;
+    --beam: #ff3860;
+    --beam-glow: #ff5d7d;
+    --target: #ffd24a;
+    --target-lit: #b6ff5a;
+    --mirror: #cfe1ff;
+    --blocker: #38415c;
+    --emitter: #ff3860;
+    --good: #58d68d;
+    --danger: #ff6a78;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: radial-gradient(1200px 800px at 50% -20%, #1a2350 0%, var(--bg-0) 60%) fixed;
+    color: var(--ink);
+    font-family: ui-rounded, -apple-system, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    user-select: none;
+    touch-action: manipulation;
+  }
+  button { font-family: inherit; color: inherit; }
+  .root {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity .35s ease, transform .35s ease;
+    padding: 24px;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; transform: scale(.98); }
+  .corner {
+    position: absolute;
+    top: max(18px, env(safe-area-inset-top));
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    display: grid; place-items: center;
+    cursor: pointer;
+    transition: background .15s, transform .15s, border-color .15s;
+  }
+  .corner:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
+  .corner:active { transform: scale(.94); }
+  .corner.left { left: max(18px, env(safe-area-inset-left)); }
+  .corner.right { right: max(18px, env(safe-area-inset-right)); }
+  .corner svg { width: 24px; height: 24px; }
+
+  /* Title screen */
+  .logo {
+    width: min(72vw, 320px);
+    aspect-ratio: 1.6 / 1;
+    display: grid; place-items: center;
+    margin-bottom: 32px;
+    filter: drop-shadow(0 12px 40px rgba(255,56,96,0.25));
+  }
+  .logo svg { width: 100%; height: 100%; }
+  h1.title {
+    font-size: clamp(34px, 7vw, 56px);
+    margin: 0 0 28px;
+    letter-spacing: 0.06em;
+    font-weight: 800;
+    background: linear-gradient(180deg, #fff 0%, #b8c3ee 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 4px 30px rgba(124, 200, 255, 0.18);
+    display: none; /* spec restricts visible words */
+  }
+  .primary-btn {
+    appearance: none; border: none;
+    font-size: clamp(20px, 4vw, 24px);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #08111f;
+    background: linear-gradient(180deg, #b6ff5a 0%, #5fd66a 100%);
+    padding: 16px 36px;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(110, 220, 120, 0.35), inset 0 -3px 0 rgba(0,0,0,0.15);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .primary-btn:hover { transform: translateY(-1px); }
+  .primary-btn:active { transform: translateY(1px); box-shadow: 0 6px 16px rgba(110, 220, 120, 0.3), inset 0 -1px 0 rgba(0,0,0,0.15); }
+  .primary-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+  /* Game screen */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    width: var(--board-w);
+    margin-bottom: 14px;
+    padding: 0 4px;
+  }
+  #screen-game { --board-w: min(92vmin, 720px, calc(100vh - 200px)); }
+  .move-count {
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(22px, 4vw, 28px);
+    font-weight: 700;
+    color: var(--ink);
+    min-width: 64px;
+  }
+  .level-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 999px;
+    font-size: clamp(18px, 3.4vw, 22px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .level-pill svg { width: 20px; height: 20px; }
+  .board-wrap {
+    position: relative;
+    width: var(--board-w);
+    aspect-ratio: 1/1;
+    border-radius: 18px;
+    background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+    padding: 10px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.05);
+  }
+  .board {
+    position: relative;
+    width: 100%; height: 100%;
+    display: grid;
+    gap: 2px;
+    background: var(--grid-line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .cell {
+    position: relative;
+    background: var(--grid);
+    display: grid; place-items: center;
+    cursor: default;
+    transition: background .15s;
+  }
+  .cell.mirror { cursor: pointer; }
+  .cell.focused { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 2; }
+  .cell.mirror:hover { background: #1f2a52; }
+  .cell svg { width: 78%; height: 78%; pointer-events: none; }
+  .laser-svg {
+    position: absolute; inset: 10px;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .beam {
+    fill: none;
+    stroke: var(--beam);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 6px var(--beam-glow)) drop-shadow(0 0 12px rgba(255,56,96,0.6));
+    opacity: 0;
+  }
+  body.contrast .beam { stroke-width: 7; }
+  body.contrast .cell { outline: 1px solid rgba(255,255,255,0.18); outline-offset: -1px; }
+  .bottombar {
+    display: flex; align-items: center; justify-content: center;
+    gap: 22px;
+    margin-top: 18px;
+  }
+  .icon-btn {
+    width: 54px; height: 54px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    display: grid; place-items: center;
+    cursor: pointer;
+    transition: background .15s, transform .12s, border-color .15s;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.15); }
+  .icon-btn:active { transform: scale(.94); }
+  .icon-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .icon-btn svg { width: 26px; height: 26px; }
+
+  /* Modal */
+  .modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    display: grid; place-items: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s;
+    z-index: 10;
+  }
+  .modal-bg.show { opacity: 1; pointer-events: auto; }
+  .modal {
+    background: linear-gradient(180deg, #161e3a 0%, #0d1330 100%);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 22px;
+    padding: 22px 22px 18px;
+    width: min(86vw, 380px);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    transform: scale(.96);
+    transition: transform .2s;
+  }
+  .modal-bg.show .modal { transform: scale(1); }
+  .modal h2 {
+    margin: 0 0 14px; font-size: 22px; font-weight: 700; letter-spacing: 0.04em;
+    text-align: center; color: var(--ink-dim);
+    display: none; /* spec restricts visible words */
+  }
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 8px;
+    border-radius: 12px;
+  }
+  .row + .row { border-top: 1px solid rgba(255,255,255,0.06); }
+  .row svg.lead { width: 28px; height: 28px; }
+  .toggle {
+    --w: 48px; --h: 28px;
+    width: var(--w); height: var(--h);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.1);
+    border: none; padding: 0;
+    position: relative; cursor: pointer;
+    transition: background .2s;
+  }
+  .toggle::after {
+    content: ""; position: absolute;
+    top: 3px; left: 3px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #fff;
+    transition: transform .2s, background .2s;
+  }
+  .toggle[aria-pressed="true"] { background: var(--good); }
+  .toggle[aria-pressed="true"]::after { transform: translateX(20px); }
+  .danger {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+    width: 44px; height: 44px; border-radius: 12px;
+    display: grid; place-items: center; cursor: pointer;
+    transition: background .15s;
+  }
+  .danger:hover { background: rgba(255,106,120,0.2); border-color: rgba(255,106,120,0.4); }
+  .danger svg { width: 22px; height: 22px; }
+  .confirm-bar {
+    display: flex; justify-content: flex-end; gap: 10px;
+  }
+  .confirm-bar .icon-btn { width: 44px; height: 44px; border-radius: 12px; }
+
+  /* Best screen */
+  .best-num {
+    font-size: clamp(80px, 22vw, 160px);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    background: linear-gradient(180deg, #ffe69a 0%, #ffb43a 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 8px 30px rgba(255,180,58,0.3));
+    margin: 12px 0 28px;
+  }
+  .new-best {
+    font-size: 18px; font-weight: 700; letter-spacing: 0.18em;
+    color: var(--target-lit);
+    margin-top: 14px;
+    opacity: 0; transition: opacity .3s;
+  }
+  .new-best.show { opacity: 1; }
+
+  /* Animations */
+  @keyframes pulse-target {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.25); filter: drop-shadow(0 0 18px var(--target-lit)); }
+    100% { transform: scale(1); }
+  }
+  .cell.target svg.t-shape { transition: transform .15s, filter .15s; }
+  .cell.lit svg.t-shape { animation: pulse-target .55s ease; filter: drop-shadow(0 0 12px var(--target-lit)); }
+  body.no-motion .beam { transition: none !important; animation: none !important; }
+  body.no-motion .cell.lit svg.t-shape { animation: none; }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .level-anim { animation: fade-in .25s ease; }
+
+  /* sr-only */
+  .sr {
+    position: absolute; width: 1px; height: 1px;
+    margin: -1px; padding: 0; overflow: hidden;
+    clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+</style>
+</head>
+<body>
+<div class="root">
+
+  <!-- ============== TITLE SCREEN ============== -->
+  <section id="screen-title" class="screen" aria-label="Title">
+    <button class="corner left" id="btn-best-from-title" aria-label="Best">
+      <!-- trophy -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="#ffd24a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v3a3 3 0 0 1-3 3M7 5H4v3a3 3 0 0 0 3 3"/></svg>
+    </button>
+    <button class="corner right" id="btn-settings-from-title" aria-label="Settings">
+      <!-- gear -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 320 200">
+        <defs>
+          <linearGradient id="beamG" x1="0" x2="1">
+            <stop offset="0" stop-color="#ff3860"/>
+            <stop offset="1" stop-color="#ff8aa0"/>
+          </linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="3"/></filter>
+        </defs>
+        <!-- emitter -->
+        <rect x="20" y="80" width="40" height="40" rx="8" fill="#ff3860"/>
+        <circle cx="50" cy="100" r="6" fill="#fff"/>
+        <!-- beam path: right, hits mirror, goes up & right (reflected) -->
+        <g filter="url(#glow)">
+          <path d="M60 100 H 180 L 240 40" stroke="url(#beamG)" stroke-width="6" fill="none" stroke-linecap="round"/>
+        </g>
+        <path d="M60 100 H 180 L 240 40" stroke="#ffd6df" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <!-- mirror (slash) at 180,100 -->
+        <g transform="translate(180 100) rotate(-45)">
+          <rect x="-26" y="-3" width="52" height="6" rx="3" fill="#cfe1ff"/>
+          <rect x="-26" y="-3" width="52" height="2" rx="1" fill="#fff"/>
+        </g>
+        <!-- target top-right -->
+        <g transform="translate(245 35)">
+          <circle r="14" fill="#b6ff5a"/>
+          <circle r="6" fill="#0b1020"/>
+        </g>
+      </svg>
+    </div>
+    <button class="primary-btn" id="btn-start">Start Game</button>
+  </section>
+
+  <!-- ============== GAME SCREEN ============== -->
+  <section id="screen-game" class="screen hidden" aria-label="Game">
+    <div class="topbar">
+      <div class="move-count" id="move-count" aria-label="Moves">0</div>
+      <div class="level-pill" aria-label="Level">
+        <!-- star -->
+        <svg viewBox="0 0 24 24" fill="#ffd24a"><path d="M12 2l2.9 6.9L22 10l-5.5 4.8L18.2 22 12 18.3 5.8 22l1.7-7.2L2 10l7.1-1.1L12 2z"/></svg>
+        <span id="level-num">1</span>
+      </div>
+    </div>
+    <div class="board-wrap">
+      <div id="board" class="board" role="grid" aria-label="Laser puzzle board"></div>
+      <svg id="laser" class="laser-svg" aria-hidden="true"></svg>
+    </div>
+    <div class="bottombar">
+      <button class="icon-btn" id="btn-settings-from-game" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-home-from-game" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============== BEST SCREEN ============== -->
+  <section id="screen-best" class="screen hidden" aria-label="Best">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#ffd24a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:80px;height:80px">
+      <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z"/>
+      <path d="M17 5h3v3a3 3 0 0 1-3 3M7 5H4v3a3 3 0 0 0 3 3"/>
+    </svg>
+    <div class="best-num" id="best-num">0</div>
+    <button class="icon-btn" id="btn-home-from-best" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/></svg>
+    </button>
+  </section>
+
+  <!-- ============== COMPLETE OVERLAY ============== -->
+  <div class="modal-bg" id="overlay-complete">
+    <div class="modal" style="text-align:center">
+      <div style="font-size:64px;line-height:1;margin:8px 0 14px">
+        <svg viewBox="0 0 24 24" fill="#b6ff5a" style="width:80px;height:80px"><path d="M12 2l2.9 6.9L22 10l-5.5 4.8L18.2 22 12 18.3 5.8 22l1.7-7.2L2 10l7.1-1.1L12 2z"/></svg>
+      </div>
+      <div id="new-best-popup" class="new-best" style="margin:6px 0 14px;text-align:center">New Best</div>
+      <button class="primary-btn" id="btn-play-again">Play Again</button>
+    </div>
+  </div>
+
+  <!-- ============== SETTINGS MODAL ============== -->
+  <div class="modal-bg" id="overlay-settings">
+    <div class="modal">
+      <div class="row" aria-label="Sound">
+        <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        <button class="toggle" id="t-sound" aria-label="Sound" aria-pressed="true"></button>
+      </div>
+      <div class="row" aria-label="Motion">
+        <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+        <button class="toggle" id="t-motion" aria-label="Motion" aria-pressed="true"></button>
+      </div>
+      <div class="row" aria-label="High contrast">
+        <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor"/></svg>
+        <button class="toggle" id="t-contrast" aria-label="High contrast" aria-pressed="false"></button>
+      </div>
+      <div class="row" aria-label="Reset best">
+        <button class="danger" id="btn-trash" aria-label="Reset best">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#ff6a78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+        <div id="confirm-reset" class="confirm-bar" style="display:none">
+          <button class="icon-btn" id="btn-reset-yes" aria-label="Confirm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#b6ff5a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
+          <button class="icon-btn" id="btn-reset-no" aria-label="Cancel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ff6a78" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="row" aria-label="Close">
+        <span></span>
+        <button class="icon-btn" id="btn-settings-close" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+
+/* =========================
+   Constants & State
+   ========================= */
+const TILE = { EMPTY:0, EMITTER:1, TARGET:2, BLOCKER:3, SLASH:4, BACKSLASH:5 };
+const DIR = { UP:0, RIGHT:1, DOWN:2, LEFT:3 };
+const DVEC = [ [-1,0], [0,1], [1,0], [0,-1] ]; // up,right,down,left
+
+const STORAGE = {
+  best: "lmp_best",
+  sound: "lmp_sound",
+  motion: "lmp_motion",
+  contrast: "lmp_contrast",
+};
+
+const state = {
+  level: 1,
+  best: 0,
+  moves: 0,
+  grid: [],           // 2D array of cell objects {type, orient?, lit?}
+  size: 5,
+  emitter: {r:0, c:0, dir:DIR.RIGHT},
+  cursor: {r:0, c:0},
+  laserSegments: [],  // for drawing
+  litTargets: 0,
+  totalTargets: 0,
+  sound: true,
+  motion: true,
+  contrast: false,
+  audioCtx: null,
+  pendingResetConfirm: false,
+};
+
+/* =========================
+   Persistence
+   ========================= */
+function loadPrefs() {
+  state.best = parseInt(localStorage.getItem(STORAGE.best) || "0", 10) || 0;
+  const s = localStorage.getItem(STORAGE.sound);    state.sound    = s === null ? true  : s === "1";
+  const m = localStorage.getItem(STORAGE.motion);   state.motion   = m === null ? true  : m === "1";
+  const c = localStorage.getItem(STORAGE.contrast); state.contrast = c === null ? false : c === "1";
+}
+function savePref(key, val) { localStorage.setItem(key, val ? "1" : "0"); }
+
+/* =========================
+   Level formulas
+   ========================= */
+function levelParams(level) {
+  return {
+    gridSize: Math.min(10, 5 + Math.floor((level - 1) / 2)),
+    targetCount: Math.min(4, 1 + Math.floor((level - 1) / 3)),
+    blockerCount: Math.min(10, level - 1),
+    mirrorCount: Math.min(14, 4 + level),
+  };
+}
+
+/* =========================
+   Generator
+   - Creates a guaranteed-solvable level:
+     1. Plan a laser path: emitter → mirrors → targets.
+     2. Place mirrors with CORRECT orientation along path.
+     3. Mark every cell the laser traverses as "used".
+     4. Fill remaining mirrors / blockers on UNUSED cells.
+     5. Randomize all mirror orientations for the player.
+   ========================= */
+function randInt(n) { return Math.floor(Math.random() * n); }
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randInt(i+1);
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+// Determine mirror orientation given an incoming direction and outgoing direction.
+function orientFromTurn(dIn, dOut) {
+  // slash '/': UP↔RIGHT, DOWN↔LEFT
+  // backslash '\\': UP↔LEFT, DOWN↔RIGHT
+  const pair = (a,b)=>(dIn===a&&dOut===b)||(dIn===b&&dOut===a);
+  if (pair(DIR.UP, DIR.RIGHT) || pair(DIR.DOWN, DIR.LEFT)) return TILE.SLASH;
+  if (pair(DIR.UP, DIR.LEFT)  || pair(DIR.DOWN, DIR.RIGHT)) return TILE.BACKSLASH;
+  return null; // invalid (e.g. straight or 180°)
+}
+function inBounds(r,c,n) { return r>=0 && c>=0 && r<n && c<n; }
+
+function tryGenerate(level) {
+  const p = levelParams(level);
+  const n = p.gridSize;
+
+  // Start with empty grid markers (null = empty, can be used). 'used' tracks laser-traversed cells.
+  // We need to:
+  //   - place emitter at (er, 0)
+  //   - simulate a chosen path
+
+  const emitterRow = randInt(n);
+  const grid = Array.from({length:n}, ()=> Array.from({length:n}, ()=> ({type:TILE.EMPTY, orient:null})));
+  grid[emitterRow][0] = {type:TILE.EMITTER, orient:null};
+  const used = new Set();
+  const key = (r,c)=>`${r},${c}`;
+  used.add(key(emitterRow, 0));
+
+  // Path planning
+  let r = emitterRow, c = 0;
+  let dir = DIR.RIGHT;
+  let targetsLeft = p.targetCount;
+  let mirrorsLeft = p.mirrorCount;
+  const placedMirrors = []; // {r,c,orient}
+  const targets = []; // {r,c}
+
+  const MAX_TRIES = 200;
+
+  while (targetsLeft > 0) {
+    // determine max forward steps
+    const [dr, dc] = DVEC[dir];
+    let maxSteps = 0;
+    for (let s = 1; s < n*2; s++) {
+      const nr = r + dr*s, nc = c + dc*s;
+      if (!inBounds(nr,nc,n)) break;
+      if (used.has(key(nr,nc))) break;
+      maxSteps = s;
+    }
+    if (maxSteps < 1) return null; // dead end
+
+    // last target: place after some travel
+    const isLastTarget = targetsLeft === 1;
+    // decide step count and action
+    // If we still need more targets and have mirrors, sometimes turn before target.
+    let action; // 'target' | 'mirror'
+    if (mirrorsLeft <= 0) action = 'target';
+    else if (isLastTarget) action = (Math.random() < 0.6) ? 'mirror' : 'target';
+    else action = (Math.random() < 0.7) ? 'mirror' : 'target';
+
+    // pick steps
+    let steps = 1 + randInt(maxSteps);
+
+    if (action === 'mirror') {
+      // we need to ensure that after placing a mirror, we can turn and have room ≥ 1 in some perpendicular direction.
+      // Find a step k in [1..maxSteps] and a perpendicular dir with room ≥ 1.
+      let chosen = null;
+      const stepOrder = shuffle(Array.from({length:maxSteps}, (_,i)=>i+1));
+      const perp = (dir===DIR.RIGHT||dir===DIR.LEFT) ? [DIR.UP, DIR.DOWN] : [DIR.LEFT, DIR.RIGHT];
+      shuffle(perp);
+      outer:
+      for (const k of stepOrder) {
+        const mr = r + dr*k, mc = c + dc*k;
+        for (const nd of perp) {
+          const [ndr, ndc] = DVEC[nd];
+          const tr = mr + ndr, tc = mc + ndc;
+          if (inBounds(tr,tc,n) && !used.has(key(tr,tc))) {
+            chosen = {k, mr, mc, nd};
+            break outer;
+          }
+        }
+      }
+      if (!chosen) {
+        // fall back to target
+        action = 'target';
+      } else {
+        // mark traversal cells r,c (already used) → cells up to mr,mc
+        for (let s = 1; s <= chosen.k; s++) {
+          const tr = r + dr*s, tc = c + dc*s;
+          used.add(key(tr,tc));
+        }
+        const orient = orientFromTurn(dir, chosen.nd);
+        grid[chosen.mr][chosen.mc] = {type:orient, orient:orient}; // store correct orient
+        placedMirrors.push({r:chosen.mr, c:chosen.mc, orient});
+        mirrorsLeft--;
+        r = chosen.mr; c = chosen.mc;
+        dir = chosen.nd;
+        continue;
+      }
+    }
+
+    if (action === 'target') {
+      // mark traversal up to chosen step, place target at end
+      for (let s = 1; s <= steps; s++) {
+        const tr = r + dr*s, tc = c + dc*s;
+        used.add(key(tr,tc));
+      }
+      const tr = r + dr*steps, tc = c + dc*steps;
+      // ensure cell is currently empty marker (not emitter etc.)
+      if (grid[tr][tc].type !== TILE.EMPTY) return null;
+      grid[tr][tc] = {type:TILE.TARGET, orient:null};
+      targets.push({r:tr, c:tc});
+      targetsLeft--;
+      r = tr; c = tc;
+      // direction unchanged (laser passes through target)
+    }
+  }
+
+  // Place remaining mirrors and blockers on UNUSED cells
+  const emptyCells = [];
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    if (!used.has(key(i,j)) && grid[i][j].type === TILE.EMPTY) emptyCells.push({r:i,c:j});
+  }
+  shuffle(emptyCells);
+
+  // blockers
+  for (let i = 0; i < p.blockerCount; i++) {
+    if (!emptyCells.length) break;
+    const {r:br, c:bc} = emptyCells.pop();
+    grid[br][bc] = {type:TILE.BLOCKER, orient:null};
+  }
+  // extra mirrors with random orientation (off-path: orientation irrelevant to solvability)
+  const extraMirrors = p.mirrorCount - placedMirrors.length;
+  for (let i = 0; i < extraMirrors; i++) {
+    if (!emptyCells.length) break;
+    const {r:mr, c:mc} = emptyCells.pop();
+    const o = Math.random() < 0.5 ? TILE.SLASH : TILE.BACKSLASH;
+    grid[mr][mc] = {type:o, orient:o};
+  }
+
+  // Randomize orientation of ALL mirrors (player must solve).
+  // Important: at least 1 mirror should differ from solution OR puzzle is trivial — but spec doesn't require non-triviality.
+  // We still randomize uniformly for variety.
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const cell = grid[i][j];
+    if (cell.type === TILE.SLASH || cell.type === TILE.BACKSLASH) {
+      cell.type = Math.random() < 0.5 ? TILE.SLASH : TILE.BACKSLASH;
+    }
+  }
+
+  return {
+    grid,
+    size: n,
+    emitter: {r: emitterRow, c: 0, dir: DIR.RIGHT},
+    totalTargets: p.targetCount,
+  };
+}
+
+function generateLevel(level) {
+  for (let i = 0; i < 50; i++) {
+    const L = tryGenerate(level);
+    if (L) return L;
+  }
+  // fallback minimal level
+  const n = Math.min(10, 5 + Math.floor((level - 1) / 2));
+  const grid = Array.from({length:n}, ()=> Array.from({length:n}, ()=> ({type:TILE.EMPTY, orient:null})));
+  grid[0][0] = {type:TILE.EMITTER, orient:null};
+  grid[0][n-1] = {type:TILE.TARGET, orient:null};
+  return { grid, size:n, emitter:{r:0,c:0,dir:DIR.RIGHT}, totalTargets:1 };
+}
+
+/* =========================
+   Laser tracing
+   ========================= */
+function traceLaser() {
+  const { grid, size, emitter } = state;
+  // reset lit
+  for (let i=0;i<size;i++) for (let j=0;j<size;j++) {
+    if (grid[i][j].type === TILE.TARGET) grid[i][j].lit = false;
+  }
+  const segments = []; // list of points (r,c)
+  let path = [{r: emitter.r, c: emitter.c}];
+  let dir = emitter.dir;
+  let r = emitter.r, c = emitter.c;
+  const visitedDirs = new Set(); // (r,c,dir)
+  let lit = 0;
+  // step
+  while (true) {
+    const k = `${r},${c},${dir}`;
+    if (visitedDirs.has(k)) break;
+    visitedDirs.add(k);
+    const [dr, dc] = DVEC[dir];
+    const nr = r + dr, nc = c + dc;
+    if (!inBounds(nr,nc,size)) {
+      // leaves board: extend half cell visually
+      path.push({r: nr, c: nc, edge: true});
+      break;
+    }
+    const cell = grid[nr][nc];
+    if (cell.type === TILE.BLOCKER) {
+      // beam goes into blocker cell visually then stops
+      path.push({r: nr, c: nc, half: true, dir});
+      break;
+    }
+    path.push({r: nr, c: nc});
+    if (cell.type === TILE.TARGET) {
+      if (!cell.lit) { cell.lit = true; lit++; }
+      r = nr; c = nc;
+      continue;
+    }
+    if (cell.type === TILE.SLASH) {
+      // up↔right, down↔left
+      const map = {[DIR.UP]:DIR.RIGHT, [DIR.RIGHT]:DIR.UP, [DIR.DOWN]:DIR.LEFT, [DIR.LEFT]:DIR.DOWN};
+      dir = map[dir];
+      r = nr; c = nc;
+      continue;
+    }
+    if (cell.type === TILE.BACKSLASH) {
+      const map = {[DIR.UP]:DIR.LEFT, [DIR.LEFT]:DIR.UP, [DIR.DOWN]:DIR.RIGHT, [DIR.RIGHT]:DIR.DOWN};
+      dir = map[dir];
+      r = nr; c = nc;
+      continue;
+    }
+    // EMPTY (or EMITTER — shouldn't happen mid-flight)
+    r = nr; c = nc;
+  }
+  state.laserSegments = path;
+  state.litTargets = lit;
+  return lit;
+}
+
+/* =========================
+   Rendering
+   ========================= */
+const $board = document.getElementById('board');
+const $laser = document.getElementById('laser');
+const $moveCount = document.getElementById('move-count');
+const $levelNum = document.getElementById('level-num');
+const $bestNum = document.getElementById('best-num');
+
+function buildBoard() {
+  const n = state.size;
+  $board.innerHTML = '';
+  $board.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+  $board.style.gridTemplateRows = `repeat(${n}, 1fr)`;
+  for (let r=0;r<n;r++) for (let c=0;c<n;c++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.dataset.r = r; cell.dataset.c = c;
+    cell.setAttribute('role','gridcell');
+    cell.tabIndex = -1;
+    cell.addEventListener('click', onCellClick);
+    $board.appendChild(cell);
+  }
+  paintBoard();
+}
+
+function paintBoard() {
+  const n = state.size;
+  const cells = $board.children;
+  for (let r=0;r<n;r++) for (let c=0;c<n;c++) {
+    const cell = cells[r*n+c];
+    const data = state.grid[r][c];
+    const isMirror = data.type === TILE.SLASH || data.type === TILE.BACKSLASH;
+    const isTarget = data.type === TILE.TARGET;
+    cell.classList.toggle('mirror', isMirror);
+    cell.classList.toggle('target', isTarget);
+    cell.classList.toggle('lit', !!data.lit);
+    cell.innerHTML = svgForTile(data);
+    cell.setAttribute('aria-label', ariaForCell(r,c,data));
+    cell.setAttribute('aria-rowindex', r+1);
+    cell.setAttribute('aria-colindex', c+1);
+    cell.classList.toggle('focused', state.cursor.r===r && state.cursor.c===c);
+  }
+}
+
+function ariaForCell(r,c,data) {
+  const parts = [`row ${r+1}`, `column ${c+1}`];
+  switch (data.type) {
+    case TILE.EMITTER: parts.push('emitter'); break;
+    case TILE.TARGET: parts.push('target', data.lit ? 'lit' : 'unlit'); break;
+    case TILE.BLOCKER: parts.push('blocker'); break;
+    case TILE.SLASH: parts.push('mirror', 'slash'); break;
+    case TILE.BACKSLASH: parts.push('mirror', 'backslash'); break;
+    default: parts.push('empty');
+  }
+  // laser presence
+  if (isLaserOnCell(r,c)) parts.push('laser');
+  return parts.join(', ');
+}
+
+function isLaserOnCell(r,c) {
+  for (const p of state.laserSegments) if (p.r===r && p.c===c && !p.edge) return true;
+  return false;
+}
+
+function svgForTile(data) {
+  switch (data.type) {
+    case TILE.EMITTER:
+      return `<svg viewBox="0 0 100 100">
+        <rect x="14" y="14" width="72" height="72" rx="14" fill="#ff3860"/>
+        <rect x="14" y="14" width="72" height="20" rx="14" fill="#ff6680"/>
+        <circle cx="78" cy="50" r="9" fill="#fff"/>
+        <circle cx="78" cy="50" r="4" fill="#ff3860"/>
+      </svg>`;
+    case TILE.TARGET:
+      return `<svg class="t-shape" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="34" fill="${data.lit ? '#b6ff5a' : '#384062'}" stroke="${data.lit ? '#ddffb0' : '#5a6796'}" stroke-width="3"/>
+        <circle cx="50" cy="50" r="14" fill="${data.lit ? '#0b1020' : '#1a2240'}"/>
+        <circle cx="50" cy="50" r="5" fill="${data.lit ? '#b6ff5a' : '#5a6796'}"/>
+      </svg>`;
+    case TILE.BLOCKER:
+      return `<svg viewBox="0 0 100 100">
+        <rect x="12" y="12" width="76" height="76" rx="10" fill="#38415c" stroke="#5a6796" stroke-width="2"/>
+        <path d="M22 22 L78 78 M78 22 L22 78" stroke="#5a6796" stroke-width="6" stroke-linecap="round"/>
+      </svg>`;
+    case TILE.SLASH:
+      return `<svg viewBox="0 0 100 100">
+        <g transform="rotate(-45 50 50)">
+          <rect x="14" y="44" width="72" height="12" rx="6" fill="#cfe1ff"/>
+          <rect x="14" y="44" width="72" height="4" rx="2" fill="#fff"/>
+          <rect x="14" y="54" width="72" height="3" rx="1.5" fill="#9eb6df"/>
+        </g>
+      </svg>`;
+    case TILE.BACKSLASH:
+      return `<svg viewBox="0 0 100 100">
+        <g transform="rotate(45 50 50)">
+          <rect x="14" y="44" width="72" height="12" rx="6" fill="#cfe1ff"/>
+          <rect x="14" y="44" width="72" height="4" rx="2" fill="#fff"/>
+          <rect x="14" y="54" width="72" height="3" rx="1.5" fill="#9eb6df"/>
+        </g>
+      </svg>`;
+    default: return '';
+  }
+}
+
+function drawLaser() {
+  const n = state.size;
+  const wrap = document.querySelector('.board-wrap');
+  const board = $board.getBoundingClientRect();
+  const wrapRect = wrap.getBoundingClientRect();
+  const padL = board.left - wrapRect.left;
+  const padT = board.top - wrapRect.top;
+  // laser-svg inset is "10px" (board padding); align via getBoundingClientRect
+  $laser.style.left = padL + 'px';
+  $laser.style.top  = padT + 'px';
+  $laser.style.width  = board.width + 'px';
+  $laser.style.height = board.height + 'px';
+  $laser.setAttribute('viewBox', `0 0 ${board.width} ${board.height}`);
+
+  const gap = 2;
+  const cellW = (board.width  - gap * (n-1)) / n;
+  const cellH = (board.height - gap * (n-1)) / n;
+  function center(r, c) {
+    return [
+      c * (cellW + gap) + cellW/2,
+      r * (cellH + gap) + cellH/2
+    ];
+  }
+
+  const path = state.laserSegments;
+  if (path.length < 2) { $laser.innerHTML = ''; return; }
+
+  let d = '';
+  let firstPt = null;
+  for (let i = 0; i < path.length; i++) {
+    const p = path[i];
+    let x, y;
+    if (p.edge) {
+      // p.r/p.c are out-of-bounds; clamp to edge
+      const prev = path[i-1];
+      const [px, py] = center(prev.r, prev.c);
+      // move halfway out to the edge based on direction
+      const dr = p.r - prev.r, dc = p.c - prev.c;
+      x = px + dc * (cellW/2);
+      y = py + dr * (cellH/2);
+    } else if (p.half) {
+      const prev = path[i-1];
+      const [px, py] = center(prev.r, prev.c);
+      const [cx, cy] = center(p.r, p.c);
+      x = (px + cx) / 2;
+      y = (py + cy) / 2;
+    } else {
+      [x, y] = center(p.r, p.c);
+    }
+    if (i === 0) { d += `M ${x} ${y}`; firstPt = [x,y]; }
+    else d += ` L ${x} ${y}`;
+  }
+  // Build with animation
+  const motion = state.motion;
+  $laser.innerHTML = `<path class="beam" d="${d}" />`;
+  const beam = $laser.querySelector('.beam');
+  // measure & animate stroke-dashoffset
+  requestAnimationFrame(()=> {
+    const len = beam.getTotalLength();
+    if (!motion) {
+      beam.style.opacity = '1';
+    } else {
+      beam.style.strokeDasharray = len;
+      beam.style.strokeDashoffset = len;
+      beam.style.opacity = '1';
+      // force reflow
+      void beam.getBoundingClientRect();
+      beam.style.transition = `stroke-dashoffset ${Math.min(0.5, len/1200 + 0.1)}s ease-out`;
+      beam.style.strokeDashoffset = '0';
+    }
+  });
+}
+
+/* =========================
+   Input
+   ========================= */
+function onCellClick(e) {
+  const cell = e.currentTarget;
+  const r = +cell.dataset.r, c = +cell.dataset.c;
+  state.cursor = {r, c};
+  toggleMirrorAt(r, c);
+}
+
+function toggleMirrorAt(r, c) {
+  const cell = state.grid[r][c];
+  if (cell.type !== TILE.SLASH && cell.type !== TILE.BACKSLASH) return;
+  cell.type = cell.type === TILE.SLASH ? TILE.BACKSLASH : TILE.SLASH;
+  state.moves++;
+  $moveCount.textContent = state.moves;
+  beep('toggle');
+  updateAfterChange();
+}
+
+function updateAfterChange() {
+  traceLaser();
+  paintBoard();
+  drawLaser();
+  if (state.litTargets === state.totalTargets) {
+    setTimeout(onLevelComplete, state.motion ? 500 : 100);
+  }
+}
+
+/* =========================
+   Audio (tiny)
+   ========================= */
+function audio() {
+  if (!state.sound) return null;
+  if (!state.audioCtx) {
+    try { state.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { return null; }
+  }
+  return state.audioCtx;
+}
+function beep(kind) {
+  const ctx = audio(); if (!ctx) return;
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.connect(g); g.connect(ctx.destination);
+  let f1, f2, dur;
+  if (kind === 'toggle')   { f1 = 520; f2 = 620; dur = 0.06; }
+  else if (kind === 'win') { f1 = 660; f2 = 990; dur = 0.4;  }
+  else                      { f1 = 440; f2 = 440; dur = 0.05; }
+  o.frequency.value = f1;
+  o.frequency.exponentialRampToValueAtTime(f2, ctx.currentTime + dur);
+  g.gain.value = 0.0001;
+  g.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+  o.start(); o.stop(ctx.currentTime + dur + 0.02);
+}
+
+/* =========================
+   Screens / Flow
+   ========================= */
+function show(id) {
+  for (const s of document.querySelectorAll('.screen')) {
+    s.classList.toggle('hidden', s.id !== id);
+  }
+}
+
+function startNewGame() {
+  state.level = 1;
+  loadLevel(state.level);
+  show('screen-game');
+}
+function loadLevel(level) {
+  const L = generateLevel(level);
+  state.grid = L.grid;
+  state.size = L.size;
+  state.emitter = L.emitter;
+  state.totalTargets = L.totalTargets;
+  state.moves = 0;
+  state.cursor = {r: L.emitter.r, c: 0};
+  // place cursor on first mirror if any
+  outer: for (let i=0;i<L.size;i++) for (let j=0;j<L.size;j++) {
+    if (L.grid[i][j].type === TILE.SLASH || L.grid[i][j].type === TILE.BACKSLASH) {
+      state.cursor = {r:i, c:j}; break outer;
+    }
+  }
+  $moveCount.textContent = 0;
+  $levelNum.textContent = state.level;
+  buildBoard();
+  traceLaser();
+  paintBoard();
+  drawLaser();
+  document.querySelector('.board-wrap').classList.remove('level-anim');
+  void document.querySelector('.board-wrap').offsetWidth;
+  document.querySelector('.board-wrap').classList.add('level-anim');
+  focusCursorCell();
+}
+
+function focusCursorCell() {
+  const idx = state.cursor.r * state.size + state.cursor.c;
+  const el = $board.children[idx];
+  if (el) el.focus({preventScroll: true});
+}
+
+function onLevelComplete() {
+  beep('win');
+  // animate is via class .lit added during paint
+  // pause briefly then advance
+  setTimeout(() => {
+    state.level += 1;
+    let newBest = false;
+    if (state.level - 1 > state.best) {
+      state.best = state.level - 1;
+      localStorage.setItem(STORAGE.best, String(state.best));
+      newBest = true;
+    }
+    showComplete(newBest);
+  }, state.motion ? 450 : 50);
+}
+
+function showComplete(newBest) {
+  const ov = document.getElementById('overlay-complete');
+  document.getElementById('new-best-popup').classList.toggle('show', newBest);
+  ov.classList.add('show');
+}
+
+document.getElementById('btn-play-again').addEventListener('click', ()=>{
+  document.getElementById('overlay-complete').classList.remove('show');
+  loadLevel(state.level);
+});
+
+/* Title buttons */
+document.getElementById('btn-start').addEventListener('click', startNewGame);
+document.getElementById('btn-best-from-title').addEventListener('click', ()=>{
+  $bestNum.textContent = state.best;
+  show('screen-best');
+});
+document.getElementById('btn-settings-from-title').addEventListener('click', openSettings);
+document.getElementById('btn-home-from-best').addEventListener('click', ()=> show('screen-title'));
+document.getElementById('btn-home-from-game').addEventListener('click', ()=> show('screen-title'));
+document.getElementById('btn-settings-from-game').addEventListener('click', openSettings);
+
+/* Settings */
+function openSettings() {
+  syncSettingsUI();
+  document.getElementById('overlay-settings').classList.add('show');
+}
+function closeSettings() {
+  document.getElementById('overlay-settings').classList.remove('show');
+  document.getElementById('confirm-reset').style.display = 'none';
+  state.pendingResetConfirm = false;
+}
+function syncSettingsUI() {
+  document.getElementById('t-sound').setAttribute('aria-pressed', state.sound);
+  document.getElementById('t-motion').setAttribute('aria-pressed', state.motion);
+  document.getElementById('t-contrast').setAttribute('aria-pressed', state.contrast);
+  document.body.classList.toggle('contrast', state.contrast);
+  document.body.classList.toggle('no-motion', !state.motion);
+}
+document.getElementById('btn-settings-close').addEventListener('click', closeSettings);
+document.getElementById('overlay-settings').addEventListener('click', (e)=>{
+  if (e.target.id === 'overlay-settings') closeSettings();
+});
+document.getElementById('t-sound').addEventListener('click', ()=>{
+  state.sound = !state.sound; savePref(STORAGE.sound, state.sound); syncSettingsUI();
+});
+document.getElementById('t-motion').addEventListener('click', ()=>{
+  state.motion = !state.motion; savePref(STORAGE.motion, state.motion); syncSettingsUI();
+  drawLaser();
+});
+document.getElementById('t-contrast').addEventListener('click', ()=>{
+  state.contrast = !state.contrast; savePref(STORAGE.contrast, state.contrast); syncSettingsUI();
+});
+document.getElementById('btn-trash').addEventListener('click', ()=>{
+  state.pendingResetConfirm = true;
+  document.getElementById('confirm-reset').style.display = 'flex';
+});
+document.getElementById('btn-reset-yes').addEventListener('click', ()=>{
+  state.best = 0; localStorage.setItem(STORAGE.best, "0");
+  $bestNum.textContent = "0";
+  document.getElementById('confirm-reset').style.display = 'none';
+  state.pendingResetConfirm = false;
+});
+document.getElementById('btn-reset-no').addEventListener('click', ()=>{
+  document.getElementById('confirm-reset').style.display = 'none';
+  state.pendingResetConfirm = false;
+});
+
+/* Keyboard */
+document.addEventListener('keydown', (e)=>{
+  const gameVisible = !document.getElementById('screen-game').classList.contains('hidden');
+  const settingsOpen = document.getElementById('overlay-settings').classList.contains('show');
+  const completeOpen = document.getElementById('overlay-complete').classList.contains('show');
+  if (settingsOpen) {
+    if (e.key === 'Escape') { e.preventDefault(); closeSettings(); }
+    return;
+  }
+  if (completeOpen) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      document.getElementById('btn-play-again').click();
+    }
+    return;
+  }
+  if (!gameVisible) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const titleVisible = !document.getElementById('screen-title').classList.contains('hidden');
+      if (titleVisible) { e.preventDefault(); startNewGame(); }
+    }
+    return;
+  }
+  const n = state.size;
+  let {r, c} = state.cursor;
+  let handled = true;
+  switch (e.key) {
+    case 'ArrowUp':    r = Math.max(0, r-1); break;
+    case 'ArrowDown':  r = Math.min(n-1, r+1); break;
+    case 'ArrowLeft':  c = Math.max(0, c-1); break;
+    case 'ArrowRight': c = Math.min(n-1, c+1); break;
+    case 'Enter':
+    case ' ':
+      toggleMirrorAt(state.cursor.r, state.cursor.c);
+      break;
+    case 'Escape':
+      show('screen-title');
+      break;
+    default: handled = false;
+  }
+  if (handled) {
+    e.preventDefault();
+    if (r !== state.cursor.r || c !== state.cursor.c) {
+      state.cursor = {r, c};
+      paintBoard();
+      focusCursorCell();
+    }
+  }
+});
+
+window.addEventListener('resize', ()=> {
+  if (!document.getElementById('screen-game').classList.contains('hidden')) drawLaser();
+});
+
+/* Init */
+loadPrefs();
+syncSettingsUI();
+$bestNum.textContent = state.best;
+
+/* Expose for tests */
+window.__LMP__ = {
+  state, generateLevel, traceLaser, levelParams, TILE, DIR,
+  loadLevel, toggleMirrorAt,
+};
+</script>
+</body>
+</html>

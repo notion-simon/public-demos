@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Laser Mirror Puzzle</title>
+  <style>
+    :root {
+      --bg-1: #070b1c;
+      --bg-2: #111c3f;
+      --panel: rgba(12, 18, 36, 0.74);
+      --panel-strong: rgba(15, 23, 48, 0.92);
+      --line: rgba(155, 182, 255, 0.22);
+      --text: #eef4ff;
+      --muted: rgba(233, 241, 255, 0.75);
+      --accent: #84e4ff;
+      --accent-2: #9f8dff;
+      --laser: #ff4fd8;
+      --laser-glow: rgba(255, 79, 216, 0.45);
+      --target: #ffdd76;
+      --target-hit: #7cffb6;
+      --danger: #ff7a9d;
+      --cell-size: min(10vw, 56px);
+      --board-gap: 6px;
+      --board-padding: 10px;
+      --laser-width: 6;
+      --tile-outline: 1px;
+      --shadow: 0 18px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    body.high-contrast {
+      --laser-width: 10;
+      --tile-outline: 3px;
+      --line: rgba(220, 234, 255, 0.5);
+      --panel: rgba(7, 11, 26, 0.9);
+      --panel-strong: rgba(8, 11, 22, 0.98);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(119, 111, 255, 0.25), transparent 36%),
+        radial-gradient(circle at 20% 20%, rgba(0, 213, 255, 0.14), transparent 24%),
+        linear-gradient(180deg, var(--bg-2), var(--bg-1));
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255,255,255,0.02), rgba(255,255,255,0.01)),
+        repeating-linear-gradient(
+          90deg,
+          transparent 0,
+          transparent 34px,
+          rgba(255,255,255,0.018) 34px,
+          rgba(255,255,255,0.018) 35px
+        );
+      opacity: 0.5;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+      border: 0;
+      background: none;
+      cursor: pointer;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      position: relative;
+      isolation: isolate;
+    }
+
+    .shell {
+      width: min(100%, 760px);
+      min-height: min(92vh, 980px);
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(20, 28, 58, 0.72), rgba(10, 14, 30, 0.84));
+      backdrop-filter: blur(18px);
+      border-radius: 32px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .shell::before,
+    .shell::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(50px);
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .shell::before {
+      width: 180px;
+      height: 180px;
+      background: #7a67ff;
+      top: -50px;
+      right: -10px;
+    }
+
+    .shell::after {
+      width: 170px;
+      height: 170px;
+      background: #21d9ff;
+      bottom: -60px;
+      left: -40px;
+    }
+
+    .screen {
+      display: none;
+      min-height: calc(min(92vh, 980px) - 40px);
+      position: relative;
+      z-index: 1;
+    }
+
+    .screen.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .icon-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .icon-button,
+    .text-button,
+    .cell {
+      transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease, opacity 140ms ease;
+    }
+
+    .icon-button {
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      border: 1px solid rgba(188, 206, 255, 0.25);
+      background: rgba(255, 255, 255, 0.08);
+      display: inline-grid;
+      place-items: center;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.15);
+    }
+
+    .icon-button:hover,
+    .icon-button:focus-visible,
+    .text-button:hover,
+    .text-button:focus-visible,
+    .cell:hover,
+    .cell:focus-visible {
+      transform: translateY(-1px) scale(1.01);
+      box-shadow: 0 0 0 2px rgba(132, 228, 255, 0.45), 0 12px 24px rgba(0,0,0,0.22);
+      outline: none;
+    }
+
+    .icon-button.active-toggle {
+      background: linear-gradient(180deg, rgba(132, 228, 255, 0.28), rgba(159, 141, 255, 0.22));
+      border-color: rgba(132, 228, 255, 0.55);
+    }
+
+    .icon {
+      width: 24px;
+      height: 24px;
+      display: block;
+      position: relative;
+      color: var(--text);
+      fill: currentColor;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .landing {
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .landing-main {
+      flex: 1;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      gap: 28px;
+      padding: 18px 0 46px;
+    }
+
+    .logo-wrap {
+      display: grid;
+      place-items: center;
+      gap: 24px;
+    }
+
+    .logo {
+      width: min(72vw, 360px);
+      aspect-ratio: 1;
+      border-radius: 28px;
+      border: 1px solid rgba(184, 205, 255, 0.24);
+      background:
+        radial-gradient(circle at 20% 22%, rgba(132, 228, 255, 0.16), transparent 26%),
+        radial-gradient(circle at 78% 25%, rgba(255, 79, 216, 0.18), transparent 20%),
+        linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03));
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+
+    .logo-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      background-size: 20% 20%;
+    }
+
+    .logo-laser,
+    .logo-mirror,
+    .logo-target,
+    .logo-emitter {
+      position: absolute;
+    }
+
+    .logo-laser {
+      left: 22%;
+      top: 48%;
+      width: 52%;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--laser);
+      box-shadow: 0 0 18px var(--laser-glow), 0 0 30px var(--laser-glow);
+      transform: rotate(-18deg);
+    }
+
+    .logo-mirror {
+      width: 12px;
+      height: 78px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #d8e8ff, #88b6ff);
+      box-shadow: 0 0 20px rgba(132,228,255,0.18);
+    }
+
+    .logo-mirror.one { left: 33%; top: 20%; transform: rotate(36deg); }
+    .logo-mirror.two { right: 27%; top: 46%; transform: rotate(-36deg); }
+
+    .logo-target {
+      width: 58px;
+      height: 58px;
+      right: 18%;
+      top: 20%;
+      border-radius: 50%;
+      border: 4px solid rgba(124, 255, 182, 0.95);
+      box-shadow: 0 0 24px rgba(124,255,182,0.32);
+    }
+
+    .logo-target::before,
+    .logo-target::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      inset: 9px;
+      border: 4px solid rgba(255, 221, 118, 0.85);
+    }
+
+    .logo-target::after {
+      inset: 18px;
+      background: rgba(255, 221, 118, 0.92);
+      border: 0;
+    }
+
+    .logo-emitter {
+      left: 12%;
+      bottom: 18%;
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(132,228,255,0.18), rgba(132,228,255,0.06));
+      border: 1px solid rgba(132,228,255,0.44);
+    }
+
+    .logo-emitter::before {
+      content: "";
+      position: absolute;
+      left: 15px;
+      top: 16px;
+      width: 0;
+      height: 0;
+      border-top: 12px solid transparent;
+      border-bottom: 12px solid transparent;
+      border-left: 18px solid #84e4ff;
+      filter: drop-shadow(0 0 8px rgba(132, 228, 255, 0.55));
+    }
+
+    .text-button {
+      min-width: 180px;
+      padding: 16px 24px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(132, 228, 255, 0.28), rgba(159, 141, 255, 0.28));
+      border: 1px solid rgba(206, 221, 255, 0.36);
+      color: var(--text);
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      box-shadow: 0 16px 32px rgba(0,0,0,0.22);
+    }
+
+    .game {
+      justify-content: center;
+      gap: 18px;
+    }
+
+    .hud {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 8px;
+    }
+
+    .hud-pill {
+      min-width: 90px;
+      min-height: 52px;
+      padding: 10px 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(188, 206, 255, 0.25);
+      background: rgba(255,255,255,0.08);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 1.4rem;
+      font-weight: 800;
+    }
+
+    .value-only {
+      letter-spacing: 0.06em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .board-panel {
+      width: 100%;
+      display: grid;
+      place-items: center;
+      padding: 6px 0;
+    }
+
+    .board-wrap {
+      position: relative;
+      display: inline-block;
+      padding: var(--board-padding);
+      border-radius: 28px;
+      border: 1px solid rgba(194, 212, 255, 0.2);
+      background: linear-gradient(180deg, rgba(12, 18, 36, 0.82), rgba(15, 22, 45, 0.92));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 20px 44px rgba(0,0,0,0.24);
+    }
+
+    .board {
+      position: relative;
+      display: grid;
+      gap: var(--board-gap);
+      touch-action: manipulation;
+    }
+
+    .board::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 22px;
+      pointer-events: none;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    .cell {
+      position: relative;
+      width: var(--cell-size);
+      height: var(--cell-size);
+      border-radius: 18px;
+      border: var(--tile-outline) solid rgba(187, 208, 255, 0.18);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,0.08), transparent 35%),
+        linear-gradient(180deg, rgba(24, 33, 66, 0.96), rgba(12, 17, 36, 0.96));
+      overflow: hidden;
+    }
+
+    .cell.cursor {
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.75), 0 0 0 5px rgba(132,228,255,0.24);
+      z-index: 3;
+    }
+
+    .cell.laser-on::after {
+      content: "";
+      position: absolute;
+      inset: 12%;
+      border-radius: 12px;
+      background: radial-gradient(circle, rgba(255, 79, 216, 0.2), transparent 72%);
+      pointer-events: none;
+    }
+
+    .cell-inner,
+    .shape,
+    .mirror-line,
+    .target-ring,
+    .target-core,
+    .blocker-core,
+    .emitter-core {
+      position: absolute;
+      inset: 0;
+    }
+
+    .shape {
+      display: block;
+    }
+
+    .mirror-line {
+      width: 7px;
+      height: 74%;
+      margin: auto;
+      top: 13%;
+      bottom: 13%;
+      left: 0;
+      right: 0;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #e5f1ff, #87b5ff);
+      box-shadow: 0 0 16px rgba(132,228,255,0.18);
+    }
+
+    .mirror-slash .mirror-line { transform: rotate(36deg); }
+    .mirror-backslash .mirror-line { transform: rotate(-36deg); }
+
+    .target-ring {
+      inset: 18%;
+      border-radius: 50%;
+      border: 4px solid rgba(255, 221, 118, 0.9);
+      box-shadow: inset 0 0 12px rgba(255,221,118,0.16);
+    }
+
+    .target-ring::before {
+      content: "";
+      position: absolute;
+      inset: 18%;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 221, 118, 0.8);
+    }
+
+    .target-core {
+      inset: 35%;
+      border-radius: 50%;
+      background: rgba(255, 221, 118, 0.95);
+      box-shadow: 0 0 12px rgba(255,221,118,0.3);
+    }
+
+    .cell.target-lit .target-ring,
+    .cell.target-lit .target-ring::before,
+    .cell.target-lit .target-core {
+      border-color: rgba(124, 255, 182, 1);
+      background: rgba(124, 255, 182, 0.98);
+      box-shadow: 0 0 22px rgba(124,255,182,0.5);
+    }
+
+    .cell.target-celebrate {
+      animation: pulse-target 520ms ease;
+    }
+
+    @keyframes pulse-target {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    .blocker-core {
+      inset: 20%;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #7a87b7, #364063);
+      box-shadow: inset 0 2px 4px rgba(255,255,255,0.16), 0 8px 14px rgba(0,0,0,0.18);
+    }
+
+    .blocker-core::before,
+    .blocker-core::after {
+      content: "";
+      position: absolute;
+      inset: 18%;
+      border-radius: 999px;
+      background: rgba(236, 244, 255, 0.6);
+      height: 4px;
+      margin: auto;
+      top: 0;
+      bottom: 0;
+    }
+
+    .blocker-core::before { transform: rotate(45deg); }
+    .blocker-core::after { transform: rotate(-45deg); }
+
+    .emitter-core {
+      inset: 18%;
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(132,228,255,0.22), rgba(132,228,255,0.08));
+      border: 1px solid rgba(132,228,255,0.42);
+    }
+
+    .emitter-core::before {
+      content: "";
+      position: absolute;
+      left: 35%;
+      top: 28%;
+      width: 0;
+      height: 0;
+      border-top: 10px solid transparent;
+      border-bottom: 10px solid transparent;
+      border-left: 16px solid #84e4ff;
+      filter: drop-shadow(0 0 8px rgba(132,228,255,0.55));
+    }
+
+    .board-laser {
+      position: absolute;
+      inset: var(--board-padding);
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .laser-path {
+      fill: none;
+      stroke: var(--laser);
+      stroke-width: var(--laser-width);
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 0 8px var(--laser-glow)) drop-shadow(0 0 18px var(--laser-glow));
+    }
+
+    .laser-path.motion {
+      stroke-dasharray: 18 14;
+      animation: laser-flow 720ms linear infinite;
+    }
+
+    @keyframes laser-flow {
+      to { stroke-dashoffset: -32; }
+    }
+
+    .bottom-actions {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      padding-bottom: 10px;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(5, 8, 17, 0.62);
+      backdrop-filter: blur(16px);
+      z-index: 10;
+    }
+
+    .overlay.open { display: flex; }
+
+    .sheet {
+      width: min(100%, 460px);
+      border-radius: 28px;
+      border: 1px solid rgba(188, 206, 255, 0.26);
+      background: linear-gradient(180deg, rgba(20, 29, 58, 0.96), rgba(10, 15, 29, 0.98));
+      box-shadow: var(--shadow);
+      padding: 20px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .settings-grid,
+    .best-grid,
+    .menu-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .best-value {
+      font-size: clamp(3rem, 11vw, 4.8rem);
+      font-weight: 900;
+      text-align: center;
+      letter-spacing: 0.08em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      top: 32px;
+      transform: translateX(-50%) translateY(-24px);
+      padding: 12px 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(206,221,255,0.34);
+      background: linear-gradient(180deg, rgba(132,228,255,0.24), rgba(159,141,255,0.24));
+      color: var(--text);
+      font-weight: 800;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease, transform 180ms ease;
+      z-index: 11;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 640px) {
+      .shell {
+        border-radius: 24px;
+        padding: 14px;
+      }
+      .screen { min-height: calc(100vh - 28px); }
+      .icon-button { width: 50px; height: 50px; border-radius: 16px; }
+      .hud-pill { min-width: 82px; font-size: 1.2rem; }
+      .text-button { min-width: 150px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="shell" id="shell">
+      <div class="toast" id="toast">New Best</div>
+
+      <section class="screen landing active" id="landing-screen" aria-label="Start screen">
+        <div class="icon-row">
+          <button class="icon-button" id="landing-best-button" aria-label="Best level">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v3a4 4 0 0 1-3 3.87V14h2a1 1 0 0 1 1 1v1H7v-1a1 1 0 0 1 1-1h2v-3.13A4 4 0 0 1 7 7V4Z"></path><path d="M7 6H4a2 2 0 0 0 2 2"></path><path d="M17 6h3a2 2 0 0 1-2 2"></path></svg>
+          </button>
+          <button class="icon-button" id="landing-settings-button" aria-label="Settings">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z"></path><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1 1 0 0 1 0 1.4l-1 1a1 1 0 0 1-1.4 0l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a1 1 0 0 1-1 1h-1.4a1 1 0 0 1-1-1v-.2a1 1 0 0 0-.7-.9 1 1 0 0 0-1 .2l-.1.1a1 1 0 0 1-1.4 0l-1-1a1 1 0 0 1 0-1.4l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a1 1 0 0 1-1-1v-1.4a1 1 0 0 1 1-1h.2a1 1 0 0 0 .9-.7 1 1 0 0 0-.2-1l-.1-.1a1 1 0 0 1 0-1.4l1-1a1 1 0 0 1 1.4 0l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a1 1 0 0 1 1-1h1.4a1 1 0 0 1 1 1v.2a1 1 0 0 0 .7.9 1 1 0 0 0 1-.2l.1-.1a1 1 0 0 1 1.4 0l1 1a1 1 0 0 1 0 1.4l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6h.2a1 1 0 0 1 1 1v1.4a1 1 0 0 1-1 1h-.2a1 1 0 0 0-.9.7Z"></path></svg>
+          </button>
+        </div>
+
+        <div class="landing-main">
+          <div class="logo-wrap">
+            <div class="logo" aria-hidden="true">
+              <div class="logo-grid"></div>
+              <div class="logo-emitter"></div>
+              <div class="logo-laser"></div>
+              <div class="logo-mirror one"></div>
+              <div class="logo-mirror two"></div>
+              <div class="logo-target"></div>
+            </div>
+            <button class="text-button" id="start-button">Start Game</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen game" id="game-screen" aria-label="Game screen">
+        <div class="hud">
+          <div class="hud-pill value-only" id="moves-display" aria-label="Move count">0</div>
+          <div class="hud-pill" id="level-display" aria-label="Level number">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 16.2 6.4 19.2l1.1-6.2L3 8.6l6.2-.9L12 2Z"></path></svg>
+            <span class="value-only" id="level-value">1</span>
+          </div>
+        </div>
+
+        <div class="board-panel">
+          <div class="board-wrap" id="board-wrap">
+            <svg class="board-laser" id="laser-layer" aria-hidden="true"></svg>
+            <div class="board" id="board" role="grid" aria-label="Laser mirror puzzle board"></div>
+          </div>
+        </div>
+
+        <div class="bottom-actions">
+          <button class="icon-button" id="game-settings-button" aria-label="Settings">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z"></path><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1 1 0 0 1 0 1.4l-1 1a1 1 0 0 1-1.4 0l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a1 1 0 0 1-1 1h-1.4a1 1 0 0 1-1-1v-.2a1 1 0 0 0-.7-.9 1 1 0 0 0-1 .2l-.1.1a1 1 0 0 1-1.4 0l-1-1a1 1 0 0 1 0-1.4l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a1 1 0 0 1-1-1v-1.4a1 1 0 0 1 1-1h.2a1 1 0 0 0 .9-.7 1 1 0 0 0-.2-1l-.1-.1a1 1 0 0 1 0-1.4l1-1a1 1 0 0 1 1.4 0l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a1 1 0 0 1 1-1h1.4a1 1 0 0 1 1 1v.2a1 1 0 0 0 .7.9 1 1 0 0 0 1-.2l.1-.1a1 1 0 0 1 1.4 0l1 1a1 1 0 0 1 0 1.4l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6h.2a1 1 0 0 1 1 1v1.4a1 1 0 0 1-1 1h-.2a1 1 0 0 0-.9.7Z"></path></svg>
+          </button>
+          <button class="icon-button" id="menu-button" aria-label="Menu options">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"></path><path d="M6.5 9.5V20h11V9.5"></path></svg>
+          </button>
+        </div>
+      </section>
+
+      <div class="overlay" id="settings-overlay" aria-hidden="true">
+        <div class="sheet">
+          <div class="settings-grid">
+            <button class="icon-button" id="sound-toggle" aria-label="Toggle sound">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10h4l5-4v12l-5-4H5z"></path><path d="M18 9a4 4 0 0 1 0 6"></path><path d="M20.5 6.5a7.5 7.5 0 0 1 0 11"></path></svg>
+            </button>
+            <button class="icon-button" id="motion-toggle" aria-label="Toggle motion">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 4-8 4 5 4-8 4 11"></path></svg>
+            </button>
+            <button class="icon-button" id="contrast-toggle" aria-label="Toggle high contrast">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c5 0 9-4 9-9s-4-9-9-9Z"></path><path d="M12 3v18"></path></svg>
+            </button>
+            <button class="icon-button" id="reset-best-button" aria-label="Reset best level">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M7 7l1 12h8l1-12"></path></svg>
+            </button>
+            <button class="icon-button hidden" id="confirm-reset-button" aria-label="Confirm reset best level">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 9.5 17 19 7.5"></path></svg>
+            </button>
+            <button class="icon-button hidden" id="cancel-reset-button" aria-label="Cancel reset best level">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12"></path><path d="M18 6 6 18"></path></svg>
+            </button>
+            <button class="icon-button" id="close-settings-button" aria-label="Close settings">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12"></path><path d="M18 6 6 18"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="best-overlay" aria-hidden="true">
+        <div class="sheet">
+          <div class="best-grid">
+            <div class="icon-button" aria-hidden="true">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M7 4h10v3a4 4 0 0 1-3 3.87V14h2a1 1 0 0 1 1 1v1H7v-1a1 1 0 0 1 1-1h2v-3.13A4 4 0 0 1 7 7V4Z"></path><path d="M7 6H4a2 2 0 0 0 2 2"></path><path d="M17 6h3a2 2 0 0 1-2 2"></path></svg>
+            </div>
+          </div>
+          <div class="best-value" id="best-value" aria-label="Best level number">0</div>
+          <div class="best-grid">
+            <button class="icon-button" id="close-best-button" aria-label="Menu">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"></path><path d="M6.5 9.5V20h11V9.5"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="menu-overlay" aria-hidden="true">
+        <div class="sheet">
+          <div class="menu-grid">
+            <button class="text-button" id="play-again-button">Play Again</button>
+            <button class="text-button" id="menu-confirm-button">Menu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = 'laser-mirror-puzzle-best';
+      const SCREEN = {
+        landing: 'landing',
+        game: 'game'
+      };
+      const DIRECTIONS = {
+        up: { dr: -1, dc: 0 },
+        right: { dr: 0, dc: 1 },
+        down: { dr: 1, dc: 0 },
+        left: { dr: 0, dc: -1 }
+      };
+      const REFLECT = {
+        '/': { up: 'right', right: 'up', down: 'left', left: 'down' },
+        '\\': { up: 'left', left: 'up', down: 'right', right: 'down' }
+      };
+
+      const els = {
+        body: document.body,
+        landingScreen: document.getElementById('landing-screen'),
+        gameScreen: document.getElementById('game-screen'),
+        startButton: document.getElementById('start-button'),
+        board: document.getElementById('board'),
+        boardWrap: document.getElementById('board-wrap'),
+        laserLayer: document.getElementById('laser-layer'),
+        movesDisplay: document.getElementById('moves-display'),
+        levelValue: document.getElementById('level-value'),
+        toast: document.getElementById('toast'),
+        landingBestButton: document.getElementById('landing-best-button'),
+        landingSettingsButton: document.getElementById('landing-settings-button'),
+        gameSettingsButton: document.getElementById('game-settings-button'),
+        menuButton: document.getElementById('menu-button'),
+        settingsOverlay: document.getElementById('settings-overlay'),
+        bestOverlay: document.getElementById('best-overlay'),
+        menuOverlay: document.getElementById('menu-overlay'),
+        soundToggle: document.getElementById('sound-toggle'),
+        motionToggle: document.getElementById('motion-toggle'),
+        contrastToggle: document.getElementById('contrast-toggle'),
+        resetBestButton: document.getElementById('reset-best-button'),
+        confirmResetButton: document.getElementById('confirm-reset-button'),
+        cancelResetButton: document.getElementById('cancel-reset-button'),
+        closeSettingsButton: document.getElementById('close-settings-button'),
+        closeBestButton: document.getElementById('close-best-button'),
+        bestValue: document.getElementById('best-value'),
+        playAgainButton: document.getElementById('play-again-button'),
+        menuConfirmButton: document.getElementById('menu-confirm-button')
+      };
+
+      const state = {
+        screen: SCREEN.landing,
+        level: 0,
+        bestLevel: readBestLevel(),
+        moveCount: 0,
+        options: {
+          sound: true,
+          motion: true,
+          contrast: false
+        },
+        boardData: null,
+        cursor: { row: 0, col: 0 },
+        completionPending: false,
+        currentOverlay: null,
+        audioContext: null,
+        toastTimer: null
+      };
+
+      function readBestLevel() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          const value = Number(raw);
+          return Number.isFinite(value) && value >= 0 ? value : 0;
+        } catch {
+          return 0;
+        }
+      }
+
+      function writeBestLevel() {
+        try {
+          localStorage.setItem(STORAGE_KEY, String(state.bestLevel));
+        } catch {}
+      }
+
+      function showScreen(name) {
+        state.screen = name;
+        els.landingScreen.classList.toggle('active', name === SCREEN.landing);
+        els.gameScreen.classList.toggle('active', name === SCREEN.game);
+      }
+
+      function openOverlay(name) {
+        closeOverlay();
+        const overlay = name === 'settings' ? els.settingsOverlay : name === 'best' ? els.bestOverlay : els.menuOverlay;
+        overlay.classList.add('open');
+        overlay.setAttribute('aria-hidden', 'false');
+        state.currentOverlay = overlay;
+      }
+
+      function closeOverlay() {
+        [els.settingsOverlay, els.bestOverlay, els.menuOverlay].forEach((overlay) => {
+          overlay.classList.remove('open');
+          overlay.setAttribute('aria-hidden', 'true');
+        });
+        state.currentOverlay = null;
+        hideResetConfirmation();
+      }
+
+      function hideResetConfirmation() {
+        els.confirmResetButton.classList.add('hidden');
+        els.cancelResetButton.classList.add('hidden');
+      }
+
+      function showResetConfirmation() {
+        els.confirmResetButton.classList.remove('hidden');
+        els.cancelResetButton.classList.remove('hidden');
+      }
+
+      function updateOptionButtons() {
+        els.soundToggle.classList.toggle('active-toggle', state.options.sound);
+        els.motionToggle.classList.toggle('active-toggle', state.options.motion);
+        els.contrastToggle.classList.toggle('active-toggle', state.options.contrast);
+        els.body.classList.toggle('high-contrast', state.options.contrast);
+      }
+
+      function updateBestDisplay() {
+        els.bestValue.textContent = String(state.bestLevel);
+      }
+
+      function showToast() {
+        clearTimeout(state.toastTimer);
+        els.toast.classList.add('show');
+        state.toastTimer = setTimeout(() => {
+          els.toast.classList.remove('show');
+        }, 1500);
+      }
+
+      function playTone(type = 'toggle') {
+        if (!state.options.sound) return;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        state.audioContext ??= new AudioCtx();
+        if (state.audioContext.state === 'suspended') {
+          state.audioContext.resume().catch(() => {});
+        }
+        const ctx = state.audioContext;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type === 'success' ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(type === 'success' ? 520 : 340, now);
+        osc.frequency.exponentialRampToValueAtTime(type === 'success' ? 880 : 460, now + (type === 'success' ? 0.22 : 0.08));
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(type === 'success' ? 0.08 : 0.05, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + (type === 'success' ? 0.28 : 0.12));
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + (type === 'success' ? 0.3 : 0.14));
+      }
+
+      function seededRng(seed) {
+        let t = seed >>> 0;
+        return () => {
+          t += 0x6D2B79F5;
+          let r = Math.imul(t ^ (t >>> 15), 1 | t);
+          r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+          return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function createArrayGrid(size, createCell) {
+        return Array.from({ length: size }, (_, row) => Array.from({ length: size }, (_, col) => createCell(row, col)));
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function shuffle(list, random) {
+        const items = [...list];
+        for (let i = items.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(random() * (i + 1));
+          [items[i], items[j]] = [items[j], items[i]];
+        }
+        return items;
+      }
+
+      function cellKey(row, col) {
+        return `${row},${col}`;
+      }
+
+      function describeCell(cell, boardData) {
+        const typeMap = {
+          emitter: 'emitter',
+          target: 'target',
+          blocker: 'blocker',
+          mirror: 'mirror',
+          empty: 'empty'
+        };
+        const orientation = cell.type === 'mirror'
+          ? (cell.orientation === '/' ? 'slash' : 'backslash')
+          : 'none';
+        const laser = boardData.laserCells.has(cellKey(cell.row, cell.col)) ? 'yes' : 'no';
+        const lit = cell.type === 'target' && boardData.litTargets.has(cellKey(cell.row, cell.col)) ? 'yes' : 'no';
+        return `row ${cell.row + 1} column ${cell.col + 1} tile ${typeMap[cell.type]} mirror orientation ${orientation} laser presence ${laser} target lit ${lit}`;
+      }
+
+      function reflect(direction, orientation) {
+        return REFLECT[orientation][direction];
+      }
+
+      function traceLaser(boardData) {
+        const { grid, size, emitter, motion } = boardData;
+        const laserCells = new Set([cellKey(emitter.row, emitter.col)]);
+        const litTargets = new Set();
+        const points = [[emitter.col + 0.2, emitter.row + 0.5], [emitter.col + 0.5, emitter.row + 0.5]];
+        const visited = new Set();
+        let row = emitter.row;
+        let col = emitter.col;
+        let direction = emitter.direction;
+
+        while (true) {
+          const nextRow = row + DIRECTIONS[direction].dr;
+          const nextCol = col + DIRECTIONS[direction].dc;
+          if (nextRow < 0 || nextCol < 0 || nextRow >= size || nextCol >= size) {
+            const edgePoint = [
+              col + 0.5 + DIRECTIONS[direction].dc * 0.5,
+              row + 0.5 + DIRECTIONS[direction].dr * 0.5
+            ];
+            points.push(edgePoint);
+            break;
+          }
+
+          row = nextRow;
+          col = nextCol;
+          points.push([col + 0.5, row + 0.5]);
+          const visitKey = `${row},${col},${direction}`;
+          if (visited.has(visitKey)) {
+            break;
+          }
+          visited.add(visitKey);
+          laserCells.add(cellKey(row, col));
+
+          const cell = grid[row][col];
+          if (cell.type === 'blocker') {
+            break;
+          }
+          if (cell.type === 'target') {
+            litTargets.add(cellKey(row, col));
+          }
+          if (cell.type === 'mirror') {
+            direction = reflect(direction, cell.orientation);
+          }
+        }
+
+        return {
+          points,
+          laserCells,
+          litTargets,
+          completed: litTargets.size === boardData.targets.length,
+          motion,
+          visitedCount: visited.size
+        };
+      }
+
+      function createLevel(level) {
+        const size = Math.min(10, 5 + Math.floor((level - 1) / 2));
+        const targetCount = Math.min(4, 1 + Math.floor((level - 1) / 3));
+        const blockerCount = Math.min(10, level - 1);
+        const mirrorCount = Math.min(14, 4 + level);
+        const seed = level * 1103515245 + 12345;
+        const random = seededRng(seed);
+        const grid = createArrayGrid(size, (row, col) => ({ row, col, type: 'empty' }));
+
+        const startRow = targetCount === 1
+          ? Math.floor(random() * Math.max(1, size - 1))
+          : Math.floor(random() * (size - targetCount + 1));
+        const segmentRows = targetCount === 1
+          ? [startRow, Math.min(size - 1, startRow + 1)]
+          : Array.from({ length: targetCount }, (_, index) => startRow + index);
+        const emitter = { row: segmentRows[0], col: 0, direction: 'right' };
+        grid[emitter.row][emitter.col] = { ...grid[emitter.row][emitter.col], type: 'emitter' };
+
+        const solutionPath = new Set([cellKey(emitter.row, emitter.col)]);
+        const solutionMirrors = [];
+        const targets = [];
+        let direction = 'right';
+
+        function markHorizontal(row, fromCol, toCol) {
+          const step = fromCol <= toCol ? 1 : -1;
+          for (let col = fromCol; step === 1 ? col <= toCol : col >= toCol; col += step) {
+            solutionPath.add(cellKey(row, col));
+          }
+        }
+
+        if (targetCount === 1) {
+          const emitterRow = segmentRows[0];
+          const targetRow = segmentRows[1];
+          const turnCol = 1 + Math.floor(random() * Math.max(1, size - 3));
+          markHorizontal(emitterRow, 1, turnCol);
+          solutionPath.add(cellKey(targetRow, turnCol));
+          markHorizontal(targetRow, turnCol, size - 1);
+
+          grid[emitterRow][turnCol] = {
+            ...grid[emitterRow][turnCol],
+            type: 'mirror',
+            orientation: '\\',
+            solutionOrientation: '\\'
+          };
+          grid[targetRow][turnCol] = {
+            ...grid[targetRow][turnCol],
+            type: 'mirror',
+            orientation: '\\',
+            solutionOrientation: '\\'
+          };
+          solutionMirrors.push(
+            { row: emitterRow, col: turnCol, orientation: '\\' },
+            { row: targetRow, col: turnCol, orientation: '\\' }
+          );
+
+          const targetColChoices = [];
+          for (let col = turnCol + 1; col < size - 1; col += 1) {
+            targetColChoices.push(col);
+          }
+          const targetCol = targetColChoices.length
+            ? targetColChoices[Math.floor(random() * targetColChoices.length)]
+            : size - 1;
+          grid[targetRow][targetCol] = { ...grid[targetRow][targetCol], type: 'target' };
+          targets.push({ row: targetRow, col: targetCol });
+        }
+
+        for (let index = 0; index < (targetCount === 1 ? 0 : targetCount); index += 1) {
+          const row = segmentRows[index];
+          if (index === 0) {
+            markHorizontal(row, 1, size - 1);
+          } else if (direction === 'right') {
+            markHorizontal(row, 0, size - 1);
+          } else {
+            markHorizontal(row, size - 1, 0);
+          }
+
+          const interiorCols = [];
+          for (let col = 1; col < size - 1; col += 1) {
+            interiorCols.push(col);
+          }
+          const targetCol = interiorCols[Math.floor(random() * interiorCols.length)];
+          grid[row][targetCol] = { ...grid[row][targetCol], type: 'target' };
+          targets.push({ row, col: targetCol });
+
+          if (index < targetCount - 1) {
+            const nextRow = segmentRows[index + 1];
+            if (direction === 'right') {
+              grid[row][size - 1] = { ...grid[row][size - 1], type: 'mirror', orientation: '\\', solutionOrientation: '\\' };
+              grid[nextRow][size - 1] = { ...grid[nextRow][size - 1], type: 'mirror', orientation: '/', solutionOrientation: '/' };
+              solutionMirrors.push({ row, col: size - 1, orientation: '\\' }, { row: nextRow, col: size - 1, orientation: '/' });
+              solutionPath.add(cellKey(nextRow, size - 1));
+            } else {
+              grid[row][0] = { ...grid[row][0], type: 'mirror', orientation: '/', solutionOrientation: '/' };
+              grid[nextRow][0] = { ...grid[nextRow][0], type: 'mirror', orientation: '\\', solutionOrientation: '\\' };
+              solutionMirrors.push({ row, col: 0, orientation: '/' }, { row: nextRow, col: 0, orientation: '\\' });
+              solutionPath.add(cellKey(nextRow, 0));
+            }
+          }
+          direction = direction === 'right' ? 'left' : 'right';
+        }
+
+        const emptyCells = [];
+        for (let row = 0; row < size; row += 1) {
+          for (let col = 0; col < size; col += 1) {
+            const key = cellKey(row, col);
+            if (!solutionPath.has(key) && grid[row][col].type === 'empty') {
+              emptyCells.push({ row, col });
+            }
+          }
+        }
+
+        const blockerCells = shuffle(emptyCells, random).slice(0, blockerCount);
+        const blockerKeys = new Set();
+        blockerCells.forEach(({ row, col }) => {
+          grid[row][col] = { ...grid[row][col], type: 'blocker' };
+          blockerKeys.add(cellKey(row, col));
+        });
+
+        const remainingForMirrors = shuffle(
+          emptyCells.filter(({ row, col }) => !blockerKeys.has(cellKey(row, col))),
+          random
+        );
+        const extraMirrorCount = mirrorCount - solutionMirrors.length;
+        remainingForMirrors.slice(0, extraMirrorCount).forEach(({ row, col }) => {
+          grid[row][col] = {
+            ...grid[row][col],
+            type: 'mirror',
+            orientation: random() < 0.5 ? '/' : '\\',
+            solutionOrientation: null
+          };
+        });
+
+        let allMirrors = [];
+        for (let row = 0; row < size; row += 1) {
+          for (let col = 0; col < size; col += 1) {
+            if (grid[row][col].type === 'mirror') {
+              allMirrors.push({ row, col });
+            }
+          }
+        }
+
+        const solutionMirrorKeys = new Set(solutionMirrors.map(({ row, col }) => cellKey(row, col)));
+        const solutionMirrorList = allMirrors.filter(({ row, col }) => solutionMirrorKeys.has(cellKey(row, col)));
+        solutionMirrorList.forEach(({ row, col }) => {
+          const cell = grid[row][col];
+          const shouldFlip = random() < 0.65;
+          if (shouldFlip) {
+            cell.orientation = cell.solutionOrientation === '/' ? '\\' : '/';
+          }
+        });
+
+        let boardData = {
+          level,
+          size,
+          targetCount,
+          blockerCount,
+          mirrorCount,
+          grid,
+          emitter,
+          targets,
+          moveCount: 0,
+          laserCells: new Set(),
+          litTargets: new Set(),
+          pathPoints: [],
+          completionCount: 0,
+          motion: state.options.motion,
+          solutionMirrors: solutionMirrors.map((item) => ({ ...item }))
+        };
+
+        let firstTrace = traceLaser(boardData);
+        if (firstTrace.completed && solutionMirrorList.length > 0) {
+          const first = solutionMirrorList[0];
+          const cell = grid[first.row][first.col];
+          cell.orientation = cell.orientation === '/' ? '\\' : '/';
+          firstTrace = traceLaser(boardData);
+        }
+
+        boardData = {
+          ...boardData,
+          laserCells: firstTrace.laserCells,
+          litTargets: firstTrace.litTargets,
+          pathPoints: firstTrace.points,
+          motion: state.options.motion
+        };
+
+        return boardData;
+      }
+
+      function renderBoard() {
+        const boardData = state.boardData;
+        if (!boardData) return;
+
+        const sizePx = `calc(${boardData.size} * var(--cell-size) + ${(boardData.size - 1)} * var(--board-gap))`;
+        els.board.style.gridTemplateColumns = `repeat(${boardData.size}, var(--cell-size))`;
+        els.board.style.width = sizePx;
+        els.board.style.height = sizePx;
+        els.laserLayer.setAttribute('viewBox', `0 0 ${boardData.size} ${boardData.size}`);
+        els.laserLayer.style.width = sizePx;
+        els.laserLayer.style.height = sizePx;
+        els.board.innerHTML = '';
+
+        for (let row = 0; row < boardData.size; row += 1) {
+          for (let col = 0; col < boardData.size; col += 1) {
+            const cell = boardData.grid[row][col];
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'cell';
+            button.dataset.row = String(row);
+            button.dataset.col = String(col);
+            button.setAttribute('role', 'gridcell');
+            button.tabIndex = state.cursor.row === row && state.cursor.col === col ? 0 : -1;
+            button.setAttribute('aria-label', describeCell(cell, boardData));
+            if (state.cursor.row === row && state.cursor.col === col) {
+              button.classList.add('cursor');
+            }
+            if (boardData.laserCells.has(cellKey(row, col))) {
+              button.classList.add('laser-on');
+            }
+            if (cell.type === 'target' && boardData.litTargets.has(cellKey(row, col))) {
+              button.classList.add('target-lit');
+            }
+
+            const inner = document.createElement('span');
+            inner.className = 'cell-inner';
+            if (cell.type === 'mirror') {
+              inner.classList.add(cell.orientation === '/' ? 'mirror-slash' : 'mirror-backslash');
+              const line = document.createElement('span');
+              line.className = 'mirror-line';
+              inner.appendChild(line);
+            } else if (cell.type === 'target') {
+              const ring = document.createElement('span');
+              ring.className = 'target-ring';
+              const core = document.createElement('span');
+              core.className = 'target-core';
+              inner.appendChild(ring);
+              inner.appendChild(core);
+            } else if (cell.type === 'blocker') {
+              const core = document.createElement('span');
+              core.className = 'blocker-core';
+              inner.appendChild(core);
+            } else if (cell.type === 'emitter') {
+              const core = document.createElement('span');
+              core.className = 'emitter-core';
+              inner.appendChild(core);
+            }
+            button.appendChild(inner);
+
+            button.addEventListener('click', () => {
+              setCursor(row, col, true);
+              toggleMirror(row, col);
+            });
+            button.addEventListener('keydown', (event) => handleCellKeydown(event, row, col));
+            els.board.appendChild(button);
+          }
+        }
+
+        drawLaser();
+        updateHud();
+      }
+
+      function updateHud() {
+        els.movesDisplay.textContent = String(state.moveCount);
+        els.levelValue.textContent = String(state.level);
+      }
+
+      function drawLaser() {
+        const boardData = state.boardData;
+        if (!boardData) return;
+        els.laserLayer.innerHTML = '';
+        if (!boardData.pathPoints.length) return;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        path.setAttribute('points', boardData.pathPoints.map(([x, y]) => `${x},${y}`).join(' '));
+        path.setAttribute('class', `laser-path${state.options.motion ? ' motion' : ''}`);
+        els.laserLayer.appendChild(path);
+      }
+
+      function setCursor(row, col, focus = false) {
+        if (!state.boardData) return;
+        state.cursor = {
+          row: clamp(row, 0, state.boardData.size - 1),
+          col: clamp(col, 0, state.boardData.size - 1)
+        };
+        renderBoard();
+        if (focus) {
+          const selector = `.cell[data-row="${state.cursor.row}"][data-col="${state.cursor.col}"]`;
+          els.board.querySelector(selector)?.focus();
+        }
+      }
+
+      function handleCellKeydown(event, row, col) {
+        if (state.currentOverlay) return;
+        const key = event.key;
+        if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+          event.preventDefault();
+          const move = {
+            ArrowUp: [-1, 0],
+            ArrowDown: [1, 0],
+            ArrowLeft: [0, -1],
+            ArrowRight: [0, 1]
+          }[key];
+          setCursor(row + move[0], col + move[1], true);
+          return;
+        }
+        if (key === 'Enter' || key === ' ') {
+          event.preventDefault();
+          toggleMirror(row, col);
+        }
+      }
+
+      function updateLaserAndTargets() {
+        state.boardData.motion = state.options.motion;
+        const traced = traceLaser(state.boardData);
+        state.boardData.laserCells = traced.laserCells;
+        state.boardData.litTargets = traced.litTargets;
+        state.boardData.pathPoints = traced.points;
+      }
+
+      function toggleMirror(row, col) {
+        if (!state.boardData || state.completionPending) return;
+        const cell = state.boardData.grid[row][col];
+        if (cell.type !== 'mirror') return;
+        cell.orientation = cell.orientation === '/' ? '\\' : '/';
+        state.moveCount += 1;
+        state.boardData.moveCount = state.moveCount;
+        playTone('toggle');
+        updateLaserAndTargets();
+        renderBoard();
+        checkCompletion();
+      }
+
+      function animateTargetsOnce() {
+        state.boardData.targets.forEach(({ row, col }) => {
+          if (!state.boardData.litTargets.has(cellKey(row, col))) return;
+          const node = els.board.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+          node?.classList.add('target-celebrate');
+          setTimeout(() => node?.classList.remove('target-celebrate'), 540);
+        });
+      }
+
+      function loadLevel(level) {
+        state.level = level;
+        state.moveCount = 0;
+        state.completionPending = false;
+        state.boardData = createLevel(level);
+        state.cursor = { row: state.boardData.emitter.row, col: state.boardData.emitter.col };
+        showScreen(SCREEN.game);
+        renderBoard();
+        setTimeout(() => setCursor(state.cursor.row, state.cursor.col, false), 0);
+      }
+
+      function checkCompletion() {
+        if (!state.boardData || state.completionPending) return;
+        if (state.boardData.litTargets.size !== state.boardData.targets.length) return;
+        state.completionPending = true;
+        animateTargetsOnce();
+        playTone('success');
+        setTimeout(() => {
+          const nextLevel = state.level + 1;
+          if (nextLevel > state.bestLevel) {
+            state.bestLevel = nextLevel;
+            writeBestLevel();
+            updateBestDisplay();
+            showToast();
+          }
+          loadLevel(nextLevel);
+        }, state.options.motion ? 700 : 260);
+      }
+
+      function startGame() {
+        closeOverlay();
+        loadLevel(1);
+      }
+
+      function returnToMenu() {
+        closeOverlay();
+        state.completionPending = false;
+        showScreen(SCREEN.landing);
+      }
+
+      function playAgain() {
+        closeOverlay();
+        loadLevel(state.level || 1);
+      }
+
+      function manualResetBest() {
+        state.bestLevel = 0;
+        writeBestLevel();
+        updateBestDisplay();
+        hideResetConfirmation();
+      }
+
+      function bindEvents() {
+        els.startButton.addEventListener('click', startGame);
+        els.landingBestButton.addEventListener('click', () => {
+          updateBestDisplay();
+          openOverlay('best');
+        });
+        els.closeBestButton.addEventListener('click', () => {
+          closeOverlay();
+          showScreen(SCREEN.landing);
+        });
+        els.landingSettingsButton.addEventListener('click', () => openOverlay('settings'));
+        els.gameSettingsButton.addEventListener('click', () => openOverlay('settings'));
+        els.closeSettingsButton.addEventListener('click', closeOverlay);
+        els.menuButton.addEventListener('click', () => openOverlay('menu'));
+        els.playAgainButton.addEventListener('click', playAgain);
+        els.menuConfirmButton.addEventListener('click', returnToMenu);
+        els.soundToggle.addEventListener('click', () => {
+          state.options.sound = !state.options.sound;
+          updateOptionButtons();
+          playTone('toggle');
+        });
+        els.motionToggle.addEventListener('click', () => {
+          state.options.motion = !state.options.motion;
+          updateOptionButtons();
+          if (state.boardData) {
+            updateLaserAndTargets();
+            drawLaser();
+          }
+        });
+        els.contrastToggle.addEventListener('click', () => {
+          state.options.contrast = !state.options.contrast;
+          updateOptionButtons();
+        });
+        els.resetBestButton.addEventListener('click', showResetConfirmation);
+        els.confirmResetButton.addEventListener('click', manualResetBest);
+        els.cancelResetButton.addEventListener('click', hideResetConfirmation);
+
+        [els.settingsOverlay, els.bestOverlay, els.menuOverlay].forEach((overlay) => {
+          overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) closeOverlay();
+          });
+        });
+
+        window.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            closeOverlay();
+          }
+        });
+      }
+
+      updateOptionButtons();
+      updateBestDisplay();
+      bindEvents();
+
+      window.__laserMirrorGame = {
+        state,
+        createLevel,
+        traceLaser,
+        startGame,
+        returnToMenu,
+        playAgain,
+        loadLevel,
+        setCursor,
+        toggleMirror,
+        getBoardData: () => state.boardData,
+        getVisibleWords: () => Array.from(document.body.querySelectorAll('*'))
+          .flatMap((node) => Array.from(node.childNodes || []))
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.textContent.trim())
+          .filter(Boolean)
+      };
+    })();
+  </script>
+</body>
+</html>

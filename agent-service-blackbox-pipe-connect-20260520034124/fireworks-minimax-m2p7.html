@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipe Connect</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  :root {
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --success: #10b981;
+    --pipe: #64748b;
+    --pipe-lit: #06b6d4;
+    --pipe-lit-glow: #22d3ee;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --source: #22c55e;
+    --target: #ef4444;
+    --cell-bg: #f8fafc;
+    --cell-hover: #e0f2fe;
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+  }
+  
+  .game-container {
+    background: var(--surface);
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    max-width: 500px;
+    width: 100%;
+  }
+  
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  
+  .stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+  }
+  
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .stat-label {
+    color: var(--text-muted);
+  }
+  
+  .stat-value {
+    font-weight: 600;
+    color: var(--text);
+  }
+  
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  
+  .btn:hover {
+    background: var(--bg);
+    border-color: var(--primary);
+  }
+  
+  .btn:active {
+    transform: scale(0.97);
+  }
+  
+  .btn-icon {
+    padding: 0.5rem;
+  }
+  
+  .btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .board {
+    display: grid;
+    gap: 2px;
+    background: var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    margin: 0 auto;
+    aspect-ratio: 1;
+    max-width: 400px;
+  }
+  
+  .cell {
+    background: var(--cell-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+  }
+  
+  .cell:hover {
+    background: var(--cell-hover);
+  }
+  
+  .cell:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+  }
+  
+  .cell.source, .cell.target {
+    cursor: default;
+  }
+  
+  .cell.empty {
+    cursor: default;
+  }
+  
+  .pipe-svg {
+    width: 80%;
+    height: 80%;
+  }
+  
+  .pipe-path {
+    fill: none;
+    stroke: var(--pipe);
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke 0.3s;
+  }
+  
+  .pipe-path.lit {
+    stroke: var(--pipe-lit);
+    filter: drop-shadow(0 0 4px var(--pipe-lit-glow));
+  }
+  
+  .source-marker, .target-marker {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: white;
+  }
+  
+  .source-marker {
+    left: 4px;
+    top: 4px;
+    background: var(--source);
+  }
+  
+  .target-marker {
+    right: 4px;
+    bottom: 4px;
+    background: var(--target);
+  }
+  
+  .message {
+    text-align: center;
+    padding: 1rem;
+    margin-top: 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s;
+  }
+  
+  .message.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  .message.success {
+    background: #d1fae5;
+    color: #065f46;
+  }
+  
+  .message.info {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+  
+  .celebration {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  
+  .celebration.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  
+  .celebration-content {
+    background: var(--surface);
+    padding: 2rem;
+    border-radius: 16px;
+    text-align: center;
+    animation: pop 0.5s ease-out;
+  }
+  
+  @keyframes pop {
+    0% { transform: scale(0.5); opacity: 0; }
+    70% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  
+  .celebration h2 {
+    font-size: 1.5rem;
+    color: var(--success);
+    margin-bottom: 0.5rem;
+  }
+  
+  .celebration p {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+  
+  .toggles {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    justify-content: center;
+  }
+  
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  
+  .toggle input {
+    display: none;
+  }
+  
+  .toggle-track {
+    width: 32px;
+    height: 18px;
+    background: var(--border);
+    border-radius: 9px;
+    position: relative;
+    transition: background 0.2s;
+  }
+  
+  .toggle input:checked + .toggle-track {
+    background: var(--primary);
+  }
+  
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s;
+  }
+  
+  .toggle input:checked + .toggle-track::after {
+    transform: translateX(14px);
+  }
+  
+  /* Debug panel */
+  .debug-panel {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #1e293b;
+    color: #e2e8f0;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 0.75rem;
+  }
+  
+  .debug-panel h3 {
+    color: #06b6d4;
+    margin-bottom: 0.5rem;
+  }
+  
+  .debug-panel button {
+    margin: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: #334155;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.7rem;
+  }
+  
+  .debug-panel button:hover {
+    background: #475569;
+  }
+  
+  .debug-info {
+    margin-top: 0.5rem;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  
+  .debug-info pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  
+  @media (max-width: 480px) {
+    .game-container {
+      padding: 1rem;
+    }
+    
+    .stats {
+      gap: 0.75rem;
+    }
+    
+    .btn {
+      padding: 0.4rem 0.6rem;
+      font-size: 0.7rem;
+    }
+    
+    .board {
+      max-width: 320px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <header>
+    <h1>🔌 Pipe Connect</h1>
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-label">Level</span>
+        <span class="stat-value" id="level">1</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Moves</span>
+        <span class="stat-value" id="moves">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Best</span>
+        <span class="stat-value" id="best">1</span>
+      </div>
+    </div>
+  </header>
+  
+  <div class="controls">
+    <button class="btn" id="resetBtn" title="Reset level">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+        <path d="M3 3v5h5"/>
+      </svg>
+      Reset
+    </button>
+    <button class="btn" id="newGameBtn" title="New game">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      New
+    </button>
+    <button class="btn" id="debugBtn" title="Debug info">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4M12 8h.01"/>
+      </svg>
+      Debug
+    </button>
+  </div>
+  
+  <div class="board" id="board"></div>
+  
+  <div class="message" id="message"></div>
+  
+  <div class="toggles">
+    <label class="toggle">
+      <input type="checkbox" id="soundToggle" checked>
+      <span class="toggle-track"></span>
+      Sound
+    </label>
+    <label class="toggle">
+      <input type="checkbox" id="motionToggle" checked>
+      <span class="toggle-track"></span>
+      Motion
+    </label>
+  </div>
+  
+  <div class="debug-panel" id="debugPanel" style="display:none;">
+    <h3>Debug Console</h3>
+    <button onclick="PipeGame.verifySolution()">Verify Solution</button>
+    <button onclick="PipeGame.showBoardState()">Show Board State</button>
+    <button onclick="PipeGame.findSolution()">Find Solution</button>
+    <button onclick="PipeGame.testGeneration()">Test Generation</button>
+    <button onclick="PipeGame.highlightPath()">Highlight Path</button>
+    <button onclick="PipeGame.clearHighlights()">Clear Highlights</button>
+    <div class="debug-info" id="debugInfo"></div>
+  </div>
+</div>
+
+<div class="celebration" id="celebration">
+  <div class="celebration-content">
+    <h2>🎉 Level Complete!</h2>
+    <p id="celebrationText">Great job!</p>
+    <button class="btn" id="nextLevelBtn" style="margin-top: 0.5rem; font-size: 1rem; padding: 0.75rem 1.5rem;">
+      Next Level →
+    </button>
+  </div>
+</div>
+
+<script>
+// Pipe Connect Game - Full Implementation
+const PipeGame = (function() {
+  // Pipe types and their connection directions
+  const STRAIGHT = 0; // horizontal straight
+  const CORNER = 1;   // corner (L-shape)
+  const TEE = 2;      // T-junction
+  const CROSS = 3;    // cross intersection
+  const SOURCE = 4;   // source (left side)
+  const TARGET = 5;   // target (right side)
+  const EMPTY = 6;    // empty cell
+  
+  // Direction constants: 0=right, 1=down, 2=left, 3=up
+  const DIR = { RIGHT: 0, DOWN: 1, LEFT: 2, UP: 3 };
+  const OPPOSITE = [DIR.LEFT, DIR.UP, DIR.RIGHT, DIR.DOWN];
+  
+  // Pipe definitions: which directions they connect at rotation 0
+  // Rotation r connects (dir + r) % 4 for each dir in connections[pipeType]
+  const CONNECTIONS = {
+    [STRAIGHT]: [DIR.RIGHT, DIR.LEFT],
+    [CORNER]: [DIR.UP, DIR.RIGHT],
+    [TEE]: [DIR.LEFT, DIR.UP, DIR.RIGHT],
+    [CROSS]: [DIR.LEFT, DIR.UP, DIR.RIGHT, DIR.DOWN],
+    [SOURCE]: [DIR.RIGHT],
+    [TARGET]: [DIR.LEFT],
+    [EMPTY]: []
+  };
+  
+  let state = {
+    grid: [],
+    size: 4,
+    level: 1,
+    moves: 0,
+    bestLevel: 1,
+    solution: [],
+    soundEnabled: true,
+    motionEnabled: true,
+    focusedCell: null
+  };
+  
+  // Audio context for sounds
+  let audioCtx = null;
+  
+  function initAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+  }
+  
+  function playSound(type) {
+    if (!state.soundEnabled) return;
+    try {
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      switch(type) {
+        case 'rotate':
+          osc.frequency.value = 440;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.1);
+          break;
+        case 'connect':
+          osc.frequency.value = 523;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.2);
+          break;
+        case 'win':
+          osc.frequency.value = 659;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+          osc.start();
+          setTimeout(() => {
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.frequency.value = 784;
+            osc2.type = 'sine';
+            gain2.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+            osc2.start();
+            osc2.stop(audioCtx.currentTime + 0.5);
+          }, 150);
+          break;
+      }
+    } catch(e) {}
+  }
+  
+  function loadState() {
+    try {
+      const saved = localStorage.getItem('pipeConnectState');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        state.bestLevel = parsed.bestLevel || 1;
+      }
+    } catch(e) {}
+    document.getElementById('best').textContent = state.bestLevel;
+  }
+  
+  function saveState() {
+    try {
+      localStorage.setItem('pipeConnectState', JSON.stringify({
+        bestLevel: state.bestLevel
+      }));
+    } catch(e) {}
+  }
+  
+  function getConnections(pipeType, rotation) {
+    const base = CONNECTIONS[pipeType] || [];
+    return base.map(d => (d + rotation) % 4);
+  }
+  
+  function hasConnection(pipeType, rotation, dir) {
+    return getConnections(pipeType, rotation).includes(dir);
+  }
+  
+  // Generate a solvable puzzle
+  function generatePuzzle(size) {
+    // Initialize empty grid
+    const grid = Array(size).fill(null).map(() => 
+      Array(size).fill(null).map(() => ({ type: EMPTY, rotation: 0 }))
+    );
+    
+    // Define source and target positions
+    const sourceRow = Math.floor(size / 2);
+    const targetRow = Math.floor(size / 2);
+    
+    // Place source
+    grid[sourceRow][0] = { type: SOURCE, rotation: 0, isFixed: true };
+    
+    // Place target
+    grid[targetRow][size - 1] = { type: TARGET, rotation: 0, isFixed: true };
+    
+    // Generate a valid path from source to target using BFS/random walk
+    const path = generatePath(size, sourceRow, 0, targetRow, size - 1);
+    
+    if (path.length === 0) {
+      // Fallback: simple straight path
+      for (let row = sourceRow; row <= targetRow; row++) {
+        for (let col = 0; col < size; col++) {
+          if (grid[row][col].type === EMPTY) {
+            grid[row][col] = { type: STRAIGHT, rotation: 0 };
+          }
+        }
+      }
+      // Place source and target
+      grid[sourceRow][0] = { type: SOURCE, rotation: 0, isFixed: true };
+      grid[targetRow][size - 1] = { type: TARGET, rotation: 0, isFixed: true };
+      return { grid, path: [[sourceRow, 0], ...Array.from({length: size}, (_, i) => [targetRow, i])] };
+    }
+    
+    // Set path cells with appropriate pipe types
+    for (let i = 1; i < path.length - 1; i++) {
+      const [row, col] = path[i];
+      const [prevRow, prevCol] = path[i - 1];
+      const [nextRow, nextCol] = path[i + 1];
+      
+      const fromDir = getDirection(row - prevRow, col - prevCol);
+      const toDir = getDirection(nextRow - row, nextCol - col);
+      
+      const { type, rotation } = getPipeForDirections(fromDir, toDir);
+      grid[row][col] = { type, rotation, solutionRotation: rotation };
+    }
+    
+    // Fill remaining cells with random pipes (decoys)
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        if (grid[row][col].type === EMPTY) {
+          const pipeTypes = [STRAIGHT, CORNER, TEE, CROSS, EMPTY];
+          const weights = [0.25, 0.35, 0.2, 0.05, 0.15];
+          const type = weightedRandom(pipeTypes, weights);
+          const rotation = Math.floor(Math.random() * 4);
+          grid[row][col] = { type, rotation, solutionRotation: rotation };
+        }
+      }
+    }
+    
+    // Track path cells and scramble only non-path cells (decoys)
+    const pathSet = new Set(path.map(([r, c]) => `${r},${c}`));
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        const key = `${row},${col}`;
+        if (!grid[row][col].isFixed && 
+            grid[row][col].type !== EMPTY && 
+            !pathSet.has(key)) {
+          grid[row][col].rotation = Math.floor(Math.random() * 4);
+        }
+      }
+    }
+    
+    return { grid, path };
+  }
+  
+  function getDirection(dRow, dCol) {
+    if (dCol === 1) return DIR.RIGHT;
+    if (dCol === -1) return DIR.LEFT;
+    if (dRow === 1) return DIR.DOWN;
+    if (dRow === -1) return DIR.UP;
+    return DIR.RIGHT;
+  }
+  
+  function getPipeForDirections(fromDir, toDir) {
+    // We need a pipe that connects both directions
+    // fromDir is where we came from (enter), toDir is where we go (exit)
+    // For the pipe's perspective, we enter from OPPOSITE(fromDir) and exit to toDir
+    
+    const enter = OPPOSITE[fromDir];
+    const exit = toDir;
+    
+    // Check each pipe type
+    for (let rotation = 0; rotation < 4; rotation++) {
+      const conns = getConnections(STRAIGHT, rotation);
+      if (conns.includes(enter) && conns.includes(exit)) {
+        return { type: STRAIGHT, rotation };
+      }
+    }
+    
+    for (let rotation = 0; rotation < 4; rotation++) {
+      const conns = getConnections(CORNER, rotation);
+      if (conns.includes(enter) && conns.includes(exit)) {
+        return { type: CORNER, rotation };
+      }
+    }
+    
+    // Fallback to T or cross
+    for (let rotation = 0; rotation < 4; rotation++) {
+      const conns = getConnections(TEE, rotation);
+      if (conns.includes(enter) && conns.includes(exit)) {
+        return { type: TEE, rotation };
+      }
+    }
+    
+    for (let rotation = 0; rotation < 4; rotation++) {
+      const conns = getConnections(CROSS, rotation);
+      if (conns.includes(enter) && conns.includes(exit)) {
+        return { type: CROSS, rotation };
+      }
+    }
+    
+    return { type: STRAIGHT, rotation: (enter === DIR.LEFT || enter === DIR.RIGHT) ? 0 : 1 };
+  }
+  
+  function weightedRandom(items, weights) {
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < items.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return items[i];
+    }
+    return items[items.length - 1];
+  }
+  
+  function generatePath(size, startRow, startCol, endRow, endCol) {
+    // BFS to find a path - path must be reachable from source's RIGHT output
+    const queue = [];
+    const visited = new Set();
+    
+    // Source is at (startRow, 0) and only connects RIGHT
+    // So first step must be to the RIGHT into (startRow, 1)
+    queue.push([startRow, 1, [[startRow, 0], [startRow, 1]]]);
+    visited.add(`${startRow},0`);
+    visited.add(`${startRow},1`);
+    
+    const directions = [[0, 1], [1, 0], [-1, 0], [0, -1]];
+    
+    while (queue.length > 0) {
+      const [row, col, path] = queue.shift();
+      
+      if (row === endRow && col === endCol) {
+        return path;
+      }
+      
+      // Shuffle directions for randomness
+      const dirs = [...directions].sort(() => Math.random() - 0.5);
+      
+      for (const [dRow, dCol] of dirs) {
+        const newRow = row + dRow;
+        const newCol = col + dCol;
+        const key = `${newRow},${newCol}`;
+        
+        if (newRow >= 0 && newRow < size && 
+            newCol >= 0 && newCol < size && 
+            !visited.has(key)) {
+          visited.add(key);
+          queue.push([newRow, newCol, [...path, [newRow, newCol]]]);
+        }
+      }
+      
+      // Limit search to prevent infinite loops
+      if (path.length > size * size * 2) break;
+    }
+    
+    return [];
+  }
+  
+  function findConnectedCells() {
+    const connected = new Set();
+    const size = state.grid.length;
+    
+    // Start from source (0, any row with source)
+    let sourceCell = null;
+    for (let row = 0; row < size; row++) {
+      if (state.grid[row][0].type === SOURCE) {
+        sourceCell = { row, col: 0 };
+        break;
+      }
+    }
+    
+    if (!sourceCell) return connected;
+    
+    // BFS from source
+    const queue = [sourceCell];
+    connected.add(`${sourceCell.row},${sourceCell.col}`);
+    
+    while (queue.length > 0) {
+      const { row, col } = queue.shift();
+      const cell = state.grid[row][col];
+      const connections = getConnections(cell.type, cell.rotation);
+      
+      for (const dir of connections) {
+        const [dRow, dCol] = getDelta(dir);
+        const newRow = row + dRow;
+        const newCol = col + dCol;
+        const key = `${newRow},${newCol}`;
+        
+        if (newRow >= 0 && newRow < size && newCol >= 0 && newCol < size && !connected.has(key)) {
+          const neighbor = state.grid[newRow][newCol];
+          const neighborConnections = getConnections(neighbor.type, neighbor.rotation);
+          
+          // Check if neighbor connects back
+          if (neighborConnections.includes(OPPOSITE[dir])) {
+            connected.add(key);
+            queue.push({ row: newRow, col: newCol });
+          }
+        }
+      }
+    }
+    
+    return connected;
+  }
+  
+  function getDelta(dir) {
+    switch(dir) {
+      case DIR.RIGHT: return [0, 1];
+      case DIR.LEFT: return [0, -1];
+      case DIR.DOWN: return [1, 0];
+      case DIR.UP: return [-1, 0];
+    }
+    return [0, 0];
+  }
+  
+  function checkWin() {
+    const size = state.grid.length;
+    
+    // Find target cell
+    for (let row = 0; row < size; row++) {
+      if (state.grid[row][size - 1].type === TARGET) {
+        const connected = findConnectedCells();
+        return connected.has(`${row},${size - 1}`);
+      }
+    }
+    return false;
+  }
+  
+  function createPipeSVG(type, rotation, lit = false) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 40 40');
+    svg.classList.add('pipe-svg');
+    
+    const pathClass = lit ? 'pipe-path lit' : 'pipe-path';
+    
+    switch(type) {
+      case STRAIGHT:
+        if (rotation % 2 === 0) {
+          svg.innerHTML = `<path class="${pathClass}" d="M0,20 L40,20"/>`;
+        } else {
+          svg.innerHTML = `<path class="${pathClass}" d="M20,0 L20,40"/>`;
+        }
+        break;
+      case CORNER:
+        const cornerPaths = [
+          'M20,0 L20,20 L40,20', // rotation 0
+          'M40,20 L20,20 L20,40', // rotation 1
+          'M20,40 L20,20 L0,20', // rotation 2
+          'M0,20 L20,20 L20,0'  // rotation 3
+        ];
+        svg.innerHTML = `<path class="${pathClass}" d="${cornerPaths[rotation % 4]}"/>`;
+        break;
+      case TEE:
+        const teePaths = [
+          'M0,20 L40,20 M20,0 L20,20', // open top
+          'M20,0 L20,40 M20,20 L40,20', // open right
+          'M0,20 L40,20 M20,20 L20,40', // open bottom
+          'M20,0 L20,40 M0,20 L20,20'  // open left
+        ];
+        svg.innerHTML = `<path class="${pathClass}" d="${teePaths[rotation % 4]}"/>`;
+        break;
+      case CROSS:
+        svg.innerHTML = `<path class="${pathClass}" d="M0,20 L40,20 M20,0 L20,40"/>`;
+        break;
+      case SOURCE:
+        svg.innerHTML = `<circle cx="20" cy="20" r="12" fill="#22c55e" class="${pathClass}" style="stroke: none; fill-opacity: 0.8"/>`;
+        break;
+      case TARGET:
+        svg.innerHTML = `<circle cx="20" cy="20" r="12" fill="#ef4444" class="${pathClass}" style="stroke: none; fill-opacity: 0.8"/>`;
+        break;
+      default:
+        break;
+    }
+    
+    return svg;
+  }
+  
+  function renderBoard() {
+    const board = document.getElementById('board');
+    const size = state.grid.length;
+    
+    board.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+    board.innerHTML = '';
+    
+    const connected = findConnectedCells();
+    
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        const cell = state.grid[row][col];
+        const div = document.createElement('div');
+        div.className = 'cell';
+        div.dataset.row = row;
+        div.dataset.col = col;
+        
+        const isLit = connected.has(`${row},${col}`);
+        
+        if (cell.type === SOURCE) {
+          div.classList.add('source');
+          div.innerHTML = '<span class="source-marker">S</span>';
+        } else if (cell.type === TARGET) {
+          div.classList.add('target');
+          div.innerHTML = '<span class="target-marker">T</span>';
+        } else if (cell.type === EMPTY) {
+          div.classList.add('empty');
+        }
+        
+        if (cell.type !== SOURCE && cell.type !== TARGET && cell.type !== EMPTY) {
+          const svg = createPipeSVG(cell.type, cell.rotation, isLit);
+          div.appendChild(svg);
+        }
+        
+        if (!cell.isFixed && cell.type !== EMPTY) {
+          div.addEventListener('click', () => rotatePipe(row, col));
+        }
+        
+        // Keyboard focus handling
+        div.tabIndex = 0;
+        div.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (!cell.isFixed && cell.type !== EMPTY) {
+              rotatePipe(row, col);
+            }
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            focusCell(row - 1, col);
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            focusCell(row + 1, col);
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            focusCell(row, col - 1);
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            focusCell(row, col + 1);
+          }
+        });
+        
+        board.appendChild(div);
+      }
+    }
+    
+    updateStats();
+  }
+  
+  function focusCell(row, col) {
+    if (row < 0 || row >= state.grid.length || col < 0 || col >= state.grid.length) return;
+    const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+    if (cell) cell.focus();
+  }
+  
+  function rotatePipe(row, col) {
+    const cell = state.grid[row][col];
+    if (cell.isFixed || cell.type === EMPTY) return;
+    
+    initAudio();
+    
+    cell.rotation = (cell.rotation + 1) % 4;
+    state.moves++;
+    
+    playSound('rotate');
+    
+    // Check for new connections
+    const prevConnected = findConnectedCells();
+    renderBoard();
+    const newConnected = findConnectedCells();
+    
+    // Play connect sound if new cells became connected
+    for (const key of newConnected) {
+      if (!prevConnected.has(key)) {
+        playSound('connect');
+        break;
+      }
+    }
+    
+    // Check win condition
+    if (checkWin()) {
+      setTimeout(() => showWin(), 300);
+    }
+    
+    updateStats();
+  }
+  
+  function updateStats() {
+    document.getElementById('level').textContent = state.level;
+    document.getElementById('moves').textContent = state.moves;
+    document.getElementById('best').textContent = state.bestLevel;
+  }
+  
+  function showWin() {
+    playSound('win');
+    
+    if (state.motionEnabled) {
+      document.getElementById('celebration').classList.add('show');
+    }
+    
+    const messages = [
+      'Excellent work!',
+      'Perfect connection!',
+      'Great job!',
+      'Flowing nicely!',
+      'Pipeline complete!'
+    ];
+    document.getElementById('celebrationText').textContent = messages[Math.floor(Math.random() * messages.length)];
+    
+    if (state.level >= state.bestLevel) {
+      state.bestLevel = state.level + 1;
+      saveState();
+    }
+  }
+  
+  function nextLevel() {
+    document.getElementById('celebration').classList.remove('show');
+    state.level++;
+    startLevel();
+  }
+  
+  function startLevel() {
+    state.size = Math.min(3 + Math.floor(state.level / 3), 7); // Grid grows with level
+    const { grid } = generatePuzzle(state.size);
+    state.grid = grid;
+    state.moves = 0;
+    renderBoard();
+    showMessage(`Level ${state.level}`, 'info');
+  }
+  
+  function resetLevel() {
+    startLevel();
+  }
+  
+  function newGame() {
+    state.level = 1;
+    state.bestLevel = 1;
+    saveState();
+    startLevel();
+  }
+  
+  function resetBest() {
+    state.bestLevel = 1;
+    saveState();
+    updateStats();
+    showMessage('Best score reset', 'info');
+  }
+  
+  function showMessage(text, type = 'info') {
+    const msg = document.getElementById('message');
+    msg.textContent = text;
+    msg.className = `message ${type} show`;
+    setTimeout(() => msg.classList.remove('show'), 2000);
+  }
+  
+  function toggleSound() {
+    state.soundEnabled = !state.soundEnabled;
+    initAudio();
+  }
+  
+  function toggleMotion() {
+    state.motionEnabled = !state.motionEnabled;
+  }
+  
+  // Debug functions (exposed to window for console access)
+  function verifySolution() {
+    const debugInfo = document.getElementById('debugInfo');
+    const connected = findConnectedCells();
+    const size = state.grid.length;
+    
+    // Find target
+    for (let row = 0; row < size; row++) {
+      if (state.grid[row][size - 1].type === TARGET) {
+        const isConnected = connected.has(`${row},${size - 1}`);
+        debugInfo.innerHTML = `<pre>Solution verification:
+Target at row ${row}, col ${size - 1}
+Connected: ${isConnected}
+Connected cells: ${Array.from(connected).join(', ') || 'none'}
+Grid state:
+${JSON.stringify(state.grid.map(r => r.map(c => 
+  c.type === SOURCE ? 'S' : 
+  c.type === TARGET ? 'T' : 
+  c.type === EMPTY ? '.' : 
+  ['─','┐','┬','┼'][c.type - 1] + c.rotation
+)), null, 2)}</pre>`;
+        return isConnected;
+      }
+    }
+    return false;
+  }
+  
+  function showBoardState() {
+    const debugInfo = document.getElementById('debugInfo');
+    const connected = findConnectedCells();
+    const size = state.grid.length;
+    
+    let display = 'Board State:\n';
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        const cell = state.grid[row][col];
+        const lit = connected.has(`${row},${col}`) ? '*' : ' ';
+        const typeChar = 
+          cell.type === SOURCE ? 'S' :
+          cell.type === TARGET ? 'T' :
+          cell.type === EMPTY ? '.' :
+          ['─','┐','┬','┼'][cell.type - 1];
+        display += `${lit}[${typeChar}${cell.rotation}]`;
+      }
+      display += '\n';
+    }
+    debugInfo.innerHTML = `<pre>${display}
+Level: ${state.level}
+Moves: ${state.moves}
+Best: ${state.bestLevel}</pre>`;
+  }
+  
+  function findSolution() {
+    const debugInfo = document.getElementById('debugInfo');
+    const size = state.grid.length;
+    
+    // Find a path from source to target
+    let sourceRow = 0;
+    for (let row = 0; row < size; row++) {
+      if (state.grid[row][0].type === SOURCE) {
+        sourceRow = row;
+        break;
+      }
+    }
+    
+    const path = generatePath(size, sourceRow, 0, sourceRow, size - 1);
+    
+    if (path.length > 0) {
+      const pathStr = path.map(p => `(${p[0]},${p[1]})`).join(' -> ');
+      debugInfo.innerHTML = `<pre>Solution path found:
+${pathStr}
+Length: ${path.length}</pre>`;
+    } else {
+      debugInfo.innerHTML = `<pre>No solution path found!
+This should not happen - puzzle generation ensures solvability.</pre>`;
+    }
+  }
+  
+  function testGeneration() {
+    const debugInfo = document.getElementById('debugInfo');
+    let results = '';
+    
+    for (let i = 0; i < 5; i++) {
+      const size = 4 + (i % 3);
+      const { grid, path } = generatePuzzle(size);
+      
+      // Verify path is valid
+      let pathValid = path.length > 0;
+      if (pathValid) {
+        const start = path[0];
+        const end = path[path.length - 1];
+        const startValid = grid[start[0]][start[1]].type === SOURCE;
+        const endValid = grid[end[0]][end[1]].type === TARGET;
+        pathValid = startValid && endValid;
+      }
+      
+      results += `Size ${size}: Path length ${path.length}, Valid: ${pathValid}\n`;
+    }
+    
+    debugInfo.innerHTML = `<pre>Generation test results:
+${results}</pre>`;
+  }
+  
+  function highlightPath() {
+    const path = generatePath(state.grid.length, 
+      state.grid.findIndex(r => r[0].type === SOURCE), 0,
+      state.grid.findIndex(r => r[state.grid.length - 1].type === TARGET), 
+      state.grid.length - 1
+    );
+    
+    path.forEach(([row, col]) => {
+      const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+      if (cell) {
+        cell.style.background = '#fef08a';
+      }
+    });
+  }
+  
+  function clearHighlights() {
+    document.querySelectorAll('.cell').forEach(cell => {
+      cell.style.background = '';
+    });
+  }
+  
+  // Expose debug functions
+  window.PipeGame = {
+    verifySolution,
+    showBoardState,
+    findSolution,
+    testGeneration,
+    highlightPath,
+    clearHighlights,
+    resetBest
+  };
+  
+  // Initialize
+  function init() {
+    loadState();
+    
+    document.getElementById('resetBtn').addEventListener('click', resetLevel);
+    document.getElementById('newGameBtn').addEventListener('click', newGame);
+    document.getElementById('debugBtn').addEventListener('click', () => {
+      const panel = document.getElementById('debugPanel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+    document.getElementById('nextLevelBtn').addEventListener('click', nextLevel);
+    
+    document.getElementById('soundToggle').addEventListener('change', (e) => {
+      state.soundEnabled = e.target.checked;
+      initAudio();
+    });
+    
+    document.getElementById('motionToggle').addEventListener('change', (e) => {
+      state.motionEnabled = e.target.checked;
+    });
+    
+    // Initialize state
+    startLevel();
+    
+    // Show initial hint
+    setTimeout(() => {
+      showMessage('Click pipes to rotate them!', 'info');
+    }, 500);
+  }
+  
+  return { init };
+})();
+
+// Start game when DOM is ready
+document.addEventListener('DOMContentLoaded', PipeGame.init);
+</script>
+</body>
+</html>

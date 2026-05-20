@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Pipe Connect</title>
+<style>
+  :root {
+    --bg-0: #0b1220;
+    --bg-1: #111a2e;
+    --bg-2: #1a2541;
+    --line: #2a3a63;
+    --ink: #e8eefc;
+    --ink-dim: #97a3c2;
+    --accent: #5eead4;
+    --accent-2: #38bdf8;
+    --warn: #fbbf24;
+    --pipe: #6b7794;
+    --pipe-shade: #4a546b;
+    --pipe-lit: #22d3ee;
+    --pipe-lit-glow: #67e8f9;
+    --source: #f97316;
+    --target: #22c55e;
+    --focus: #fde68a;
+    --tile: #1c2842;
+    --tile-2: #243250;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background:
+      radial-gradient(1200px 700px at 20% -10%, #1a2748 0%, transparent 60%),
+      radial-gradient(900px 600px at 110% 110%, #0e2438 0%, transparent 55%),
+      var(--bg-0);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .app {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 12px 12px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 100vh;
+  }
+  /* Header */
+  header.bar {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    backdrop-filter: blur(6px);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+  .brand .logo {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: conic-gradient(from 220deg, var(--accent), var(--accent-2), var(--source), var(--accent));
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 4px 18px rgba(34,211,238,0.25);
+  }
+  .stats {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .stat {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--ink-dim);
+    display: inline-flex;
+    gap: 6px;
+    align-items: baseline;
+    min-width: 70px;
+    justify-content: center;
+  }
+  .stat b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 700; }
+  .controls {
+    display: flex;
+    gap: 6px;
+  }
+  .icon-btn {
+    width: 36px; height: 36px;
+    display: inline-grid;
+    place-items: center;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform .08s ease, background .15s ease, border-color .15s ease;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.08); border-color: #3b4d7c; }
+  .icon-btn:active { transform: translateY(1px); }
+  .icon-btn[aria-pressed="true"] { background: rgba(94,234,212,0.14); border-color: rgba(94,234,212,0.45); color: var(--accent); }
+  .icon-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Board */
+  .board-wrap {
+    position: relative;
+    border: 1px solid var(--line);
+    background:
+      radial-gradient(120% 80% at 50% 0%, rgba(56,189,248,0.07), transparent 60%),
+      linear-gradient(180deg, var(--bg-1), var(--bg-2));
+    border-radius: 16px;
+    padding: 10px;
+    overflow: hidden;
+    /* Fit within viewport: pick the smaller of width-based or height-based size. */
+    width: min(100%, calc(100vh - 150px));
+    margin: 0 auto;
+    aspect-ratio: 1 / 1;
+    display: flex;
+  }
+  .board {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    height: 100%;
+  }
+  .cell {
+    position: relative;
+    background: var(--tile);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 8px;
+    overflow: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+    transition: background .2s ease, transform .12s ease;
+  }
+  .cell.empty { background: transparent; border-color: transparent; }
+  .cell.rotatable { cursor: pointer; background: linear-gradient(180deg, var(--tile), var(--tile-2)); }
+  .cell.rotatable:hover { background: linear-gradient(180deg, #233357, #2a3a63); }
+  .cell:focus-visible { box-shadow: 0 0 0 2px var(--focus), 0 0 0 4px rgba(253,230,138,0.25); z-index: 2; }
+  .cell.endpoint { background: linear-gradient(180deg, #1d2a47, #25345a); }
+  .cell svg { width: 100%; height: 100%; display: block; transition: transform .22s cubic-bezier(.2,.8,.25,1.2); }
+  .cell.no-motion svg { transition: none; }
+  .cell .badge {
+    position: absolute;
+    top: 4px; left: 4px;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    background: rgba(0,0,0,0.35);
+    padding: 1px 5px;
+    border-radius: 5px;
+    pointer-events: none;
+  }
+  .cell.source .badge { color: #ffd6a8; background: rgba(249,115,22,0.18); }
+  .cell.target .badge { color: #bbf7d0; background: rgba(34,197,94,0.18); }
+
+  /* Status bar below board */
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 0 4px;
+    color: var(--ink-dim);
+    font-size: 12px;
+  }
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; }
+  .legend .chip { display: inline-flex; gap: 6px; align-items: center; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+
+  /* Home overlay */
+  .overlay {
+    position: fixed; inset: 0;
+    display: grid; place-items: center;
+    background: radial-gradient(60% 50% at 50% 30%, rgba(34,211,238,0.10), transparent 70%), rgba(7,12,24,0.86);
+    backdrop-filter: blur(6px);
+    z-index: 20;
+    padding: 16px;
+  }
+  .overlay.hidden { display: none; }
+  .panel {
+    background: linear-gradient(180deg, #131e36, #0d1730);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px 22px 18px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03) inset;
+  }
+  .panel h1 {
+    margin: 0 0 6px;
+    font-size: 24px;
+    letter-spacing: 0.3px;
+    background: linear-gradient(180deg, #fff, #b6c2e1);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .panel p { margin: 0 0 14px; color: var(--ink-dim); font-size: 13px; line-height: 1.5; }
+  .panel .preview {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    margin: 4px auto 14px;
+    max-width: 240px;
+  }
+  .panel .preview .cell { aspect-ratio: 1; }
+  .btn {
+    appearance: none; border: 0; cursor: pointer;
+    background: linear-gradient(180deg, var(--accent), #2dd4bf);
+    color: #052e2b;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(45,212,191,0.30), 0 0 0 1px rgba(255,255,255,0.08) inset;
+    transition: transform .08s ease, filter .15s ease;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:active { transform: translateY(1px); }
+  .btn.secondary {
+    background: rgba(255,255,255,0.06);
+    color: var(--ink);
+    box-shadow: 0 0 0 1px var(--line) inset;
+  }
+  .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+  /* Toast / level complete */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 32px;
+    transform: translateX(-50%) translateY(20px);
+    background: linear-gradient(180deg, #0e3b3a, #0a2a2a);
+    color: #ccfbf1;
+    border: 1px solid rgba(94,234,212,0.45);
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    box-shadow: 0 12px 40px rgba(34,211,238,0.25);
+    z-index: 30;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Confetti / celebration ring */
+  .celebrate {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .celebrate .ring {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 40px; height: 40px;
+    border: 3px solid var(--accent);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.9;
+    animation: ring 700ms ease-out forwards;
+  }
+  @keyframes ring {
+    to { transform: translate(-50%, -50%) scale(12); opacity: 0; }
+  }
+  .no-motion .celebrate .ring { animation: none; display: none; }
+
+  /* Small screens */
+  @media (max-width: 480px) {
+    .app { padding: 10px; }
+    .stat { font-size: 11px; padding: 5px 8px; min-width: 60px; }
+    .icon-btn { width: 34px; height: 34px; }
+    .brand span.title { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="bar" role="banner">
+    <div class="brand" aria-hidden="true">
+      <div class="logo"></div>
+      <span class="title">Pipe Connect</span>
+    </div>
+    <div class="stats" role="status" aria-live="polite">
+      <div class="stat" title="Current level">Lvl <b id="stat-level">1</b></div>
+      <div class="stat" title="Moves on this level">Moves <b id="stat-moves">0</b></div>
+      <div class="stat" title="Best level reached">Best <b id="stat-best">1</b></div>
+    </div>
+    <div class="controls" role="toolbar" aria-label="Game controls">
+      <button class="icon-btn" id="btn-reset" title="Reset level (R)" aria-label="Reset level">
+        <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-sound" title="Toggle sound (S)" aria-label="Toggle sound" aria-pressed="true">
+        <svg viewBox="0 0 24 24" id="ico-sound">
+          <path d="M4 9v6h4l5 4V5L8 9H4z"/>
+          <path d="M16 8a5 5 0 0 1 0 8"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="btn-motion" title="Toggle motion (M)" aria-label="Toggle motion" aria-pressed="true">
+        <svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-best-reset" title="Reset best level" aria-label="Reset best level">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M6 18L18 6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="board-wrap" id="board-wrap">
+    <div class="board" id="board" role="grid" aria-label="Pipe board"></div>
+    <div class="celebrate" id="celebrate"></div>
+  </div>
+
+  <div class="footer">
+    <div class="legend" aria-hidden="true">
+      <span class="chip"><span class="dot" style="color:var(--source); background:var(--source)"></span>Source</span>
+      <span class="chip"><span class="dot" style="color:var(--target); background:var(--target)"></span>Target</span>
+      <span class="chip"><span class="dot" style="color:var(--pipe-lit); background:var(--pipe-lit)"></span>Flowing</span>
+    </div>
+    <div id="hint">Tap a pipe to rotate</div>
+  </div>
+</div>
+
+<div class="overlay" id="home">
+  <div class="panel">
+    <h1>Pipe Connect</h1>
+    <p>Rotate the pipes to connect the orange <b>source</b> on the left to the green <b>target</b> on the right. Connected pipes light up. Beat each level to advance.</p>
+    <div class="preview" id="home-preview" aria-hidden="true"></div>
+    <div class="row">
+      <button class="btn" id="btn-start">Start Playing</button>
+      <button class="btn secondary" id="btn-continue" hidden>Continue</button>
+    </div>
+    <p style="margin-top:12px; font-size:11px;">
+      Keyboard: arrow keys to focus, Enter or Space to rotate. R = reset, S = sound, M = motion.
+    </p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ========= Pipe Connect Game =========
+ * Tiles use an "openings" bitmask over directions:
+ *   N=1, E=2, S=4, W=8
+ * Rotation r in [0..3] rotates openings clockwise by r*90°.
+ */
+
+const N=1, E=2, S=4, W=8;
+const DIRS = [
+  { bit: N, name: 'N', dx: 0, dy:-1, opp: S },
+  { bit: E, name: 'E', dx: 1, dy: 0, opp: W },
+  { bit: S, name: 'S', dx: 0, dy: 1, opp: N },
+  { bit: W, name: 'W', dx:-1, dy: 0, opp: E },
+];
+
+// Tile types and their base openings (at rotation 0).
+const TILES = {
+  empty:    { base: 0,         rotatable: false, sym: 4 },
+  straight: { base: N|S,       rotatable: true,  sym: 2 }, // 2-fold symmetric (rotations 0,1 distinct)
+  corner:   { base: N|E,       rotatable: true,  sym: 4 },
+  tee:      { base: N|E|S,     rotatable: true,  sym: 4 },
+  cross:    { base: N|E|S|W,   rotatable: false, sym: 1 }, // visually rotatable but identical
+  source:   { base: E,         rotatable: false, sym: 1 },
+  target:   { base: W,         rotatable: false, sym: 1 },
+};
+
+function rotateMask(mask, r) {
+  // Rotate bits clockwise by r*90°. N->E->S->W->N.
+  r = ((r % 4) + 4) % 4;
+  let m = mask & 0xF;
+  for (let i = 0; i < r; i++) {
+    // bit shift: N(1)->E(2), E(2)->S(4), S(4)->W(8), W(8)->N(1)
+    m = ((m << 1) & 0xE) | ((m & 8) >> 3);
+  }
+  return m;
+}
+
+function openings(tile) {
+  if (!tile || !TILES[tile.type]) return 0;
+  return rotateMask(TILES[tile.type].base, tile.rot|0);
+}
+
+/* ========= Board generation =========
+ * Approach:
+ *  1. Pick source row on left col, target row on right col.
+ *  2. Carve a simple path from source -> target using a randomized
+ *     depth-first search on the grid (path of unique cells).
+ *  3. For each path cell, determine openings (which sides connect to
+ *     path neighbors) and assign tile type (straight/corner).
+ *     With small probability promote a path cell to a tee/cross by
+ *     adding decoy openings to non-path neighbors, only if those
+ *     neighbors are empty (so the decoy is a true dead-end).
+ *  4. Fill remaining cells with random decoy tiles (straights/corners/tees).
+ *  5. Randomize rotations of all rotatable tiles. Verify the puzzle
+ *     starts unsolved; if solved, re-randomize a tile rotation.
+ *  6. Verify a valid solution exists (path connectivity guarantees it).
+ */
+function makeBoard(level, seed) {
+  const rand = mulberry32(seed >>> 0);
+  const size = Math.min(8, 4 + Math.floor(level / 2));
+  const cols = size, rows = size;
+
+  const cells = new Array(rows);
+  for (let y = 0; y < rows; y++) {
+    cells[y] = new Array(cols);
+    for (let x = 0; x < cols; x++) cells[y][x] = { type: 'empty', rot: 0, x, y };
+  }
+
+  const sourceRow = Math.floor(rand() * rows);
+  const targetRow = Math.floor(rand() * rows);
+
+  // Carve a simple path using randomized DFS.
+  // Force the path to leave the source heading EAST and enter the target
+  // heading EAST (so target's WEST face is used). This matches the fixed
+  // base openings of source (E) and target (W).
+  const start = { x: 0, y: sourceRow };
+  const goal  = { x: cols - 1, y: targetRow };
+  // Carve from (1, sourceRow) to (cols-2, targetRow), then sandwich.
+  const innerStart = { x: 1, y: sourceRow };
+  const innerGoal  = { x: cols - 2, y: targetRow };
+  const innerPath = carvePath(innerStart, innerGoal, cols, rows, rand, [
+    { x: 0, y: sourceRow }, // pretend source cell is already used so the inner path can't loop back through it
+    { x: cols - 1, y: targetRow }, // same for target
+  ]);
+  const path = [start, ...innerPath, goal];
+
+  // Mark source and target.
+  cells[start.y][start.x] = { type: 'source', rot: 0, x: start.x, y: start.y };
+  cells[goal.y][goal.x]   = { type: 'target', rot: 0, x: goal.x,  y: goal.y };
+
+  // For interior path cells determine openings.
+  for (let i = 1; i < path.length - 1; i++) {
+    const p = path[i], prev = path[i-1], next = path[i+1];
+    let mask = 0;
+    mask |= dirBitFromTo(p, prev);
+    mask |= dirBitFromTo(p, next);
+    // Maybe promote with a decoy spur into an unused neighbor.
+    if (rand() < 0.18 && level > 1) {
+      const spurs = [];
+      for (const d of DIRS) {
+        const nx = p.x + d.dx, ny = p.y + d.dy;
+        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+        if (!(mask & d.bit) && cells[ny][nx].type === 'empty' && !isOnPath(path, nx, ny)) {
+          spurs.push(d.bit);
+        }
+      }
+      if (spurs.length) {
+        mask |= spurs[Math.floor(rand() * spurs.length)];
+        // Occasionally a cross (very rare).
+        if (rand() < 0.10 && spurs.length > 1) {
+          mask |= spurs[Math.floor(rand() * spurs.length)];
+        }
+      }
+    }
+    const tileType = tileTypeFromMask(mask);
+    cells[p.y][p.x] = { type: tileType, rot: 0, x: p.x, y: p.y, _baseMask: mask };
+    // Normalize rot so base openings match assigned mask.
+    cells[p.y][p.x].rot = findRotationFor(tileType, mask);
+  }
+
+  // Fill remaining empty cells with random decoys.
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (cells[y][x].type !== 'empty') continue;
+      if (rand() < 0.7) {
+        const choices = ['straight','corner','corner','tee'];
+        const t = choices[Math.floor(rand() * choices.length)];
+        cells[y][x] = { type: t, rot: Math.floor(rand() * 4), x, y };
+      }
+    }
+  }
+
+  // Randomize rotations of rotatable tiles.
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const c = cells[y][x];
+      if (TILES[c.type].rotatable) {
+        c.rot = Math.floor(rand() * 4);
+      }
+    }
+  }
+
+  const board = { cols, rows, cells, source: start, target: goal, solutionPath: path };
+
+  // If accidentally solved, nudge one path tile's rotation.
+  if (isSolved(board)) {
+    for (let i = 1; i < path.length - 1; i++) {
+      const p = path[i];
+      const c = cells[p.y][p.x];
+      if (TILES[c.type].rotatable) {
+        c.rot = (c.rot + 1) % 4;
+        if (!isSolved(board)) break;
+      }
+    }
+  }
+
+  return board;
+}
+
+function dirBitFromTo(a, b) {
+  if (b.x === a.x && b.y === a.y - 1) return N;
+  if (b.x === a.x + 1 && b.y === a.y) return E;
+  if (b.x === a.x && b.y === a.y + 1) return S;
+  if (b.x === a.x - 1 && b.y === a.y) return W;
+  return 0;
+}
+function isOnPath(path, x, y) {
+  for (const p of path) if (p.x === x && p.y === y) return true;
+  return false;
+}
+function tileTypeFromMask(mask) {
+  const bits = popcount(mask);
+  if (bits === 4) return 'cross';
+  if (bits === 3) return 'tee';
+  if (bits === 2) {
+    // straight if opposite, corner otherwise
+    if ((mask & (N|S)) === (N|S)) return 'straight';
+    if ((mask & (E|W)) === (E|W)) return 'straight';
+    return 'corner';
+  }
+  if (bits === 1) return 'corner'; // shouldn't happen for path interior; render as corner
+  return 'empty';
+}
+function popcount(m) { let c=0; while(m){c+=m&1; m>>=1;} return c; }
+function findRotationFor(type, targetMask) {
+  const base = TILES[type].base;
+  for (let r = 0; r < 4; r++) if (rotateMask(base, r) === targetMask) return r;
+  // fallback: choose closest rotation that contains all targetMask bits
+  for (let r = 0; r < 4; r++) if ((rotateMask(base, r) & targetMask) === targetMask) return r;
+  return 0;
+}
+
+/* Randomized DFS path from start to goal, returning a list of {x,y}. */
+function carvePath(start, goal, cols, rows, rand, blocked = []) {
+  const visited = new Set();
+  const key = (x, y) => y * cols + x;
+  for (const b of blocked) visited.add(key(b.x, b.y));
+  visited.add(key(start.x, start.y));
+  // We want a path that ends at goal. Use iterative DFS with backtracking.
+  const path = [{ x: start.x, y: start.y }];
+  let attempts = 0;
+  const maxAttempts = cols * rows * 50;
+  while (attempts++ < maxAttempts) {
+    const cur = path[path.length - 1];
+    if (cur.x === goal.x && cur.y === goal.y) return path;
+    // bias toward goal: shuffle but prefer moves that reduce manhattan distance with some prob
+    const candidates = DIRS.map(d => ({ d, nx: cur.x + d.dx, ny: cur.y + d.dy }))
+      .filter(o => o.nx >= 0 && o.ny >= 0 && o.nx < cols && o.ny < rows && !visited.has(key(o.nx, o.ny)));
+    if (!candidates.length) {
+      // backtrack
+      path.pop();
+      if (!path.length) {
+        // restart, preserve blocked cells
+        visited.clear();
+        for (const b of blocked) visited.add(key(b.x, b.y));
+        path.push({ x: start.x, y: start.y });
+        visited.add(key(start.x, start.y));
+        continue;
+      }
+      continue;
+    }
+    // Sort: with prob 0.7 prefer moves that reduce distance to goal, otherwise random
+    shuffle(candidates, rand);
+    if (rand() < 0.7) {
+      candidates.sort((a, b) => {
+        const da = Math.abs(goal.x - a.nx) + Math.abs(goal.y - a.ny);
+        const db = Math.abs(goal.x - b.nx) + Math.abs(goal.y - b.ny);
+        return da - db;
+      });
+    }
+    const pick = candidates[0];
+    visited.add(key(pick.nx, pick.ny));
+    path.push({ x: pick.nx, y: pick.ny });
+  }
+  // Fallback: straight L-path
+  const fallback = [];
+  let x = start.x, y = start.y;
+  fallback.push({ x, y });
+  while (x !== goal.x) { x += goal.x > x ? 1 : -1; fallback.push({ x, y }); }
+  while (y !== goal.y) { y += goal.y > y ? 1 : -1; fallback.push({ x, y }); }
+  return fallback;
+}
+
+function shuffle(arr, rand) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+/* Mulberry32 PRNG */
+function mulberry32(seed) {
+  let a = seed | 0;
+  return function() {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ========= Connection logic =========
+ * BFS from source. Two adjacent cells are connected if both expose
+ * matching openings toward each other.
+ */
+function computeLit(board) {
+  const { cols, rows, cells, source } = board;
+  const lit = new Array(rows);
+  for (let y = 0; y < rows; y++) { lit[y] = new Array(cols).fill(false); }
+  const queue = [source];
+  lit[source.y][source.x] = true;
+  while (queue.length) {
+    const c = queue.shift();
+    const tile = cells[c.y][c.x];
+    const o = openings(tile);
+    for (const d of DIRS) {
+      if (!(o & d.bit)) continue;
+      const nx = c.x + d.dx, ny = c.y + d.dy;
+      if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+      if (lit[ny][nx]) continue;
+      const nTile = cells[ny][nx];
+      if (nTile.type === 'empty') continue;
+      const no = openings(nTile);
+      if (!(no & d.opp)) continue;
+      lit[ny][nx] = true;
+      queue.push({ x: nx, y: ny });
+    }
+  }
+  return lit;
+}
+
+function isSolved(board) {
+  const lit = computeLit(board);
+  return lit[board.target.y][board.target.x];
+}
+
+/* ========= Rendering ========= */
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function tileSVG(tile, lit, isSource, isTarget) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  // Rotation transform
+  const g = document.createElementNS(SVG_NS, 'g');
+  g.setAttribute('transform', `rotate(${(tile.rot|0) * 90} 50 50)`);
+  svg.appendChild(g);
+
+  const base = TILES[tile.type] ? TILES[tile.type].base : 0;
+  const baseOpenings = base;
+
+  // Pipe colors
+  const litColor = 'var(--pipe-lit)';
+  const litGlow = 'var(--pipe-lit-glow)';
+  const dim = 'var(--pipe)';
+  const shade = 'var(--pipe-shade)';
+
+  const fill = lit ? litColor : dim;
+  const stroke = lit ? litGlow : shade;
+
+  if (tile.type === 'empty') return svg;
+
+  if (tile.type === 'source' || tile.type === 'target') {
+    // Draw stub pipe + endpoint disc
+    drawStubFromCenter(g, baseOpenings, fill, stroke);
+    const cx = 50, cy = 50;
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    circle.setAttribute('cx', cx);
+    circle.setAttribute('cy', cy);
+    circle.setAttribute('r', 18);
+    circle.setAttribute('fill', isSource ? 'var(--source)' : 'var(--target)');
+    circle.setAttribute('stroke', 'rgba(0,0,0,0.25)');
+    circle.setAttribute('stroke-width', '1');
+    g.appendChild(circle);
+    const inner = document.createElementNS(SVG_NS, 'circle');
+    inner.setAttribute('cx', cx);
+    inner.setAttribute('cy', cy);
+    inner.setAttribute('r', 9);
+    inner.setAttribute('fill', isSource ? '#ffedd5' : '#dcfce7');
+    inner.setAttribute('opacity', '0.85');
+    g.appendChild(inner);
+    if (lit) {
+      const halo = document.createElementNS(SVG_NS, 'circle');
+      halo.setAttribute('cx', cx);
+      halo.setAttribute('cy', cy);
+      halo.setAttribute('r', 22);
+      halo.setAttribute('fill', 'none');
+      halo.setAttribute('stroke', litGlow);
+      halo.setAttribute('stroke-width', '2');
+      halo.setAttribute('opacity', '0.6');
+      g.appendChild(halo);
+    }
+    return svg;
+  }
+
+  drawStubFromCenter(g, baseOpenings, fill, stroke);
+
+  // Center hub
+  const hub = document.createElementNS(SVG_NS, 'circle');
+  hub.setAttribute('cx', 50);
+  hub.setAttribute('cy', 50);
+  hub.setAttribute('r', 10);
+  hub.setAttribute('fill', fill);
+  hub.setAttribute('stroke', stroke);
+  hub.setAttribute('stroke-width', '2');
+  g.appendChild(hub);
+
+  if (lit) {
+    // Add subtle glow filter via duplicate strokes
+    const glow = document.createElementNS(SVG_NS, 'circle');
+    glow.setAttribute('cx', 50);
+    glow.setAttribute('cy', 50);
+    glow.setAttribute('r', 14);
+    glow.setAttribute('fill', 'none');
+    glow.setAttribute('stroke', litGlow);
+    glow.setAttribute('stroke-width', '2');
+    glow.setAttribute('opacity', '0.45');
+    g.appendChild(glow);
+  }
+
+  return svg;
+}
+
+function drawStubFromCenter(g, baseOpenings, fill, stroke) {
+  // For each direction set in baseOpenings, draw a rounded-rect stub from center to edge.
+  // N=top, E=right, S=bottom, W=left
+  const w = 20; // pipe width
+  const half = w / 2;
+  if (baseOpenings & N) appendPipe(g, 50-half, 0, w, 55, fill, stroke);
+  if (baseOpenings & S) appendPipe(g, 50-half, 45, w, 55, fill, stroke);
+  if (baseOpenings & E) appendPipe(g, 45, 50-half, 55, w, fill, stroke);
+  if (baseOpenings & W) appendPipe(g, 0, 50-half, 55, w, fill, stroke);
+}
+function appendPipe(g, x, y, w, h, fill, stroke) {
+  const r = document.createElementNS(SVG_NS, 'rect');
+  r.setAttribute('x', x);
+  r.setAttribute('y', y);
+  r.setAttribute('width', w);
+  r.setAttribute('height', h);
+  r.setAttribute('rx', 4);
+  r.setAttribute('ry', 4);
+  r.setAttribute('fill', fill);
+  r.setAttribute('stroke', stroke);
+  r.setAttribute('stroke-width', '1.5');
+  g.appendChild(r);
+}
+
+/* ========= Game state ========= */
+const LS_KEY = 'pipeConnect.v1';
+const state = {
+  level: 1,
+  moves: 0,
+  best: 1,
+  sound: true,
+  motion: true,
+  board: null,
+  focus: { x: 0, y: 0 },
+  started: false,
+  audioCtx: null,
+};
+
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (typeof s.level === 'number' && s.level >= 1) state.level = s.level;
+    if (typeof s.best === 'number' && s.best >= 1) state.best = s.best;
+    if (typeof s.sound === 'boolean') state.sound = s.sound;
+    if (typeof s.motion === 'boolean') state.motion = s.motion;
+  } catch (e) { /* ignore */ }
+}
+function save() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      level: state.level, best: state.best, sound: state.sound, motion: state.motion
+    }));
+  } catch (e) { /* ignore */ }
+}
+
+function seedFor(level) {
+  // Deterministic seed per level for reproducibility, with mixing for variety.
+  return (level * 2654435761) ^ 0x9E3779B9;
+}
+
+function newLevel(level) {
+  state.level = level;
+  state.moves = 0;
+  state.board = makeBoard(level, seedFor(level) + (Date.now() & 0xffff));
+  // Place focus on first rotatable tile (or source).
+  state.focus = { x: state.board.source.x, y: state.board.source.y };
+  moveFocusToNextRotatable(0, 0, true);
+  render();
+  if (state.best < state.level) { state.best = state.level; }
+  save();
+}
+
+function render() {
+  document.getElementById('stat-level').textContent = state.level;
+  document.getElementById('stat-moves').textContent = state.moves;
+  document.getElementById('stat-best').textContent = state.best;
+  const board = state.board;
+  const boardEl = document.getElementById('board');
+  boardEl.style.gridTemplateColumns = `repeat(${board.cols}, 1fr)`;
+  boardEl.style.gridTemplateRows = `repeat(${board.rows}, 1fr)`;
+  boardEl.innerHTML = '';
+  const lit = computeLit(board);
+  for (let y = 0; y < board.rows; y++) {
+    for (let x = 0; x < board.cols; x++) {
+      const tile = board.cells[y][x];
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.setAttribute('role', 'gridcell');
+      cell.dataset.x = x; cell.dataset.y = y;
+      if (tile.type === 'empty') cell.classList.add('empty');
+      if (TILES[tile.type].rotatable) {
+        cell.classList.add('rotatable');
+        cell.tabIndex = -1;
+      } else {
+        cell.tabIndex = -1;
+      }
+      if (tile.type === 'source') { cell.classList.add('endpoint', 'source'); }
+      if (tile.type === 'target') { cell.classList.add('endpoint', 'target'); }
+      if (!state.motion) cell.classList.add('no-motion');
+      const isLit = lit[y][x];
+      const svg = tileSVG(tile, isLit, tile.type === 'source', tile.type === 'target');
+      cell.appendChild(svg);
+      if (tile.type === 'source') {
+        const b = document.createElement('div'); b.className = 'badge'; b.textContent = 'Src'; cell.appendChild(b);
+      }
+      if (tile.type === 'target') {
+        const b = document.createElement('div'); b.className = 'badge'; b.textContent = 'End'; cell.appendChild(b);
+      }
+      if (state.focus.x === x && state.focus.y === y) {
+        // focus applied after render
+      }
+      cell.addEventListener('click', onCellClick);
+      boardEl.appendChild(cell);
+    }
+  }
+  // Apply focus
+  focusCurrent();
+}
+
+function focusCurrent() {
+  const boardEl = document.getElementById('board');
+  const sel = boardEl.querySelector(`.cell[data-x="${state.focus.x}"][data-y="${state.focus.y}"]`);
+  if (sel) sel.focus({ preventScroll: true });
+}
+
+function onCellClick(e) {
+  const x = +e.currentTarget.dataset.x;
+  const y = +e.currentTarget.dataset.y;
+  state.focus = { x, y };
+  tryRotate(x, y);
+}
+
+function tryRotate(x, y) {
+  const board = state.board;
+  const tile = board.cells[y][x];
+  if (!TILES[tile.type].rotatable) {
+    beep(180, 0.04, 'square', 0.04);
+    return;
+  }
+  tile.rot = (tile.rot + 1) % 4;
+  state.moves++;
+  beep(440 + Math.random() * 120, 0.06, 'triangle', 0.05);
+  render();
+  if (isSolved(board)) {
+    onWin();
+  }
+}
+
+function onWin() {
+  beep(660, 0.12, 'sine', 0.08);
+  setTimeout(() => beep(880, 0.18, 'sine', 0.07), 120);
+  setTimeout(() => beep(990, 0.22, 'sine', 0.06), 260);
+
+  const board = state.board;
+  state.best = Math.max(state.best, state.level + 1);
+  showToast(`Level ${state.level} complete! · ${state.moves} moves`);
+  if (state.motion) {
+    const el = document.getElementById('celebrate');
+    el.innerHTML = '';
+    const ring = document.createElement('div'); ring.className = 'ring'; el.appendChild(ring);
+    const ring2 = document.createElement('div'); ring2.className = 'ring'; ring2.style.animationDelay = '120ms'; ring2.style.borderColor = 'var(--accent-2)'; el.appendChild(ring2);
+    setTimeout(() => { el.innerHTML = ''; }, 900);
+  }
+  save();
+  setTimeout(() => {
+    newLevel(state.level + 1);
+  }, 900);
+}
+
+/* ========= Sound ========= */
+function ensureAudio() {
+  if (!state.sound) return null;
+  if (!state.audioCtx) {
+    try { state.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { return null; }
+  }
+  return state.audioCtx;
+}
+function beep(freq = 440, dur = 0.08, type = 'sine', gain = 0.05) {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.value = gain;
+  o.connect(g).connect(ctx.destination);
+  const t0 = ctx.currentTime;
+  g.gain.setValueAtTime(gain, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.start(t0);
+  o.stop(t0 + dur + 0.02);
+}
+
+/* ========= Toast ========= */
+let toastTimer = 0;
+function showToast(msg, ms = 1400) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+/* ========= Keyboard + focus ========= */
+function moveFocusToNextRotatable(dx, dy, allowSamePosition = false) {
+  const board = state.board;
+  let { x, y } = state.focus;
+  if (allowSamePosition && TILES[board.cells[y][x].type].rotatable) return;
+  // step in direction; if dx=dy=0 search from current then forward.
+  const seen = new Set();
+  let steps = 0;
+  while (steps++ < board.cols * board.rows + 1) {
+    if (dx !== 0 || dy !== 0) { x += dx; y += dy; }
+    else { x += 1; if (x >= board.cols) { x = 0; y = (y + 1) % board.rows; } }
+    if (x < 0) x = board.cols - 1;
+    if (y < 0) y = board.rows - 1;
+    if (x >= board.cols) x = 0;
+    if (y >= board.rows) y = 0;
+    const k = y * board.cols + x;
+    if (seen.has(k)) break;
+    seen.add(k);
+    if (TILES[board.cells[y][x].type].rotatable) { state.focus = { x, y }; return; }
+  }
+}
+
+function handleKey(e) {
+  const overlay = document.getElementById('home');
+  if (!overlay.classList.contains('hidden')) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      document.getElementById('btn-start').click();
+      e.preventDefault();
+    }
+    return;
+  }
+  const board = state.board;
+  let { x, y } = state.focus;
+  if (e.key === 'ArrowUp') { y = (y - 1 + board.rows) % board.rows; state.focus = { x, y }; focusCurrent(); e.preventDefault(); }
+  else if (e.key === 'ArrowDown') { y = (y + 1) % board.rows; state.focus = { x, y }; focusCurrent(); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft') { x = (x - 1 + board.cols) % board.cols; state.focus = { x, y }; focusCurrent(); e.preventDefault(); }
+  else if (e.key === 'ArrowRight') { x = (x + 1) % board.cols; state.focus = { x, y }; focusCurrent(); e.preventDefault(); }
+  else if (e.key === 'Enter' || e.key === ' ') { tryRotate(state.focus.x, state.focus.y); e.preventDefault(); }
+  else if (e.key === 'r' || e.key === 'R') { resetLevel(); }
+  else if (e.key === 's' || e.key === 'S') { toggleSound(); }
+  else if (e.key === 'm' || e.key === 'M') { toggleMotion(); }
+}
+
+/* ========= Controls ========= */
+function resetLevel() {
+  newLevel(state.level);
+  showToast('Level reset');
+}
+function toggleSound() {
+  state.sound = !state.sound;
+  document.getElementById('btn-sound').setAttribute('aria-pressed', state.sound ? 'true' : 'false');
+  save();
+  showToast(state.sound ? 'Sound on' : 'Sound off');
+}
+function toggleMotion() {
+  state.motion = !state.motion;
+  document.getElementById('btn-motion').setAttribute('aria-pressed', state.motion ? 'true' : 'false');
+  save();
+  showToast(state.motion ? 'Motion on' : 'Motion off');
+  render();
+}
+function resetBest() {
+  state.best = state.level;
+  save();
+  render();
+  showToast('Best reset');
+}
+
+/* ========= Home screen preview ========= */
+function buildPreview() {
+  const wrap = document.getElementById('home-preview');
+  wrap.innerHTML = '';
+  const demo = makeBoard(1, 12345);
+  // Render 5x5 small using same SVG generator
+  const lit = computeLit(demo);
+  for (let y = 0; y < demo.rows; y++) {
+    for (let x = 0; x < demo.cols; x++) {
+      const t = demo.cells[y][x];
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (t.type === 'empty') cell.classList.add('empty');
+      if (t.type === 'source') cell.classList.add('endpoint', 'source');
+      if (t.type === 'target') cell.classList.add('endpoint', 'target');
+      cell.appendChild(tileSVG(t, lit[y][x], t.type === 'source', t.type === 'target'));
+      wrap.appendChild(cell);
+    }
+  }
+  wrap.style.gridTemplateColumns = `repeat(${demo.cols}, 1fr)`;
+}
+
+/* ========= Init ========= */
+function init() {
+  load();
+  // UI button events
+  document.getElementById('btn-start').addEventListener('click', () => {
+    document.getElementById('home').classList.add('hidden');
+    state.started = true;
+    newLevel(state.level);
+    // Resume audio on user gesture.
+    ensureAudio();
+  });
+  const cont = document.getElementById('btn-continue');
+  if (state.level > 1) { cont.hidden = false; }
+  cont.addEventListener('click', () => {
+    document.getElementById('home').classList.add('hidden');
+    newLevel(state.level);
+    ensureAudio();
+  });
+  document.getElementById('btn-reset').addEventListener('click', resetLevel);
+  document.getElementById('btn-sound').addEventListener('click', toggleSound);
+  document.getElementById('btn-motion').addEventListener('click', toggleMotion);
+  document.getElementById('btn-best-reset').addEventListener('click', resetBest);
+  document.getElementById('btn-sound').setAttribute('aria-pressed', state.sound ? 'true' : 'false');
+  document.getElementById('btn-motion').setAttribute('aria-pressed', state.motion ? 'true' : 'false');
+  window.addEventListener('keydown', handleKey);
+
+  buildPreview();
+}
+
+/* ========= Debug helpers ========= */
+window.PipeConnect = {
+  get state() { return state; },
+  newLevel,
+  makeBoard,
+  computeLit,
+  isSolved,
+  TILES,
+  rotateMask,
+  openings,
+  // Quickly solve current level by setting each path tile's rotation to the
+  // solution rotation derived during generation.
+  solve() {
+    const board = state.board;
+    for (let i = 1; i < board.solutionPath.length - 1; i++) {
+      const p = board.solutionPath[i];
+      const tile = board.cells[p.y][p.x];
+      if (tile._baseMask != null) {
+        tile.rot = findRotationFor(tile.type, tile._baseMask);
+      }
+    }
+    render();
+    return isSolved(board);
+  },
+  // Run inline self-tests; returns {passed, failed, results}.
+  runTests() {
+    const results = [];
+    const assert = (cond, name) => { results.push({ name, ok: !!cond }); };
+
+    // rotateMask basic
+    assert(rotateMask(N, 1) === E, 'rotateMask N->E');
+    assert(rotateMask(N, 2) === S, 'rotateMask N->S');
+    assert(rotateMask(N, 3) === W, 'rotateMask N->W');
+    assert(rotateMask(N|S, 1) === (E|W), 'rotateMask straight rotates');
+    assert(rotateMask(N|E, 1) === (E|S), 'rotateMask corner rotates');
+    assert(rotateMask(N|E|S|W, 3) === (N|E|S|W), 'cross invariant');
+
+    // tile type mapping
+    assert(tileTypeFromMask(N|S) === 'straight', 'NS = straight');
+    assert(tileTypeFromMask(E|W) === 'straight', 'EW = straight');
+    assert(tileTypeFromMask(N|E) === 'corner', 'NE = corner');
+    assert(tileTypeFromMask(S|W) === 'corner', 'SW = corner');
+    assert(tileTypeFromMask(N|E|S) === 'tee', 'NES = tee');
+    assert(tileTypeFromMask(N|E|S|W) === 'cross', 'cross');
+
+    // Board generation across many seeds & levels: must be solvable.
+    let solvableAll = true, alreadySolvedCount = 0;
+    for (let lvl = 1; lvl <= 12; lvl++) {
+      for (let s = 0; s < 30; s++) {
+        const b = makeBoard(lvl, (lvl * 1000 + s) >>> 0);
+        // Save original rotations
+        const orig = b.cells.flat().map(c => c.rot);
+        // Apply known solution: set each path interior tile rot using _baseMask.
+        for (let i = 1; i < b.solutionPath.length - 1; i++) {
+          const p = b.solutionPath[i];
+          const t = b.cells[p.y][p.x];
+          if (t._baseMask != null) t.rot = findRotationFor(t.type, t._baseMask);
+        }
+        if (!isSolved(b)) { solvableAll = false; }
+        // Restore and check no immediate solve from generation
+        let i = 0;
+        for (let y = 0; y < b.rows; y++) for (let x = 0; x < b.cols; x++) b.cells[y][x].rot = orig[i++];
+        if (isSolved(b)) alreadySolvedCount++;
+      }
+    }
+    assert(solvableAll, 'generated boards are always solvable via known path');
+    assert(alreadySolvedCount < 360 * 0.10, `few pre-solved boards (${alreadySolvedCount}/360)`);
+
+    // Source / target unrotatable
+    const b = makeBoard(3, 42);
+    assert(TILES[b.cells[b.source.y][b.source.x].type].rotatable === false, 'source not rotatable');
+    assert(TILES[b.cells[b.target.y][b.target.x].type].rotatable === false, 'target not rotatable');
+
+    // BFS lights source initially
+    const lit = computeLit(b);
+    assert(lit[b.source.y][b.source.x] === true, 'source lit');
+
+    const passed = results.filter(r => r.ok).length;
+    const failed = results.length - passed;
+    console.table(results);
+    console.log(`%cPipeConnect tests: ${passed}/${results.length} passed`, failed ? 'color:#f87171' : 'color:#34d399');
+    return { passed, failed, results };
+  }
+};
+
+// Initialize after DOM
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

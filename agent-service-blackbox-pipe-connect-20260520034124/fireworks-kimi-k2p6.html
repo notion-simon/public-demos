@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pipe Connect</title>
+<style>
+  :root {
+    --bg: #f0f4f8;
+    --panel: #ffffff;
+    --text: #1a202c;
+    --text-secondary: #4a5568;
+    --accent: #3182ce;
+    --accent-hover: #2b6cb0;
+    --success: #48bb78;
+    --pipe: #a0aec0;
+    --pipe-border: #718096;
+    --pipe-active: #f6ad55;
+    --pipe-active-border: #ed8936;
+    --source: #48bb78;
+    --target: #ed8936;
+    --shadow: 0 2px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 15px rgba(0,0,0,0.08), 0 4px 6px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 1rem; }
+  h1 { font-size: 1.75rem; letter-spacing: -0.02em; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--text-secondary); font-size: 0.95rem; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .home-screen { text-align: center; padding-top: 8vh; }
+  .home-screen h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+  .home-screen .subtitle { font-size: 1.1rem; margin-bottom: 2rem; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem;
+    font-size: 1rem; font-weight: 600; cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+    background: var(--accent); color: white; box-shadow: var(--shadow-md);
+    user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); background: var(--accent-hover); }
+  .btn:active { transform: translateY(0); }
+  .btn-secondary { background: var(--panel); color: var(--text); border: 1px solid #e2e8f0; }
+  .btn-secondary:hover { background: #f7fafc; }
+  .btn-icon { padding: 0.5rem; font-size: 1.25rem; min-width: 2.5rem; min-height: 2.5rem; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+  .stat-card { background: var(--panel); border-radius: 0.5rem; padding: 0.75rem; text-align: center; box-shadow: var(--shadow); }
+  .stat-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); margin-bottom: 0.25rem; }
+  .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+  .controls { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1rem; flex-wrap: wrap; }
+  .board-outer { display: flex; justify-content: center; margin-bottom: 1rem; }
+  .board { display: grid; gap: 3px; background: var(--panel); padding: 6px; border-radius: 0.75rem; box-shadow: var(--shadow-lg); touch-action: none; }
+  .tile {
+    width: clamp(44px, 14vw, 68px); height: clamp(44px, 14vw, 68px); background: #edf2f7; border-radius: 0.375rem;
+    position: relative; cursor: pointer; transition: background 0.2s;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .tile:focus { outline: none; box-shadow: inset 0 0 0 3px var(--accent); }
+  .tile.focused { box-shadow: inset 0 0 0 3px var(--accent); }
+  .tile.source { background: rgba(72,187,120,0.12); }
+  .tile.target { background: rgba(237,137,54,0.12); }
+  .tile.empty { background: repeating-linear-gradient(45deg, #edf2f7, #edf2f7 5px, #e2e8f0 5px, #e2e8f0 10px); }
+  .tile svg { width: 100%; height: 100%; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .tile.connected .pipe-main { stroke: var(--pipe-active); stroke-width: 7; filter: drop-shadow(0 0 5px var(--pipe-active-border)); }
+  .tile.connected.source .pipe-main { stroke: var(--source); filter: drop-shadow(0 0 6px var(--source)); }
+  .tile.connected.target .pipe-main { stroke: var(--target); filter: drop-shadow(0 0 6px var(--target)); }
+  .pipe-main { fill: none; stroke: var(--pipe); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; transition: stroke 0.3s, filter 0.3s; }
+  .pipe-outline { fill: none; stroke: var(--pipe-border); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; opacity: 0.25; }
+  .endpoint-circle { fill: var(--pipe); transition: fill 0.3s; }
+  .tile.connected.source .endpoint-circle { fill: var(--source); }
+  .tile.connected.target .endpoint-circle { fill: var(--target); }
+  .label-tag { position: absolute; top: 2px; left: 2px; font-size: 9px; font-weight: 700; color: var(--text-secondary); opacity: 0.5; pointer-events: none; line-height: 1; }
+  .celebration { position: fixed; inset: 0; pointer-events: none; z-index: 100; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 0.75rem; }
+  .celebration.active { display: flex; }
+  .celebration h2 { font-size: 2rem; font-weight: 800; color: var(--success); text-shadow: 0 2px 4px rgba(0,0,0,0.1); animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+  .celebration p { font-size: 1rem; color: var(--text-secondary); animation: fadeIn 0.5s 0.2s both; }
+  @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .confetti { position: absolute; width: 8px; height: 8px; border-radius: 2px; animation: confettiFall 2s ease-out forwards; }
+  @keyframes confettiFall { 0% { transform: translateY(-20px) rotate(0deg); opacity: 1; } 100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
+  .help-text { text-align: center; color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.5rem; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  @media (max-width: 480px) { h1 { font-size: 1.5rem; } .home-screen h1 { font-size: 2rem; } .tile { width: clamp(40px, 16vw, 56px); height: clamp(40px, 16vw, 56px); } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="screen active home-screen" id="homeScreen">
+    <h1>Pipe Connect</h1>
+    <p class="subtitle">Rotate pipes to connect the source to the target.<br>Clear levels and beat your best!</p>
+    <button class="btn" id="startBtn" onclick="game.start()">
+      <span>▶</span> Start Game
+    </button>
+    <div style="margin-top:2rem;color:var(--text-secondary);font-size:0.9rem;">
+      Best Level: <strong id="homeBest">0</strong>
+    </div>
+  </div>
+
+  <div class="screen" id="gameScreen">
+    <div class="stats">
+      <div class="stat-card"><div class="stat-label">Level</div><div class="stat-value" id="levelStat">1</div></div>
+      <div class="stat-card"><div class="stat-label">Moves</div><div class="stat-value" id="movesStat">0</div></div>
+      <div class="stat-card"><div class="stat-label">Best</div><div class="stat-value" id="bestStat">0</div></div>
+    </div>
+    <div class="controls">
+      <button class="btn btn-secondary btn-icon" title="Reset Level (R)" onclick="game.resetLevel()">↺</button>
+      <button class="btn btn-secondary btn-icon" title="Toggle Sound (S)" onclick="game.toggleSound()" id="soundBtn">🔊</button>
+      <button class="btn btn-secondary btn-icon" title="Toggle Motion (M)" onclick="game.toggleMotion()" id="motionBtn">✨</button>
+      <button class="btn btn-secondary btn-icon" title="Home" onclick="game.goHome()">🏠</button>
+      <button class="btn btn-secondary btn-icon" title="Reset Best" onclick="game.resetBest()">🗑</button>
+    </div>
+    <div class="board-outer">
+      <div class="board" id="board" role="grid" aria-label="Pipe board"></div>
+    </div>
+    <p class="help-text">Tap or click to rotate &bull; Arrow keys + Enter/Space to play</p>
+  </div>
+</div>
+
+<div class="celebration" id="celebration" aria-live="polite">
+  <h2 id="celebrationText">Level Complete!</h2>
+  <p id="celebrationSub">Get ready for the next one...</p>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const N=0, E=1, S=2, W=3;
+  const MASK=[1,2,4,8];
+  const OPP=[2,3,0,1];
+  const DX=[0,1,0,-1];
+  const DY=[-1,0,1,0];
+
+  const PIPES={
+    EMPTY:{id:'empty',mask:0,rots:1},
+    STRAIGHT:{id:'straight',mask:10,rots:2},
+    CORNER:{id:'corner',mask:6,rots:4},
+    TEE:{id:'tee',mask:14,rots:4},
+    CROSS:{id:'cross',mask:15,rots:1},
+    DEADEND:{id:'deadend',mask:2,rots:4},
+  };
+
+  function rotMask(m,k){
+    k=((k%4)+4)%4;
+    for(let i=0;i<k;i++){let n=0;if(m&1)n|=2;if(m&2)n|=4;if(m&4)n|=8;if(m&8)n|=1;m=n;}
+    return m;
+  }
+
+  function pickPipeType(mask){
+    if(mask===0)return{...PIPES.EMPTY,rot:0};
+    let bits=0;for(let d=0;d<4;d++)if(mask&MASK[d])bits++;
+    if(bits===1){for(let r=0;r<4;r++)if(rotMask(PIPES.DEADEND.mask,r)===mask)return{...PIPES.DEADEND,rot:r};}
+    if(bits===4)return{...PIPES.CROSS,rot:0};
+    for(let r=0;r<PIPES.STRAIGHT.rots;r++)if(rotMask(PIPES.STRAIGHT.mask,r)===mask)return{...PIPES.STRAIGHT,rot:r};
+    for(let r=0;r<PIPES.CORNER.rots;r++)if(rotMask(PIPES.CORNER.mask,r)===mask)return{...PIPES.CORNER,rot:r};
+    for(let r=0;r<PIPES.TEE.rots;r++)if(rotMask(PIPES.TEE.mask,r)===mask)return{...PIPES.TEE,rot:r};
+    return{...PIPES.EMPTY,rot:0};
+  }
+
+  function rand(min,max){return Math.floor(Math.random()*(max-min))+min;}
+  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rand(0,i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+  // ======================== BOARD GENERATION ========================
+  class Generator {
+    static generate(level) {
+      const size = Math.min(4+level, 10);
+      const rows=size, cols=size;
+      const sy=rand(1,rows-1), sx=0;
+      const ty=rand(1,rows-1), tx=cols-1;
+
+      const path = this.buildPath(rows,cols,sy,sx,ty,tx);
+      const onPath = new Set(path.map(p=>`${p[0]},${p[1]}`));
+
+      const con = Array.from({length:rows},()=>Array(cols).fill(0));
+      for(let i=0;i<path.length-1;i++){
+        const [y1,x1]=path[i], [y2,x2]=path[i+1];
+        let d=-1;
+        if(y2<y1) d=N; else if(x2>x1) d=E; else if(y2>y1) d=S; else if(x2<x1) d=W;
+        con[y1][x1]|=MASK[d]; con[y2][x2]|=MASK[OPP[d]];
+      }
+
+      // Robust source/target direction computation
+      let sourceDir = E, targetDir = W;
+      if(path.length >= 2){
+        const [y0,x0]=path[0], [y1,x1]=path[1];
+        if(y1 < y0) sourceDir = N;
+        else if(x1 > x0) sourceDir = E;
+        else if(y1 > y0) sourceDir = S;
+        else sourceDir = W;
+      }
+      if(path.length >= 2){
+        const [y0,x0]=path[path.length-2], [y1,x1]=path[path.length-1];
+        if(y1 < y0) targetDir = S;      // incoming from S
+        else if(x1 > x0) targetDir = W; // incoming from W
+        else if(y1 > y0) targetDir = N; // incoming from N
+        else targetDir = E;             // incoming from E
+      }
+
+      // Add dangling stubs
+      for(let i=1;i<path.length-1;i++){
+        const [y,x]=path[i];
+        if(Math.random()<0.3){
+          for(let d=0;d<4;d++){
+            if(con[y][x]&MASK[d]) continue;
+            const ny=y+DY[d], nx=x+DX[d];
+            if(ny<0||ny>=rows||nx<0||nx>=cols) continue;
+            if(onPath.has(`${ny},${nx}`)) continue;
+            con[y][x]|=MASK[d]; break;
+          }
+        }
+      }
+
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)if(!onPath.has(`${y},${x}`))con[y][x]=0;
+
+      // Build tiles - ensure rot is always 0-3 integer
+      const tiles=[];
+      for(let y=0;y<rows;y++){
+        const row=[];
+        for(let x=0;x<cols;x++){
+          const isS=(x===sx&&y===sy);
+          const isT=(x===tx&&y===ty);
+          const solved = isS?MASK[sourceDir]:isT?MASK[targetDir]:con[y][x];
+          // source/target: deadend pointing in solved direction
+          // rot = direction to rotation mapping: E=0, S=1, W=2, N=3
+          let rot;
+          if(isS) rot = (sourceDir + 3) % 4;
+          else if(isT) rot = (targetDir + 3) % 4;
+          else {
+            const pipe = pickPipeType(solved);
+            rot = pipe.rot;
+            if(pipe.id!=='empty'&&pipe.id!=='cross') rot = ((rot%4)+4)%4;
+            else rot = 0;
+          }
+          // Defensive: clamp to 0-3
+          rot = ((Math.floor(rot) % 4) + 4) % 4;
+          const mask = isS ? MASK[sourceDir] : isT ? MASK[targetDir] : rotMask(PIPES[pickPipeType(solved).id.toUpperCase()].mask, rot);
+          row.push({x,y,type:isS?'source':isT?'target':pickPipeType(solved).id,rot,mask,solvedMask:solved,isSource:isS,isTarget:isT,fixed:isS||isT});
+        }
+        tiles.push(row);
+      }
+      return {rows,cols,tiles,source:[sy,sx],target:[ty,tx]};
+    }
+
+    static buildPath(r,c,sy,sx,ty,tx){
+      const path=[[sy,sx]];
+      const visited=new Set(); visited.add(`${sy},${sx}`);
+      let x=sx, y=sy;
+      while(x!==tx || y!==ty){
+        const moves=[];
+        const dirs=[[y-1,x,N],[y+1,x,S],[y,x+1,E],[y,x-1,W]];
+        for(const [ny,nx,d] of dirs){
+          if(ny<0||ny>=r||nx<0||nx>=c) continue;
+          if(visited.has(`${ny},${nx}`)) continue;
+          let w=1;
+          if(d===E) w=10;
+          if((d===S&&y<ty)||(d===N&&y>ty)) w=5;
+          if(ny===ty) w=3;
+          moves.push([ny,nx,d,w]);
+        }
+        if(moves.length===0){
+          while(x<tx){x++; visited.add(`${y},${x}`); path.push([y,x]);}
+          while(y<ty){y++; visited.add(`${y},${x}`); path.push([y,x]);}
+          while(y>ty){y--; visited.add(`${y},${x}`); path.push([y,x]);}
+          break;
+        }
+        const total=moves.reduce((a,m)=>a+m[3],0);
+        let pick=Math.random()*total, idx=0;
+        for(let i=0;i<moves.length;i++){pick-=moves[i][3];if(pick<=0){idx=i;break;}}
+        const [ny,nx]=moves[idx];
+        visited.add(`${ny},${nx}`); path.push([ny,nx]); y=ny; x=nx;
+      }
+      return path;
+    }
+  }
+
+  // ======================== SVG RENDERER ========================
+  // All coordinate math is inline — no closures that could capture stale values.
+  function svg(type, rot, connected) {
+    const SZ=64, c=SZ/2, rad=SZ/2-6;
+    const dx=[0,1,0,-1], dy=[-1,0,1,0];
+
+    // Defensive: rot must be 0-3 integer
+    let r = Math.floor(Number(rot));
+    if(!Number.isFinite(r)) r = 0;
+    r = ((r % 4) + 4) % 4;
+
+    if(type==='empty'){
+      return '<svg viewBox="0 0 64 64"><rect x="8" y="8" width="48" height="48" rx="4" fill="none" stroke="var(--pipe-border)" stroke-width="2" stroke-dasharray="4 4" opacity="0.25"/></svg>';
+    }
+
+    // Direction lookup: rotation 0=E, 1=S, 2=W, 3=N
+    const d = [E,S,W,N][r];
+
+    let body='';
+
+    // Helper: straight line
+    function line(x1,y1,x2,y2){
+      return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" class="pipe-outline"/><line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" class="pipe-main"/>';
+    }
+    // Helper: endpoint (deadend, source, target)
+    function endpoint(dir){
+      const ex=c+dx[dir]*(SZ/2-2), ey=c+dy[dir]*(SZ/2-2);
+      return line(c,c,ex,ey)+'<circle cx="'+(c+dx[dir]*6)+'" cy="'+(c+dy[dir]*6)+'" r="5" class="endpoint-circle"/>';
+    }
+    // Helper: corner arc
+    function arc(x1,y1,x2,y2,rx,ry,sweep){
+      return '<path d="M'+x1+' '+y1+' A'+rx+' '+ry+' 0 0 '+sweep+' '+x2+' '+y2+'" class="pipe-outline"/><path d="M'+x1+' '+y1+' A'+rx+' '+ry+' 0 0 '+sweep+' '+x2+' '+y2+'" class="pipe-main"/>';
+    }
+
+    if(type==='source'){
+      body=endpoint(d)+'<circle cx="'+c+'" cy="'+c+'" r="3" fill="var(--source)" opacity="0.4"/>';
+    } else if(type==='target'){
+      body=endpoint(d)+'<circle cx="'+c+'" cy="'+c+'" r="3" fill="var(--target)" opacity="0.4"/>';
+    } else if(type==='deadend'){
+      body=endpoint(d);
+    } else if(type==='straight'){
+      body=(r%2===0)?line(c,0,c,SZ):line(0,c,SZ,c);
+    } else if(type==='corner'){
+      switch(r%4){
+        case 0: body=arc(c,6,SZ-6,c,rad,rad,0); break;
+        case 1: body=arc(SZ-6,c,c,SZ-6,rad,rad,0); break;
+        case 2: body=arc(c,SZ-6,6,c,rad,rad,0); break;
+        case 3: body=arc(6,c,c,6,rad,rad,0); break;
+      }
+    } else if(type==='tee'){
+      const down=line(c,c,c,SZ), up=line(c,0,c,c), right=line(c,c,SZ,c), left=line(0,c,c,c);
+      if(r%4===0) body=right+left+down;
+      else if(r%4===1) body=up+down+right;
+      else if(r%4===2) body=right+left+up;
+      else body=up+down+left;
+    } else if(type==='cross'){
+      body=line(c,0,c,SZ)+line(0,c,SZ,c);
+    }
+
+    return '<svg viewBox="0 0 64 64" style="transform:rotate('+r*90+'deg)">'+body+'</svg>';
+  }
+
+  // ======================== GAME ========================
+  class Game {
+    constructor(){
+      this.level=1;this.moves=0;
+      this.best=parseInt(localStorage.getItem('pipeconnect_best')||'0',10);
+      this.sound=localStorage.getItem('pipeconnect_sound')!=='false';
+      this.motion=localStorage.getItem('pipeconnect_motion')!=='false';
+      this.board=null;this.focused=[0,0];this.solved=false;this.audioCtx=null;
+      this.updateButtons();this.updateStats();
+    }
+    updateButtons(){
+      document.getElementById('soundBtn').textContent=this.sound?'🔊':'🔇';
+      document.getElementById('motionBtn').textContent=this.motion?'✨':'⛔';
+    }
+    updateStats(){
+      document.getElementById('levelStat').textContent=this.level;
+      document.getElementById('movesStat').textContent=this.moves;
+      document.getElementById('bestStat').textContent=this.best;
+      document.getElementById('homeBest').textContent=this.best;
+    }
+    start(){
+      document.getElementById('homeScreen').classList.remove('active');
+      document.getElementById('gameScreen').classList.add('active');
+      this.level=1;this.moves=0;this.newLevel();
+    }
+    goHome(){
+      document.getElementById('gameScreen').classList.remove('active');
+      document.getElementById('homeScreen').classList.add('active');
+    }
+    newLevel(){
+      this.solved=false;
+      this.board=Generator.generate(this.level);
+      this.focused=[...this.board.source];
+      this.render();this.updateConnections();this.updateStats();
+    }
+    render(){
+      const b=document.getElementById('board');
+      b.innerHTML='';
+      b.style.gridTemplateColumns='repeat('+this.board.cols+',1fr)';
+      b.style.gridTemplateRows='repeat('+this.board.rows+',1fr)';
+      for(let y=0;y<this.board.rows;y++){
+        for(let x=0;x<this.board.cols;x++){
+          const t=this.board.tiles[y][x];
+          const el=document.createElement('div');
+          el.className='tile'+(t.isSource?' source':'')+(t.isTarget?' target':'')+(t.type==='empty'?' empty':'');
+          if(y===this.focused[0]&&x===this.focused[1]) el.classList.add('focused');
+          el.dataset.y=y;el.dataset.x=x;
+          el.setAttribute('tabindex','0');el.setAttribute('role','gridcell');
+          el.setAttribute('aria-label',t.type+' at row '+(y+1)+', column '+(x+1));
+          el.innerHTML=svg(t.type,t.rot,false);
+          el.addEventListener('click',()=>this.rotate(y,x));
+          el.addEventListener('touchstart',e=>{e.preventDefault();this.rotate(y,x);},{passive:false});
+          b.appendChild(el);
+        }
+      }
+    }
+    rotate(y,x){
+      if(this.solved) return;
+      const t=this.board.tiles[y][x];
+      if(t.fixed||t.type==='empty') return;
+      t.rot=(t.rot+1)%4;
+      const pt=PIPES[t.type.toUpperCase()];
+      t.mask=pt?rotMask(pt.mask,t.rot):0;
+      this.moves++;this.playClick();
+      this.updateStats();this.drawTile(y,x);this.checkWin();
+    }
+    drawTile(y,x){
+      const t=this.board.tiles[y][x];
+      const idx=y*this.board.cols+x;
+      const el=document.getElementById('board').children[idx];
+      el.innerHTML=svg(t.type,t.rot,el.classList.contains('connected'));
+    }
+    updateConnections(){
+      const {rows,cols,tiles}=this.board;
+      const conn=Array.from({length:rows},()=>Array(cols).fill(false));
+      const q=[];
+      const [sy,sx]=this.board.source;
+      conn[sy][sx]=true;q.push([sy,sx]);
+      while(q.length){
+        const [y,x]=q.shift();
+        const t=tiles[y][x];
+        for(let d=0;d<4;d++){
+          if(!(t.mask&MASK[d])) continue;
+          const ny=y+DY[d],nx=x+DX[d];
+          if(ny<0||ny>=rows||nx<0||nx>=cols) continue;
+          if(tiles[ny][nx].mask&MASK[OPP[d]]){
+            if(!conn[ny][nx]){conn[ny][nx]=true;q.push([ny,nx]);}
+          }
+        }
+      }
+      const board=document.getElementById('board');
+      for(let y=0;y<rows;y++){
+        for(let x=0;x<cols;x++){
+          const idx=y*cols+x;
+          const el=board.children[idx];
+          el.classList.toggle('connected',conn[y][x]);
+          el.innerHTML=svg(tiles[y][x].type,tiles[y][x].rot,conn[y][x]);
+        }
+      }
+      return conn;
+    }
+    checkWin(){
+      const [ty,tx]=this.board.target;
+      const conn=this.updateConnections();
+      if(conn[ty][tx]){
+        this.solved=true;this.playWin();this.celebrate();
+        if(this.level>this.best){this.best=this.level;localStorage.setItem('pipeconnect_best',String(this.best));}
+        setTimeout(()=>{this.level++;this.moves=0;this.newLevel();document.getElementById('celebration').classList.remove('active');},2200);
+      }
+    }
+    celebrate(){
+      const el=document.getElementById('celebration');
+      el.classList.add('active');
+      if(this.motion){
+        const colors=['#ecc94b','#48bb78','#ed8936','#3182ce','#e53e3e','#805ad5'];
+        for(let i=0;i<35;i++){
+          const p=document.createElement('div');p.className='confetti';
+          p.style.left=Math.random()*100+'vw';
+          p.style.background=colors[rand(0,colors.length)];
+          p.style.borderRadius=Math.random()>0.5?'50%':'0';
+          p.style.animationDuration=(1.5+Math.random())+'s';
+          p.style.animationDelay=Math.random()*0.5+'s';
+          el.appendChild(p);setTimeout(()=>p.remove(),3000);
+        }
+      }
+    }
+    resetLevel(){this.moves=0;this.newLevel();}
+    toggleSound(){this.sound=!this.sound;localStorage.setItem('pipeconnect_sound',String(this.sound));this.updateButtons();}
+    toggleMotion(){this.motion=!this.motion;localStorage.setItem('pipeconnect_motion',String(this.motion));this.updateButtons();}
+    resetBest(){if(confirm('Reset best level?')){this.best=0;localStorage.setItem('pipeconnect_best','0');this.updateStats();}}
+    onKey(e){
+      if(!document.getElementById('gameScreen').classList.contains('active')) return;
+      const [y,x]=this.focused;let moved=false;
+      switch(e.key){
+        case 'ArrowUp': if(y>0){this.focused[0]--;moved=true;} break;
+        case 'ArrowDown': if(y<this.board.rows-1){this.focused[0]++;moved=true;} break;
+        case 'ArrowLeft': if(x>0){this.focused[1]--;moved=true;} break;
+        case 'ArrowRight': if(x<this.board.cols-1){this.focused[1]++;moved=true;} break;
+        case 'Enter': case ' ': e.preventDefault(); this.rotate(this.focused[0],this.focused[1]); return;
+        case 'r': case 'R': this.resetLevel(); return;
+        case 's': case 'S': this.toggleSound(); return;
+        case 'm': case 'M': this.toggleMotion(); return;
+      }
+      if(moved){e.preventDefault();this.setFocus();}
+    }
+    setFocus(){
+      const board=document.getElementById('board');
+      for(const el of board.children) el.classList.remove('focused');
+      const [y,x]=this.focused;
+      const idx=y*this.board.cols+x;
+      const el=board.children[idx];
+      if(el){el.classList.add('focused');el.focus();}
+    }
+    playClick(){
+      if(!this.sound)return;this.ensureAudio();
+      const o=this.audioCtx.createOscillator(),g=this.audioCtx.createGain();
+      o.type='sine';o.frequency.setValueAtTime(280,this.audioCtx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(420,this.audioCtx.currentTime+0.08);
+      g.gain.setValueAtTime(0.08,this.audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,this.audioCtx.currentTime+0.1);
+      o.connect(g);g.connect(this.audioCtx.destination);o.start();o.stop(this.audioCtx.currentTime+0.1);
+    }
+    playWin(){
+      if(!this.sound)return;this.ensureAudio();
+      [523,659,784,1047].forEach((f,i)=>{
+        const o=this.audioCtx.createOscillator(),g=this.audioCtx.createGain();
+        o.type='sine';o.frequency.value=f;
+        g.gain.setValueAtTime(0.12,this.audioCtx.currentTime+i*0.1);
+        g.gain.exponentialRampToValueAtTime(0.001,this.audioCtx.currentTime+i*0.1+0.25);
+        o.connect(g);g.connect(this.audioCtx.destination);o.start(this.audioCtx.currentTime+i*0.1);o.stop(this.audioCtx.currentTime+i*0.1+0.25);
+      });
+    }
+    ensureAudio(){if(!this.audioCtx)this.audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(this.audioCtx.state==='suspended')this.audioCtx.resume();}
+  }
+
+  const game=new Game();window.game=game;
+
+  // ======================== DEBUG HELPERS ========================
+  window.debugBoard=function(){
+    if(!game.board){console.log('No board');return;}
+    const {rows,cols,tiles,source,target}=game.board;
+    console.log('=== BOARD === rows='+rows+' cols='+cols+' source='+JSON.stringify(source)+' target='+JSON.stringify(target));
+    const sym={empty:'·',straight:'─',corner:'└',tee:'├',cross:'┼',deadend:'╶',source:'S',target:'T'};
+    for(let y=0;y<rows;y++){
+      let row='';
+      for(let x=0;x<cols;x++){
+        const t=tiles[y][x];let s=sym[t.type]||'?';
+        if(t.type==='straight'&&t.rot%2===0) s='│';
+        if(t.type==='corner') s=['┐','┘','└','┌'][t.rot%4];
+        if(t.type==='tee') s=['┬','┤','┴','├'][t.rot%4];
+        if(t.type==='deadend') s=['╷','╶','╵','╴'][t.rot%4];
+        row+=s+' ';
+      }
+      console.log(row);
+    }
+    console.log('Solved masks (hex):');
+    for(let y=0;y<rows;y++) console.log(tiles[y].map(t=>t.solvedMask.toString(16).toUpperCase()).join(' '));
+    console.log('=== END ===');
+  };
+  window.solveBoard=function(){
+    if(!game.board){console.log('No board');return false;}
+    const {tiles,source,target,rows,cols}=game.board;
+    const [sy,sx]=source,[ty,tx]=target;
+    const vis=Array.from({length:rows},()=>Array(cols).fill(false));
+    const q=[[sy,sx]];vis[sy][sx]=true;const parent=new Map();
+    while(q.length){
+      const [y,x]=q.shift();const t=tiles[y][x];
+      for(let d=0;d<4;d++){
+        if(!(t.mask&MASK[d])) continue;
+        const ny=y+DY[d],nx=x+DX[d];
+        if(ny<0||ny>=rows||nx<0||nx>=cols) continue;
+        if(tiles[ny][nx].mask&MASK[OPP[d]]){
+          if(!vis[ny][nx]){vis[ny][nx]=true;parent.set(''+ny+','+nx,''+y+','+x);q.push([ny,nx]);}
+        }
+      }
+    }
+    if(!vis[ty][tx]){console.log('Target NOT reachable!');return false;}
+    const path=[];let cur=''+ty+','+tx;
+    while(cur){path.unshift(cur);cur=parent.get(cur);}
+    console.log('REACHABLE. Path: '+path.join(' -> '));return path;
+  };
+  window.showSolution=function(){
+    if(!game.board) return;
+    const {tiles,rows,cols}=game.board;
+    for(let y=0;y<rows;y++){
+      for(let x=0;x<cols;x++){
+        const t=tiles[y][x];if(t.fixed)continue;
+        const pt=PIPES[t.type.toUpperCase()];if(!pt)continue;
+        for(let r=0;r<4;r++){if(rotMask(pt.mask,r)===t.solvedMask){t.rot=r;t.mask=rotMask(pt.mask,r);game.drawTile(y,x);break;}}
+      }
+    }
+    game.updateConnections();game.checkWin();
+  };
+  window.testSolvable=function(){
+    let ok=0,fail=0;
+    for(let lv=1;lv<=20;lv++){
+      const b=Generator.generate(lv);
+      const {tiles,source,target,rows,cols}=b;
+      const [sy,sx]=source,[ty,tx]=target;
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+        const t=tiles[y][x];if(t.fixed)continue;
+        const pt=PIPES[t.type.toUpperCase()];if(!pt)continue;
+        for(let r=0;r<4;r++)if(rotMask(pt.mask,r)===t.solvedMask){t.rot=r;t.mask=rotMask(pt.mask,r);break;}
+      }
+      const vis=Array.from({length:rows},()=>Array(cols).fill(false));
+      const q=[[sy,sx]];vis[sy][sx]=true;
+      while(q.length){
+        const [y,x]=q.shift();const t=tiles[y][x];
+        for(let d=0;d<4;d++){
+          if(!(t.mask&MASK[d])) continue;
+          const ny=y+DY[d],nx=x+DX[d];
+          if(ny<0||ny>=rows||nx<0||nx>=cols) continue;
+          if(tiles[ny][nx].mask&MASK[OPP[d]]){if(!vis[ny][nx]){vis[ny][nx]=true;q.push([ny,nx]);}}
+        }
+      }
+      if(vis[ty][tx]) ok++; else fail++;
+    }
+    console.log('Solvability test: '+ok+'/20 passed, '+fail+'/20 failed');
+  };
+  window.generateBoard=function(level){return Generator.generate(level);};
+
+  document.addEventListener('keydown',e=>game.onKey(e));
+  console.log('Pipe Connect ready. Helpers: debugBoard(), solveBoard(), showSolution(), testSolvable()');
+})();
+</script>
+</body>
+</html>

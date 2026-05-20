@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Pipe Connect</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg-a: #eaf7ff;
+      --bg-b: #f7fbef;
+      --panel: rgba(255,255,255,.88);
+      --ink: #123047;
+      --muted: #5f7180;
+      --tile: #f9fbff;
+      --tile-edge: #c7d7e4;
+      --pipe: #7891a5;
+      --pipe-lit: #05a8ff;
+      --pipe-glow: rgba(5,168,255,.34);
+      --accent: #ffad33;
+      --accent-2: #18c38c;
+      --bad: #db5271;
+      --shadow: 0 18px 46px rgba(42, 67, 88, .18);
+      --radius: 22px;
+      --board-size: min(88vw, 70vh, 660px);
+      font-family: ui-rounded, "SF Pro Rounded", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      min-height: 100%;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 18% 14%, rgba(24,195,140,.24), transparent 28%),
+        radial-gradient(circle at 82% 18%, rgba(5,168,255,.22), transparent 30%),
+        linear-gradient(135deg, var(--bg-a), var(--bg-b));
+      display: grid;
+      place-items: center;
+      padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+      overflow-x: hidden;
+    }
+    button { font: inherit; color: inherit; }
+    .app {
+      width: min(980px, 100%);
+      display: grid;
+      gap: 14px;
+      align-items: start;
+    }
+    .top-card {
+      background: var(--panel);
+      backdrop-filter: blur(16px) saturate(1.15);
+      border: 1px solid rgba(255,255,255,.92);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: clamp(12px, 2.5vw, 18px);
+      display: grid;
+      gap: 12px;
+    }
+    .bar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+    .brand { display:flex; align-items:center; gap: 10px; min-width: 0; }
+    .logo {
+      width: 42px; height: 42px; border-radius: 14px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, #19c58f, #05a8ff);
+      box-shadow: 0 10px 22px rgba(5,168,255,.25);
+      color: white; font-size: 24px; flex: 0 0 auto;
+    }
+    h1 { margin: 0; font-size: clamp(1.35rem, 4vw, 2rem); line-height: 1; letter-spacing: -.04em; }
+    .tagline { margin: 3px 0 0; color: var(--muted); font-size: .93rem; }
+    .stats { display:flex; gap: 8px; flex-wrap: wrap; justify-content: end; }
+    .pill {
+      background: #fff;
+      border: 1px solid #dce8f1;
+      border-radius: 999px;
+      padding: 8px 11px;
+      min-width: 74px;
+      text-align: center;
+      box-shadow: 0 5px 12px rgba(18,48,71,.06);
+    }
+    .pill b { display:block; font-size: 1.05rem; }
+    .pill span { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
+    .controls { display:flex; gap: 8px; flex-wrap: wrap; align-items:center; justify-content:center; }
+    .btn {
+      border: 0;
+      border-radius: 15px;
+      background: #fff;
+      border: 1px solid #dce8f1;
+      box-shadow: 0 7px 16px rgba(18,48,71,.08);
+      min-height: 42px;
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+      display: inline-flex; gap: 6px; align-items:center; justify-content:center;
+      user-select: none;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 22px rgba(18,48,71,.12); }
+    .btn:active { transform: translateY(0) scale(.98); }
+    .btn.primary { background: linear-gradient(135deg, #ffbc50, #ff8a3d); color: #2c1900; border-color: rgba(255,154,54,.7); font-weight: 800; padding-inline: 18px; }
+    .btn.toggled { background: #e7f9f2; border-color:#9de3ca; }
+    .game-shell {
+      position: relative;
+      margin-inline: auto;
+      width: fit-content;
+      max-width: 100%;
+    }
+    .board-wrap {
+      background: rgba(255,255,255,.72);
+      border: 1px solid rgba(255,255,255,.94);
+      border-radius: calc(var(--radius) + 8px);
+      padding: clamp(8px, 1.8vw, 14px);
+      box-shadow: var(--shadow);
+    }
+    .board {
+      width: var(--board-size);
+      height: var(--board-size);
+      display: grid;
+      grid-template-columns: repeat(var(--n), 1fr);
+      gap: clamp(3px, .75vw, 7px);
+      touch-action: manipulation;
+    }
+    .cell {
+      position: relative;
+      aspect-ratio: 1;
+      border: 1px solid var(--tile-edge);
+      border-radius: clamp(10px, 2.3vw, 18px);
+      background: linear-gradient(180deg, #fff, var(--tile));
+      box-shadow: inset 0 -4px 8px rgba(18,48,71,.04), 0 5px 10px rgba(18,48,71,.07);
+      padding: 0;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+    }
+    .cell.rotatable { cursor: pointer; }
+    .cell.rotatable:hover { border-color: #8ec7ee; }
+    .cell:focus-visible { outline: 4px solid rgba(255,173,51,.65); outline-offset: 2px; z-index: 3; }
+    .cell.empty { background: rgba(255,255,255,.44); border-style: dashed; box-shadow: inset 0 0 0 1px rgba(255,255,255,.7); }
+    .pipe { position:absolute; inset: 13%; transition: transform .18s ease; transform: rotate(calc(var(--rot) * 90deg)); }
+    .no-motion .pipe, .no-motion .btn, .no-motion .celebration { transition: none !important; animation: none !important; }
+    .segment { position:absolute; background: var(--pipe); opacity: .9; box-shadow: inset 0 0 0 1px rgba(255,255,255,.24); transition: background .18s ease, box-shadow .18s ease; }
+    .connected .segment { background: linear-gradient(90deg, #10c6ff, var(--pipe-lit)); box-shadow: 0 0 18px var(--pipe-glow), inset 0 0 0 1px rgba(255,255,255,.44); opacity: 1; }
+    .center { left: 30%; top: 30%; width: 40%; height: 40%; border-radius: 999px; }
+    .dir-N { left: 40%; top: -1%; width: 20%; height: 51%; border-radius: 999px 999px 6px 6px; }
+    .dir-E { right: -1%; top: 40%; width: 51%; height: 20%; border-radius: 6px 999px 999px 6px; }
+    .dir-S { left: 40%; bottom: -1%; width: 20%; height: 51%; border-radius: 6px 6px 999px 999px; }
+    .dir-W { left: -1%; top: 40%; width: 51%; height: 20%; border-radius: 999px 6px 6px 999px; }
+    .cell.source, .cell.target { background: linear-gradient(180deg, #fffaf0, #fff4d7); border-color: #f2bd61; }
+    .badge {
+      position:absolute; inset: auto auto 7% 7%;
+      z-index: 2; width: 30%; height: 30%; min-width: 16px; min-height: 16px;
+      border-radius: 50%; display:grid; place-items:center;
+      font-size: clamp(11px, 2.5vw, 18px); font-weight: 900;
+      background: #fff; border: 1px solid rgba(18,48,71,.15); box-shadow: 0 5px 10px rgba(18,48,71,.12);
+    }
+    .target .badge { left:auto; right: 7%; }
+    .connected.target { animation: pulseWin .75s ease infinite alternate; }
+    @keyframes pulseWin { from { transform: scale(1); } to { transform: scale(1.025); } }
+    .home {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      padding: 18px;
+      background: rgba(242,249,252,.86);
+      backdrop-filter: blur(10px);
+      border-radius: calc(var(--radius) + 8px);
+      z-index: 5;
+    }
+    .home.hidden { display: none; }
+    .home-card {
+      text-align: center;
+      max-width: 420px;
+      background: rgba(255,255,255,.9);
+      border: 1px solid white;
+      border-radius: 24px;
+      padding: clamp(18px, 5vw, 30px);
+      box-shadow: var(--shadow);
+    }
+    .home-card h2 { margin: 0 0 8px; font-size: clamp(1.5rem, 5vw, 2.4rem); letter-spacing: -.05em; }
+    .home-card p { margin: 0 0 18px; color: var(--muted); line-height: 1.45; }
+    .status-line { min-height: 26px; text-align:center; color: var(--muted); font-weight: 700; }
+    .celebration {
+      pointer-events:none; position: absolute; inset: 0; display:none; place-items:center; z-index: 4;
+      border-radius: calc(var(--radius) + 8px);
+      background: radial-gradient(circle, rgba(255,255,255,.72), rgba(255,255,255,0) 62%);
+    }
+    .celebration.show { display:grid; animation: pop .85s ease both; }
+    .celebration span { font-size: clamp(2rem, 8vw, 4.5rem); filter: drop-shadow(0 10px 20px rgba(18,48,71,.2)); }
+    @keyframes pop { 0% { opacity:0; transform: scale(.7); } 25% { opacity:1; transform: scale(1.04); } 100% { opacity:0; transform: scale(1.16); } }
+    .help { text-align:center; color: var(--muted); font-size: .86rem; line-height:1.35; }
+    @media (max-width: 700px) {
+      :root { --board-size: min(94vw, 62vh); }
+      .bar { grid-template-columns: 1fr; }
+      .stats { justify-content: start; }
+      .controls { justify-content: start; }
+      .btn { min-height: 40px; padding-inline: 10px; }
+    }
+    @media (max-height: 680px) { :root { --board-size: min(86vw, 54vh); } .tagline, .help { display:none; } }
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+    <section class="top-card" aria-label="Pipe Connect game controls">
+      <div class="bar">
+        <div class="brand">
+          <div class="logo" aria-hidden="true">🔧</div>
+          <div><h1>Pipe Connect</h1><p class="tagline">Rotate pipes to carry the glow from source to target.</p></div>
+        </div>
+        <div class="stats" aria-live="polite">
+          <div class="pill"><b id="levelText">1</b><span>Level</span></div>
+          <div class="pill"><b id="movesText">0</b><span>Moves</span></div>
+          <div class="pill"><b id="bestText">1</b><span>Best</span></div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn primary" id="startBtn" type="button">▶ Start</button>
+        <button class="btn" id="resetBtn" type="button" title="Reset current level">↻ Reset</button>
+        <button class="btn" id="soundBtn" type="button" title="Toggle sound" aria-pressed="true">🔊</button>
+        <button class="btn" id="motionBtn" type="button" title="Toggle motion" aria-pressed="true">✨</button>
+        <button class="btn" id="bestResetBtn" type="button" title="Reset best level">🏆 Reset Best</button>
+      </div>
+    </section>
+
+    <section class="game-shell" aria-label="Pipe Connect board">
+      <div class="board-wrap">
+        <div class="board" id="board" role="grid" aria-label="Pipe board"></div>
+        <div class="home" id="home">
+          <div class="home-card">
+            <h2>Make a route</h2>
+            <p>Connect <strong>🚰 source</strong> to <strong>🏁 target</strong>. Use mouse, touch, or arrow keys + Space/Enter.</p>
+            <button class="btn primary" id="homeStartBtn" type="button">▶ Start puzzle</button>
+          </div>
+        </div>
+        <div class="celebration" id="celebration" aria-hidden="true"><span>🎉</span></div>
+      </div>
+      <p class="status-line" id="statusLine">Ready.</p>
+      <p class="help">Tip: lit blue pipes are connected to the source. Console helpers live at <code>window.PipeConnectDebug</code>.</p>
+    </section>
+  </main>
+
+<script>
+(() => {
+  'use strict';
+  const DIRS = ['N','E','S','W'];
+  const VEC = { N:[-1,0], E:[0,1], S:[1,0], W:[0,-1] };
+  const OPP = { N:'S', E:'W', S:'N', W:'E' };
+  const MASK = { N:1, E:2, S:4, W:8 };
+  const BASE_BY_MASK = new Map();
+  const BASES = [
+    { type:'empty', mask:0 },
+    { type:'straight', mask: MASK.N | MASK.S },
+    { type:'corner', mask: MASK.N | MASK.E },
+    { type:'tee', mask: MASK.N | MASK.E | MASK.S },
+    { type:'cross', mask: MASK.N | MASK.E | MASK.S | MASK.W },
+  ];
+  for (const b of BASES) for (let r=0; r<4; r++) BASE_BY_MASK.set(rotateMask(b.mask, r), { type:b.type, rotation:r });
+
+  const els = {
+    app: document.getElementById('app'), board: document.getElementById('board'), home: document.getElementById('home'), celebration: document.getElementById('celebration'),
+    level: document.getElementById('levelText'), moves: document.getElementById('movesText'), best: document.getElementById('bestText'), status: document.getElementById('statusLine'),
+    start: document.getElementById('startBtn'), homeStart: document.getElementById('homeStartBtn'), reset: document.getElementById('resetBtn'), sound: document.getElementById('soundBtn'), motion: document.getElementById('motionBtn'), bestReset: document.getElementById('bestResetBtn')
+  };
+  const store = {
+    best: 'pipeConnectBestLevel.v1', sound: 'pipeConnectSound.v1', motion: 'pipeConnectMotion.v1'
+  };
+  const state = {
+    level: 1, moves: 0, best: Number(localStorage.getItem(store.best) || 1),
+    sound: localStorage.getItem(store.sound) !== 'off', motion: localStorage.getItem(store.motion) !== 'off',
+    started: false, locked: false, board: null, source: null, target: null, connected: new Set(), focus: { r:0, c:0 }, audio: null
+  };
+
+  function rotateMask(mask, turns) {
+    let out = mask;
+    for (let i=0; i<((turns%4)+4)%4; i++) {
+      let n = 0;
+      if (out & MASK.N) n |= MASK.E;
+      if (out & MASK.E) n |= MASK.S;
+      if (out & MASK.S) n |= MASK.W;
+      if (out & MASK.W) n |= MASK.N;
+      out = n;
+    }
+    return out;
+  }
+  const dirsFromMask = mask => DIRS.filter(d => mask & MASK[d]);
+  const keyOf = (r,c) => `${r},${c}`;
+  const inBounds = (n,r,c) => r >= 0 && c >= 0 && r < n && c < n;
+  const sample = arr => arr[Math.floor(Math.random() * arr.length)];
+  const shuffle = arr => arr.map(v => [Math.random(), v]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
+
+  function maskToCell(mask, role='pipe') {
+    const normalized = BASE_BY_MASK.get(mask) || BASE_BY_MASK.get(0);
+    return { role, type: normalized.type, solutionMask: mask, currentMask: mask, rotation: normalized.rotation, baseMask: BASES.find(b=>b.type===normalized.type).mask, connected: false };
+  }
+  function makePath(n, source, target) {
+    for (let attempt=0; attempt<180; attempt++) {
+      const visited = new Set([keyOf(source.r, source.c)]);
+      const parent = new Map();
+      const stack = [source];
+      while (stack.length) {
+        const cur = stack.pop();
+        if (cur.r === target.r && cur.c === target.c) {
+          const path = [];
+          let k = keyOf(cur.r, cur.c);
+          while (k) { const [r,c] = k.split(',').map(Number); path.push({r,c}); k = parent.get(k); }
+          return path.reverse();
+        }
+        const dirs = shuffle(DIRS).sort((a,b) => {
+          const [ar,ac] = VEC[a], [br,bc] = VEC[b];
+          return (Math.abs(target.r-(cur.r+ar)) + Math.abs(target.c-(cur.c+ac))) - (Math.abs(target.r-(cur.r+br)) + Math.abs(target.c-(cur.c+bc)));
+        });
+        for (const d of dirs) {
+          const [dr,dc] = VEC[d], nr = cur.r + dr, nc = cur.c + dc;
+          const k = keyOf(nr,nc);
+          if (!inBounds(n,nr,nc) || visited.has(k)) continue;
+          if (Math.random() < 0.20 && nc <= cur.c && nc !== n-1) continue;
+          visited.add(k); parent.set(k, keyOf(cur.r, cur.c)); stack.push({r:nr,c:nc});
+        }
+      }
+    }
+    const path = [];
+    let r = source.r, c = source.c; path.push({r,c});
+    while (c < target.c) { c++; path.push({r,c}); }
+    while (r !== target.r) { r += r < target.r ? 1 : -1; path.push({r,c}); }
+    return path;
+  }
+  function generateLevel(level = state.level) {
+    const n = Math.min(9, 5 + Math.floor((level-1) / 2));
+    const source = { r: Math.floor(Math.random() * n), c: 0 };
+    const target = { r: Math.floor(Math.random() * n), c: n-1 };
+    const path = makePath(n, source, target);
+    const masks = Array.from({length:n}, () => Array(n).fill(0));
+    for (let i=0; i<path.length-1; i++) {
+      const a = path[i], b = path[i+1];
+      const d = DIRS.find(x => a.r + VEC[x][0] === b.r && a.c + VEC[x][1] === b.c);
+      masks[a.r][a.c] |= MASK[d]; masks[b.r][b.c] |= MASK[OPP[d]];
+    }
+    const onPath = new Set(path.map(p => keyOf(p.r,p.c)));
+    const board = Array.from({length:n}, (_,r) => Array.from({length:n}, (_,c) => maskToCell(0)));
+    for (let r=0; r<n; r++) for (let c=0; c<n; c++) {
+      if (onPath.has(keyOf(r,c))) {
+        const role = r === source.r && c === source.c ? 'source' : r === target.r && c === target.c ? 'target' : 'pipe';
+        board[r][c] = maskToCell(masks[r][c], role);
+      } else {
+        const roll = Math.random();
+        let m = 0;
+        if (roll < .20) m = 0;
+        else if (roll < .52) m = rotateMask(MASK.N|MASK.S, Math.floor(Math.random()*4));
+        else if (roll < .78) m = rotateMask(MASK.N|MASK.E, Math.floor(Math.random()*4));
+        else if (roll < .93) m = rotateMask(MASK.N|MASK.E|MASK.S, Math.floor(Math.random()*4));
+        else m = MASK.N|MASK.E|MASK.S|MASK.W;
+        board[r][c] = maskToCell(m);
+      }
+    }
+    // Guarantee visible variety on every generated board without touching the solution path.
+    const fillers = [];
+    for (let r=0; r<n; r++) for (let c=0; c<n; c++) if (!onPath.has(keyOf(r,c))) fillers.push({r,c});
+    shuffle(fillers).slice(0,4).forEach((p,i) => {
+      const masks = [0, MASK.N|MASK.S, MASK.N|MASK.E|MASK.S, MASK.N|MASK.E|MASK.S|MASK.W];
+      board[p.r][p.c] = maskToCell(rotateMask(masks[i], Math.floor(Math.random()*4)));
+    });
+    // Scramble rotatable pipes; source and target remain fixed/non-rotatable.
+    let pathScrambled = false;
+    for (let r=0; r<n; r++) for (let c=0; c<n; c++) {
+      const cell = board[r][c];
+      if (cell.role === 'source' || cell.role === 'target' || cell.type === 'empty' || cell.type === 'cross') continue;
+      const turns = Math.floor(Math.random() * 4);
+      cell.currentMask = rotateMask(cell.solutionMask, turns);
+      cell.rotation = (cell.rotation + turns) % 4;
+      if (onPath.has(keyOf(r,c)) && cell.currentMask !== cell.solutionMask) pathScrambled = true;
+    }
+    if (!pathScrambled) {
+      const candidates = path.filter(p => board[p.r][p.c].role === 'pipe' && board[p.r][p.c].type !== 'cross');
+      const p = candidates[0];
+      if (p) { const cell = board[p.r][p.c]; cell.currentMask = rotateMask(cell.currentMask, 1); cell.rotation = (cell.rotation + 1) % 4; }
+    }
+    return { n, board, source, target, path, seed: `${Date.now()}-${Math.random().toString(36).slice(2)}` };
+  }
+  function validateGenerated(g) {
+    if (!g || !g.board || g.n < 2) return false;
+    const old = g.board.map(row => row.map(c => c.currentMask));
+    for (let r=0; r<g.n; r++) for (let c=0; c<g.n; c++) g.board[r][c].currentMask = g.board[r][c].solutionMask;
+    const ok = computeConnected(g).has(keyOf(g.target.r, g.target.c));
+    for (let r=0; r<g.n; r++) for (let c=0; c<g.n; c++) g.board[r][c].currentMask = old[r][c];
+    return ok && g.board[g.source.r][g.source.c].role === 'source' && g.board[g.target.r][g.target.c].role === 'target';
+  }
+  function computeConnected(g = state.board) {
+    const seen = new Set(); if (!g) return seen;
+    const q = [g.source]; seen.add(keyOf(g.source.r, g.source.c));
+    while (q.length) {
+      const {r,c} = q.shift();
+      const cell = g.board[r][c];
+      for (const d of dirsFromMask(cell.currentMask)) {
+        const [dr,dc] = VEC[d], nr = r+dr, nc = c+dc;
+        if (!inBounds(g.n,nr,nc)) continue;
+        const next = g.board[nr][nc];
+        if (!(next.currentMask & MASK[OPP[d]])) continue;
+        const k = keyOf(nr,nc); if (seen.has(k)) continue;
+        seen.add(k); q.push({r:nr,c:nc});
+      }
+    }
+    return seen;
+  }
+  function render() {
+    const g = state.board; if (!g) return;
+    els.board.style.setProperty('--n', g.n);
+    const connected = computeConnected(g); state.connected = connected;
+    els.board.innerHTML = '';
+    for (let r=0; r<g.n; r++) for (let c=0; c<g.n; c++) {
+      const cell = g.board[r][c], k = keyOf(r,c), dirs = dirsFromMask(cell.currentMask);
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = `cell ${cell.type} ${cell.role || ''} ${connected.has(k) ? 'connected' : ''} ${isRotatable(cell) ? 'rotatable' : ''}`;
+      btn.setAttribute('role', 'gridcell'); btn.setAttribute('aria-label', labelFor(cell,r,c,connected.has(k)));
+      btn.dataset.r = r; btn.dataset.c = c; btn.tabIndex = (r === state.focus.r && c === state.focus.c) ? 0 : -1;
+      if (cell.type !== 'empty') {
+        const pipe = document.createElement('div'); pipe.className = 'pipe'; pipe.style.setProperty('--rot', '0');
+        const center = document.createElement('div'); center.className = 'segment center'; pipe.appendChild(center);
+        for (const d of dirs) { const s = document.createElement('div'); s.className = `segment dir-${d}`; pipe.appendChild(s); }
+        btn.appendChild(pipe);
+      }
+      if (cell.role === 'source' || cell.role === 'target') { const b = document.createElement('div'); b.className = 'badge'; b.textContent = cell.role === 'source' ? '🚰' : '🏁'; btn.appendChild(b); }
+      btn.addEventListener('click', () => rotateAt(r,c));
+      btn.addEventListener('focus', () => { state.focus = {r,c}; updateTabIndexes(); });
+      els.board.appendChild(btn);
+    }
+    updateHud();
+  }
+  function labelFor(cell,r,c,lit) {
+    const role = cell.role === 'source' ? 'source' : cell.role === 'target' ? 'target' : cell.type;
+    return `${role} row ${r+1} column ${c+1}${lit ? ', connected' : ''}${isRotatable(cell) ? ', press Enter or Space to rotate' : ''}`;
+  }
+  function isRotatable(cell) { return cell.role !== 'source' && cell.role !== 'target' && cell.type !== 'empty' && cell.type !== 'cross'; }
+  function updateTabIndexes() { [...els.board.children].forEach(ch => ch.tabIndex = (+ch.dataset.r === state.focus.r && +ch.dataset.c === state.focus.c) ? 0 : -1); }
+  function updateHud() {
+    els.level.textContent = state.level; els.moves.textContent = state.moves; els.best.textContent = state.best;
+    els.sound.textContent = state.sound ? '🔊' : '🔇'; els.sound.classList.toggle('toggled', state.sound); els.sound.setAttribute('aria-pressed', String(state.sound));
+    els.motion.textContent = state.motion ? '✨' : '◻'; els.motion.classList.toggle('toggled', state.motion); els.motion.setAttribute('aria-pressed', String(state.motion));
+    document.body.classList.toggle('no-motion', !state.motion);
+  }
+  function startGame() { state.started = true; els.home.classList.add('hidden'); state.level = Math.max(1, state.level); newLevel(state.level); }
+  function newLevel(level) {
+    state.level = level; state.moves = 0; state.locked = false; state.board = generateLevel(level); state.source = state.board.source; state.target = state.board.target; state.focus = {...state.source};
+    if (!validateGenerated(state.board)) throw new Error('Generated an invalid board');
+    els.status.textContent = 'Rotate pipes to connect the glowing route.'; render();
+  }
+  function resetLevel() { if (!state.board) return startGame(); const level = state.level; newLevel(level); blip(220, .04); }
+  function rotateAt(r,c) {
+    if (state.locked || !state.board) return;
+    const cell = state.board.board[r][c]; if (!isRotatable(cell)) return;
+    cell.currentMask = rotateMask(cell.currentMask, 1); cell.rotation = (cell.rotation + 1) % 4; state.moves++; state.focus = {r,c}; blip(440, .025); render();
+    if (state.connected.has(keyOf(state.target.r, state.target.c))) completeLevel();
+  }
+  function completeLevel() {
+    state.locked = true; state.best = Math.max(state.best, state.level + 1); localStorage.setItem(store.best, state.best); updateHud();
+    els.status.textContent = `Level ${state.level} complete in ${state.moves} moves!`; els.celebration.classList.add('show'); fanfare();
+    setTimeout(() => { els.celebration.classList.remove('show'); newLevel(state.level + 1); }, 950);
+  }
+  function solveCurrent() {
+    if (!state.board) return;
+    for (let r=0; r<state.board.n; r++) for (let c=0; c<state.board.n; c++) state.board.board[r][c].currentMask = state.board.board[r][c].solutionMask;
+    render(); return computeConnected().has(keyOf(state.target.r,state.target.c));
+  }
+  function runTests(count = 100) {
+    const failures = [];
+    for (let i=1; i<=count; i++) { const g = generateLevel(i); if (!validateGenerated(g)) failures.push({level:i,g}); }
+    const ok = failures.length === 0;
+    console.log(ok ? `PipeConnect: ${count} generation/connection tests passed.` : 'PipeConnect failures:', failures);
+    return { ok, count, failures };
+  }
+  function blip(freq=330, gain=.035) {
+    if (!state.sound) return;
+    try { const ctx = state.audio || (state.audio = new (window.AudioContext || window.webkitAudioContext)()); const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = freq; o.type = 'sine'; g.gain.value = gain; o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime + .055); } catch {}
+  }
+  function fanfare() { [523,659,784].forEach((f,i) => setTimeout(()=>blip(f,.045), i*90)); }
+
+  els.start.addEventListener('click', startGame); els.homeStart.addEventListener('click', startGame); els.reset.addEventListener('click', resetLevel);
+  els.sound.addEventListener('click', () => { state.sound = !state.sound; localStorage.setItem(store.sound, state.sound ? 'on' : 'off'); updateHud(); if (state.sound) blip(); });
+  els.motion.addEventListener('click', () => { state.motion = !state.motion; localStorage.setItem(store.motion, state.motion ? 'on' : 'off'); updateHud(); });
+  els.bestReset.addEventListener('click', () => { state.best = state.level; localStorage.setItem(store.best, state.best); updateHud(); els.status.textContent = 'Best level reset.'; });
+  els.board.addEventListener('keydown', ev => {
+    if (!state.board) return; const n = state.board.n; let {r,c} = state.focus;
+    if (ev.key === 'ArrowUp') r = Math.max(0, r-1); else if (ev.key === 'ArrowDown') r = Math.min(n-1, r+1); else if (ev.key === 'ArrowLeft') c = Math.max(0, c-1); else if (ev.key === 'ArrowRight') c = Math.min(n-1, c+1); else if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); rotateAt(r,c); return; } else return;
+    ev.preventDefault(); state.focus = {r,c}; updateTabIndexes(); els.board.querySelector(`[data-r="${r}"][data-c="${c}"]`)?.focus();
+  });
+
+  state.board = generateLevel(1); render(); updateHud();
+  window.PipeConnectDebug = Object.freeze({
+    DIRS, MASK, rotateMask, generateLevel, validateGenerated, computeConnected,
+    runTests, solveCurrent, getState: () => state,
+    isSolved: () => !!state.board && computeConnected().has(keyOf(state.target.r,state.target.c))
+  });
+})();
+</script>
+</body>
+</html>

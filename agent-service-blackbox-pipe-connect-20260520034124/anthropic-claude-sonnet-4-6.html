@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pipe Connect</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#080c1a;
+  --panel:#0e1628;
+  --cell:#16213e;
+  --cell-h:#1c2d52;
+  --border:#243050;
+  --pipe:#3a5080;
+  --lit:#00e5ff;
+  --src:#00ff88;
+  --tgt:#ff4466;
+  --txt:#dde8ff;
+  --dim:#6a7fa0;
+  --acc:#3d8fe0;
+  --cs:56px;
+}
+
+html,body{
+  width:100%;height:100%;
+  background:var(--bg);
+  color:var(--txt);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  overflow:hidden;
+  touch-action:manipulation;
+  user-select:none;
+}
+
+/* Starfield BG */
+#app{
+  height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:8px;
+  background:
+    radial-gradient(ellipse at 20% 50%,#0a1a3a 0%,transparent 60%),
+    radial-gradient(ellipse at 80% 20%,#0d1a2a 0%,transparent 50%),
+    var(--bg);
+}
+
+/* ── Screens ── */
+.screen{display:none;flex-direction:column;align-items:center;gap:18px;width:100%;max-width:540px}
+.screen.active{display:flex}
+
+/* ── Home ── */
+#home{gap:20px}
+
+.home-logo{
+  font-size:clamp(2rem,7vw,3.2rem);
+  font-weight:900;
+  letter-spacing:-1px;
+  background:linear-gradient(135deg,var(--src) 0%,var(--lit) 60%,#7b8fff 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:none;
+  line-height:1.1;
+}
+
+.home-sub{color:var(--dim);font-size:.92rem;text-align:center;line-height:1.5}
+
+.home-stat{
+  font-size:.88rem;color:var(--dim);
+  background:var(--panel);border:1px solid var(--border);
+  padding:8px 20px;border-radius:10px;
+}
+.home-stat strong{color:var(--txt)}
+
+.btn-primary{
+  background:linear-gradient(135deg,#1b6fdf,#0e4bb5);
+  color:#fff;border:none;border-radius:14px;
+  padding:14px 56px;font-size:1.12rem;font-weight:700;letter-spacing:.02em;
+  cursor:pointer;box-shadow:0 4px 24px #1b6fdf55;
+  transition:transform .12s,box-shadow .12s;
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 7px 30px #1b6fdf70}
+.btn-primary:active{transform:scale(.97)}
+
+.home-hints{color:var(--dim);font-size:.78rem;text-align:center;line-height:2.2}
+
+/* ── Game ── */
+#game{gap:10px}
+
+.hud{display:flex;gap:30px;align-items:center;padding:0 4px}
+.hi{display:flex;flex-direction:column;align-items:center;gap:3px}
+.hl{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.hv{font-size:1.55rem;font-weight:700;line-height:1}
+
+/* Board */
+#bwrap{display:flex;align-items:center;justify-content:center;width:100%}
+#board{
+  display:grid;gap:3px;padding:8px;
+  background:var(--panel);
+  border-radius:18px;border:1px solid var(--border);
+  box-shadow:0 10px 50px #00000088,inset 0 1px 0 #ffffff08;
+}
+
+.cell{
+  width:var(--cs);height:var(--cs);
+  background:var(--cell);border-radius:9px;
+  position:relative;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  outline:none;overflow:visible;
+  transition:background .12s;
+}
+.cell:focus-visible{box-shadow:inset 0 0 0 2px var(--acc)}
+.cell.rotatable:hover{background:var(--cell-h)}
+.cell.source,.cell.target{cursor:default}
+.cell.ecell{cursor:default;opacity:.3}
+
+/* SVG pipe inside cell */
+.cell svg{width:100%;height:100%;display:block;pointer-events:none;overflow:visible}
+.pg{fill:var(--pipe);transition:fill .22s,filter .22s}
+.cell.lit    .pg{fill:var(--lit);filter:drop-shadow(0 0 7px var(--lit))}
+.cell.source .pg{fill:var(--src);filter:drop-shadow(0 0 8px var(--src))}
+.cell.target .pg{fill:var(--tgt);filter:drop-shadow(0 0 8px var(--tgt))}
+
+/* Badge */
+.badge{
+  position:absolute;top:3px;
+  font-size:8px;font-weight:800;letter-spacing:.06em;
+  padding:1px 4px;border-radius:3px;pointer-events:none;z-index:3;
+  opacity:.85;
+}
+.source .badge{color:var(--src);left:3px}
+.target .badge{color:var(--tgt);right:3px;left:auto}
+
+/* Win pulse */
+@keyframes win-pulse{
+  0%,100%{filter:drop-shadow(0 0 6px var(--lit))}
+  50%{filter:drop-shadow(0 0 20px var(--lit)) brightness(1.5)}
+}
+.cell.wpulse .pg{animation:win-pulse .65s ease-in-out infinite}
+
+/* Controls */
+.ctrls{display:flex;gap:8px}
+.cb{
+  width:44px;height:44px;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;color:var(--txt);
+  font-size:1.05rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .1s,transform .1s,border-color .1s;
+}
+.cb:hover{background:var(--cell-h)}
+.cb:active{transform:scale(.93)}
+.cb.on{border-color:var(--acc);background:#1a3560}
+
+/* Win overlay */
+#wov{
+  position:fixed;inset:0;
+  background:#00000095;backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;
+  z-index:100;
+}
+#wov.hide{display:none}
+.wcard{
+  background:linear-gradient(135deg,#0f1a30,#131f38);
+  border:1px solid var(--border);border-radius:24px;
+  padding:40px 52px;text-align:center;
+  box-shadow:0 28px 80px #00000099,inset 0 1px 0 #ffffff0a;
+  animation:popIn .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn{from{opacity:0;transform:scale(.65)}to{opacity:1;transform:scale(1)}}
+.wcard .icon{font-size:3.5rem;line-height:1;margin-bottom:10px}
+.wcard h2{font-size:1.75rem;font-weight:800;margin-bottom:6px}
+.wcard p{color:var(--dim);margin-bottom:26px;font-size:.95rem}
+
+/* Responsive */
+@media(max-width:380px){:root{--cs:44px}}
+@media(max-height:580px){
+  :root{--cs:44px}
+  #game{gap:6px}
+  .hud{gap:20px}
+  .hv{font-size:1.2rem}
+  .cb{width:38px;height:38px;font-size:.9rem}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HOME SCREEN -->
+<div id="home" class="screen active">
+  <div class="home-logo">🔧 Pipe Connect</div>
+  <p class="home-sub">Rotate the tiles to connect<br>the <span style="color:var(--src)">source</span> to the <span style="color:var(--tgt)">target</span></p>
+  <div class="home-stat">Best Level: <strong id="hbest">—</strong></div>
+  <button class="btn-primary" id="bstart">▶ Play</button>
+  <p class="home-hints">
+    Click / tap tiles to rotate them<br>
+    Arrow keys + Enter / Space for keyboard play
+  </p>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game" class="screen">
+  <div class="hud">
+    <div class="hi"><span class="hl">Level</span><span class="hv" id="hlvl">1</span></div>
+    <div class="hi"><span class="hl">Moves</span><span class="hv" id="hmov">0</span></div>
+    <div class="hi"><span class="hl">Best</span><span class="hv" id="hbst">—</span></div>
+  </div>
+  <div id="bwrap"><div id="board"></div></div>
+  <div class="ctrls">
+    <button class="cb" id="brst"  title="Reset Level">↺</button>
+    <button class="cb" id="bsnd"  title="Toggle Sound">🔊</button>
+    <button class="cb" id="bmot"  title="Toggle Motion">✨</button>
+    <button class="cb" id="bhom"  title="Home">🏠</button>
+    <button class="cb" id="bclr"  title="Clear Best">🏆</button>
+  </div>
+</div>
+
+<!-- WIN OVERLAY -->
+<div id="wov" class="hide">
+  <div class="wcard">
+    <div class="icon">🎉</div>
+    <h2>Level Complete!</h2>
+    <p id="wmsg"></p>
+    <button class="btn-primary" id="bnxt">Next Level →</button>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════
+const N=0,E=1,S=2,W=3;
+const DR=[-1,0,1,0];
+const DC=[0,1,0,-1];
+const OPP=[S,W,N,E];
+
+// Base pipe connections at rotation=0
+const BASE={
+  empty:[],
+  straight:[N,S],   // vertical
+  corner:[N,E],     // top-right L
+  tee:[N,E,S],      // T missing west
+  cross:[N,E,S,W],  // full +
+  source:[E],       // fixed → right
+  target:[W],       // fixed ← left
+};
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+const st={
+  level:1, moves:0, bestLevel:0,
+  soundOn:true, motionOn:true,
+  grid:[], rows:5, cols:5,
+  srcR:2, srcC:0, tgtR:2, tgtC:4,
+  connected:[],
+  won:false,
+  focusR:2, focusC:1,
+  initGrid:[],
+};
+
+// ═══════════════════════════════════════════════════
+//  STORAGE
+// ═══════════════════════════════════════════════════
+function loadSt(){
+  try{
+    const d=JSON.parse(localStorage.getItem('pipeconnect')||'{}');
+    if(d.level)      st.level=d.level;
+    if(d.bestLevel)  st.bestLevel=d.bestLevel;
+    if(d.soundOn!==undefined)  st.soundOn=d.soundOn;
+    if(d.motionOn!==undefined) st.motionOn=d.motionOn;
+  }catch(e){}
+}
+function saveSt(){
+  localStorage.setItem('pipeconnect',JSON.stringify({
+    level:st.level, bestLevel:st.bestLevel,
+    soundOn:st.soundOn, motionOn:st.motionOn,
+  }));
+}
+
+// ═══════════════════════════════════════════════════
+//  PIPE LOGIC
+// ═══════════════════════════════════════════════════
+function getConns(type,rot){
+  return BASE[type].map(d=>(d+rot)&3);
+}
+
+function cellsConnect(g,r1,c1,r2,c2){
+  const dr=r2-r1, dc=c2-c1;
+  let dir=-1;
+  if(dr===-1&&dc===0) dir=N;
+  else if(dr===0&&dc===1) dir=E;
+  else if(dr===1&&dc===0) dir=S;
+  else if(dr===0&&dc===-1) dir=W;
+  else return false;
+  const a=g[r1][c1], b=g[r2][c2];
+  return getConns(a.type,a.rot).includes(dir) &&
+         getConns(b.type,b.rot).includes(OPP[dir]);
+}
+
+function floodFill(g,rows,cols,sr,sc){
+  const vis=Array.from({length:rows},()=>new Array(cols).fill(false));
+  const q=[[sr,sc]];
+  vis[sr][sc]=true;
+  while(q.length){
+    const[r,c]=q.shift();
+    for(let d=0;d<4;d++){
+      const nr=r+DR[d], nc=c+DC[d];
+      if(nr<0||nr>=rows||nc<0||nc>=cols||vis[nr][nc]) continue;
+      if(cellsConnect(g,r,c,nr,nc)){vis[nr][nc]=true;q.push([nr,nc]);}
+    }
+  }
+  return vis;
+}
+
+// ═══════════════════════════════════════════════════
+//  BOARD GENERATION
+// ═══════════════════════════════════════════════════
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=(Math.random()*(i+1))|0;
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function gridSize(level){
+  if(level<=2) return[5,5];
+  if(level<=4) return[5,7];
+  if(level<=7) return[7,7];
+  return[7,9];
+}
+
+// Map a pair of pipe directions to a pipe type + correct rotation
+function pipeForPair(d1,d2){
+  const key=[d1,d2].sort().join(',');
+  const M={
+    '0,2':{type:'straight',rot:0}, // N+S vertical
+    '1,3':{type:'straight',rot:1}, // E+W horizontal
+    '0,1':{type:'corner',rot:0},   // N+E
+    '1,2':{type:'corner',rot:1},   // E+S
+    '2,3':{type:'corner',rot:2},   // S+W
+    '0,3':{type:'corner',rot:3},   // N+W
+  };
+  return M[key];
+}
+
+// Return a starting rotation that is visually wrong
+function wrongRot(correct,type){
+  if(type==='straight'){
+    // straight has 2 visual states: {0,2}=vertical, {1,3}=horizontal
+    // flip to the other state
+    return correct===0||correct===2 ? 1 : 0;
+  }
+  // For corner/tee, all 4 rotations are visually distinct
+  const opts=[0,1,2,3].filter(r=>r!==correct);
+  return opts[(Math.random()*opts.length)|0];
+}
+
+// Direction from (r,c) toward (tr,tc)
+function dirTo(r,c,tr,tc){
+  if(tr===r-1) return N;
+  if(tc===c+1) return E;
+  if(tr===r+1) return S;
+  if(tc===c-1) return W;
+  return -1;
+}
+
+// DFS path finder; blocked cells are treated as walls
+function findPath(rows,cols,sr,sc,er,ec,blocked){
+  const vis=Array.from({length:rows},()=>new Array(cols).fill(false));
+  vis[sr][sc]=true;
+  for(const[r,c]of blocked) vis[r][c]=true;
+  const path=[[sr,sc]];
+
+  function dfs(){
+    const[r,c]=path[path.length-1];
+    if(r===er&&c===ec) return true;
+    for(const d of shuffle([0,1,2,3])){
+      const nr=r+DR[d], nc=c+DC[d];
+      if(nr<0||nr>=rows||nc<0||nc>=cols||vis[nr][nc]) continue;
+      vis[nr][nc]=true;
+      path.push([nr,nc]);
+      if(dfs()) return true;
+      path.pop();
+      vis[nr][nc]=false;
+    }
+    return false;
+  }
+
+  return dfs()?path:null;
+}
+
+function makeCell(type,rot,isPath,correctRot){
+  return{type,rot,isPath,correctRot,degrees:rot*90};
+}
+
+function generateBoard(level){
+  const[rows,cols]=gridSize(level);
+  const srcR=(rows/2)|0, srcC=0;
+  const tgtR=(rows/2)|0, tgtC=cols-1;
+
+  // Empty grid
+  const g=Array.from({length:rows},()=>
+    Array.from({length:cols},()=>makeCell('empty',0,false,-1))
+  );
+
+  // Place source and target (fixed, no rotation)
+  g[srcR][srcC]=makeCell('source',0,true,0);
+  g[tgtR][tgtC]=makeCell('target',0,true,0);
+
+  // Find solution path from cell EAST of source to cell WEST of target.
+  // This guarantees source→path and path→target connections are valid
+  // (source opens E, target opens W).
+  const intermPath=findPath(
+    rows,cols,
+    srcR,srcC+1,         // start: first cell east of source
+    tgtR,tgtC-1,         // end: last cell west of target
+    [[srcR,srcC],[tgtR,tgtC]] // block source+target from being intermediate
+  );
+
+  // Fallback: straight horizontal path (guaranteed for any grid)
+  const midPath=intermPath||
+    Array.from({length:tgtC-srcC-1},(_,i)=>[[srcR,srcC+1+i]])[0]||
+    [[srcR,srcC+1]]; // edge case
+
+  const fullPath=[[srcR,srcC],...(intermPath||Array.from({length:tgtC-srcC-1},(_,i)=>[srcR,srcC+1+i])),[tgtR,tgtC]];
+
+  // Place pipes on intermediate path cells
+  for(let i=1;i<fullPath.length-1;i++){
+    const[r,c]=fullPath[i];
+    const[pr,pc]=fullPath[i-1];
+    const[nr,nc]=fullPath[i+1];
+    const dIn=dirTo(r,c,pr,pc);  // direction toward previous cell
+    const dOut=dirTo(r,c,nr,nc); // direction toward next cell
+    const{type,rot:cRot}=pipeForPair(dIn,dOut);
+    const iRot=wrongRot(cRot,type);
+    g[r][c]=makeCell(type,iRot,true,cRot);
+  }
+
+  // Fill remaining cells with decoy pipes
+  const emptyChance=Math.max(0.08, 0.48-level*0.04);
+  const decoyT=['straight','corner','tee','cross'];
+  const decoyW=[3,4,2,1]; // weighted toward corner
+  const wSum=decoyW.reduce((a,b)=>a+b,0);
+
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(g[r][c].type!=='empty') continue;
+      if(Math.random()<emptyChance) continue;
+      let rnd=Math.random()*wSum, picked='corner';
+      for(let i=0;i<decoyT.length;i++){rnd-=decoyW[i];if(rnd<=0){picked=decoyT[i];break;}}
+      const rot=(Math.random()*4)|0;
+      g[r][c]=makeCell(picked,rot,false,-1);
+    }
+  }
+
+  return{g,rows,cols,srcR,srcC,tgtR,tgtC};
+}
+
+// ═══════════════════════════════════════════════════
+//  SVG GENERATION
+// ═══════════════════════════════════════════════════
+// SVGs are generated at rotation=0 (base connections).
+// CSS transform:rotate() handles visual rotation.
+function makeSVG(type){
+  const SZ=60,H=30,AW=14,HA=7,HR=8;
+  const b=BASE[type];
+  const p=[];
+
+  // Arms from center toward each open direction
+  if(b.includes(N)) p.push(`<rect x="${H-HA}" y="0"      width="${AW}" height="${H+HR}" rx="3"/>`);
+  if(b.includes(E)) p.push(`<rect x="${H-HR}" y="${H-HA}" width="${H+HR}" height="${AW}" rx="3"/>`);
+  if(b.includes(S)) p.push(`<rect x="${H-HA}" y="${H-HR}" width="${AW}" height="${H+HR}" rx="3"/>`);
+  if(b.includes(W)) p.push(`<rect x="0"       y="${H-HA}" width="${H+HR}" height="${AW}" rx="3"/>`);
+
+  // Hub circle
+  if(type!=='empty') p.push(`<circle cx="${H}" cy="${H}" r="${HR}"/>`);
+
+  // Source indicator: play triangle on left
+  if(type==='source')
+    p.push(`<polygon points="5,${H-8} 5,${H+8} 18,${H}"/>`);
+
+  // Target indicator: diamond on right
+  if(type==='target')
+    p.push(`<polygon points="${SZ-5},${H} ${SZ-14},${H-8} ${SZ-18},${H} ${SZ-14},${H+8}"/>`);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SZ} ${SZ}"><g class="pg">${p.join('')}</g></svg>`;
+}
+
+// Pre-cache all SVGs (rotation-0 base shapes)
+const SVGC={};
+for(const t of Object.keys(BASE)) SVGC[t]=makeSVG(t);
+
+// ═══════════════════════════════════════════════════
+//  AUDIO (Web Audio API)
+// ═══════════════════════════════════════════════════
+let actx=null;
+function getACtx(){
+  if(!actx) actx=new(window.AudioContext||window.webkitAudioContext)();
+  if(actx.state==='suspended') actx.resume();
+  return actx;
+}
+function beep(freq,dur,shape='sine',vol=0.1){
+  if(!st.soundOn) return;
+  try{
+    const ctx=getACtx();
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type=shape; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+dur);
+    o.start(); o.stop(ctx.currentTime+dur);
+  }catch(e){}
+}
+function sfxRot(){beep(320,.07,'square',.07)}
+function sfxConn(){beep(680,.12,'sine',.1)}
+function sfxWin(){
+  [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.22,'sine',.13),i*95));
+}
+
+// ═══════════════════════════════════════════════════
+//  DOM HELPERS
+// ═══════════════════════════════════════════════════
+const $=id=>document.getElementById(id);
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+
+function updateHUD(){
+  $('hlvl').textContent=st.level;
+  $('hmov').textContent=st.moves;
+  const b=st.bestLevel>0?st.bestLevel:'—';
+  $('hbst').textContent=b;
+  $('hbest').textContent=b;
+}
+
+// ═══════════════════════════════════════════════════
+//  BOARD RENDER
+// ═══════════════════════════════════════════════════
+function calcCellSize(){
+  const BPAD=16, GAP=3;
+  const mw=Math.min(window.innerWidth-16,540)-BPAD;
+  const mh=window.innerHeight-170-BPAD;
+  const fw=Math.floor((mw-GAP*(st.cols-1))/st.cols);
+  const fh=Math.floor((mh-GAP*(st.rows-1))/st.rows);
+  return Math.max(30,Math.min(Math.min(fw,fh),80));
+}
+
+let prevConn=0;
+
+function renderBoard(){
+  const board=$('board');
+  const{grid:g,rows,cols}=st;
+  const cs=calcCellSize();
+
+  document.documentElement.style.setProperty('--cs',cs+'px');
+  board.style.gridTemplateColumns=`repeat(${cols},${cs}px)`;
+  board.innerHTML='';
+
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const cell=g[r][c];
+      const div=document.createElement('div');
+      div.className='cell';
+      div.dataset.r=r; div.dataset.c=c;
+      div.style.cssText=`width:${cs}px;height:${cs}px`;
+
+      const rotatable=!['source','target','empty'].includes(cell.type);
+      if(rotatable)        div.classList.add('rotatable');
+      if(cell.type==='empty')  div.classList.add('ecell');
+      if(cell.type==='source') div.classList.add('source');
+      if(cell.type==='target') div.classList.add('target');
+
+      div.tabIndex=rotatable?0:-1;
+      div.innerHTML=SVGC[cell.type];
+
+      // Apply initial CSS rotation
+      const svg=div.querySelector('svg');
+      if(svg&&cell.degrees){
+        svg.style.transition='none';
+        svg.style.transform=`rotate(${cell.degrees}deg)`;
+      }
+
+      // Badges for source / target
+      if(cell.type==='source') div.insertAdjacentHTML('beforeend','<span class="badge">IN</span>');
+      if(cell.type==='target') div.insertAdjacentHTML('beforeend','<span class="badge">OUT</span>');
+
+      if(rotatable){
+        div.addEventListener('click',()=>rotateAt(r,c));
+        div.addEventListener('touchend',e=>{e.preventDefault();rotateAt(r,c);},{passive:false});
+      }
+      div.addEventListener('focus',()=>{st.focusR=r;st.focusC=c;});
+
+      board.appendChild(div);
+    }
+  }
+
+  prevConn=1; // reset (source always connected to itself)
+  updateConns();
+}
+
+function cellDiv(r,c){
+  return document.querySelector(`#board [data-r="${r}"][data-c="${c}"]`);
+}
+
+function updateConns(){
+  const{grid:g,rows,cols,srcR,srcC,tgtR,tgtC}=st;
+  st.connected=floodFill(g,rows,cols,srcR,srcC);
+
+  let cnt=0;
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const div=cellDiv(r,c); if(!div) continue;
+      const conn=st.connected[r][c];
+      const isSrc=g[r][c].type==='source';
+      const isTgt=g[r][c].type==='target';
+      div.classList.toggle('lit',conn&&!isSrc&&!isTgt);
+      if(conn) cnt++;
+    }
+  }
+
+  // Sound on new connection
+  if(cnt>prevConn) sfxConn();
+  prevConn=cnt;
+
+  // Win?
+  if(!st.won&&st.connected[tgtR][tgtC]){
+    st.won=true;
+    onWin();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  GAMEPLAY
+// ═══════════════════════════════════════════════════
+function rotateAt(r,c){
+  if(st.won) return;
+  const cell=st.grid[r][c];
+  if(!['straight','corner','tee','cross'].includes(cell.type)) return;
+
+  cell.rot=(cell.rot+1)&3;
+  cell.degrees+=90;
+  st.moves++;
+
+  const div=cellDiv(r,c);
+  if(div){
+    const svg=div.querySelector('svg');
+    if(svg){
+      svg.style.transition=st.motionOn
+        ?'transform .17s cubic-bezier(.4,0,.2,1)'
+        :'none';
+      svg.style.transform=`rotate(${cell.degrees}deg)`;
+    }
+  }
+
+  sfxRot();
+  updateHUD();
+  updateConns();
+}
+
+function onWin(){
+  sfxWin();
+  if(st.level>st.bestLevel){st.bestLevel=st.level;saveSt();}
+
+  if(st.motionOn){
+    for(let r=0;r<st.rows;r++)
+      for(let c=0;c<st.cols;c++)
+        if(st.connected[r][c]) cellDiv(r,c)?.classList.add('wpulse');
+  }
+
+  setTimeout(()=>{
+    $('wmsg').textContent=`Solved in ${st.moves} move${st.moves===1?'':'s'}!`;
+    $('wov').classList.remove('hide');
+  },st.motionOn?700:80);
+}
+
+function startLevel(level){
+  st.level=level; st.moves=0; st.won=false;
+  $('wov').classList.add('hide');
+
+  const{g,rows,cols,srcR,srcC,tgtR,tgtC}=generateBoard(level);
+  Object.assign(st,{grid:g,rows,cols,srcR,srcC,tgtR,tgtC});
+  st.initGrid=JSON.parse(JSON.stringify(g));
+  st.focusR=srcR; st.focusC=Math.min(1,cols-1);
+
+  updateHUD();
+  renderBoard();
+  saveSt();
+}
+
+function resetLevel(){
+  st.grid=JSON.parse(JSON.stringify(st.initGrid));
+  st.moves=0; st.won=false;
+  prevConn=1;
+  $('wov').classList.add('hide');
+  updateHUD();
+  renderBoard();
+}
+
+// ═══════════════════════════════════════════════════
+//  KEYBOARD
+// ═══════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(!$('game').classList.contains('active')) return;
+  let{focusR:r,focusC:c}=st;
+  let handled=true;
+  switch(e.key){
+    case'ArrowUp':    r=Math.max(0,r-1);break;
+    case'ArrowDown':  r=Math.min(st.rows-1,r+1);break;
+    case'ArrowLeft':  c=Math.max(0,c-1);break;
+    case'ArrowRight': c=Math.min(st.cols-1,c+1);break;
+    case'Enter':case' ': rotateAt(r,c);break;
+    default:handled=false;
+  }
+  if(handled){
+    e.preventDefault();
+    st.focusR=r; st.focusC=c;
+    cellDiv(r,c)?.focus({preventScroll:true});
+  }
+});
+
+// ═══════════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════════
+$('bstart').addEventListener('click',()=>{showScreen('game');startLevel(st.level);});
+$('bnxt').addEventListener('click',()=>startLevel(st.level+1));
+$('brst').addEventListener('click',resetLevel);
+
+$('bsnd').addEventListener('click',()=>{
+  st.soundOn=!st.soundOn;
+  $('bsnd').textContent=st.soundOn?'🔊':'🔇';
+  $('bsnd').classList.toggle('on',!st.soundOn);
+  saveSt();
+});
+
+$('bmot').addEventListener('click',()=>{
+  st.motionOn=!st.motionOn;
+  $('bmot').textContent=st.motionOn?'✨':'⬜';
+  $('bmot').classList.toggle('on',!st.motionOn);
+  saveSt();
+});
+
+$('bhom').addEventListener('click',()=>{showScreen('home');updateHUD();});
+
+$('bclr').addEventListener('click',()=>{
+  if(confirm('Reset your best level record?')){
+    st.bestLevel=0; saveSt(); updateHUD();
+  }
+});
+
+// Resize handler
+window.addEventListener('resize',()=>{
+  if($('game').classList.contains('active')) renderBoard();
+});
+
+// ═══════════════════════════════════════════════════
+//  DEBUG API  (accessible from browser console)
+// ═══════════════════════════════════════════════════
+window.PipeDebug={
+  /** Print current board to console */
+  printBoard(){
+    const{grid:g,rows,cols}=st;
+    console.group(`Board ${rows}×${cols}  Level ${st.level}`);
+    for(let r=0;r<rows;r++){
+      console.log(g[r].map(c=>`[${c.type.slice(0,3).padEnd(3)}r${c.rot}]`).join(' '));
+    }
+    console.groupEnd();
+  },
+
+  /** Show which cells are connected to source */
+  printConnected(){
+    const{connected:C,rows,cols}=st;
+    console.group('Connected cells (■=yes □=no)');
+    for(let r=0;r<rows;r++) console.log(C[r].map(v=>v?'■':'□').join(' '));
+    console.groupEnd();
+  },
+
+  /** List path cells with their correct vs current rotation */
+  listPath(){
+    const{grid:g,rows,cols}=st;
+    const rows_=[];
+    for(let r=0;r<rows;r++)
+      for(let c=0;c<cols;c++)
+        if(g[r][c].isPath&&!['source','target'].includes(g[r][c].type))
+          rows_.push({r,c,type:g[r][c].type,current:g[r][c].rot,correct:g[r][c].correctRot});
+    console.table(rows_);
+    return rows_;
+  },
+
+  /** Auto-rotate all path cells to their solution rotation */
+  solve(){
+    const{grid:g,rows,cols}=st;
+    let n=0;
+    for(let r=0;r<rows;r++)
+      for(let c=0;c<cols;c++){
+        const cell=g[r][c];
+        if(cell.isPath&&cell.correctRot>=0&&!['source','target'].includes(cell.type)){
+          cell.rot=cell.correctRot; cell.degrees=cell.correctRot*90; n++;
+        }
+      }
+    renderBoard();
+    console.log(`%cSolved ${n} path cells.`,'color:#00e5ff');
+  },
+
+  /** Verify that the solution path (at correct rotations) connects src→tgt */
+  verifySolution(){
+    const snap=JSON.parse(JSON.stringify(st.grid));
+    const{rows,cols,srcR,srcC,tgtR,tgtC}=st;
+    for(let r=0;r<rows;r++)
+      for(let c=0;c<cols;c++){
+        const cell=st.grid[r][c];
+        if(cell.isPath&&cell.correctRot>=0&&!['source','target'].includes(cell.type))
+          cell.rot=cell.correctRot;
+      }
+    const C=floodFill(st.grid,rows,cols,srcR,srcC);
+    const ok=C[tgtR][tgtC];
+    st.grid=snap;
+    console.log(`%cSolution valid: ${ok}`,'color:'+(ok?'#00ff88':'#ff4466')+';font-weight:bold');
+    return ok;
+  },
+
+  /** Check if two adjacent cells are currently connected */
+  checkPair(r1,c1,r2,c2){
+    const ok=cellsConnect(st.grid,r1,c1,r2,c2);
+    console.log(`(${r1},${c1})↔(${r2},${c2}): ${ok}`);
+    return ok;
+  },
+
+  /** Return raw state object */
+  getState(){return st;},
+
+  /** Get connections for a cell at current rotation */
+  cellConns(r,c){
+    const cell=st.grid[r][c];
+    const conns=getConns(cell.type,cell.rot).map(d=>['N','E','S','W'][d]);
+    console.log(`(${r},${c}) ${cell.type} rot=${cell.rot} → opens:`,conns);
+    return conns;
+  },
+};
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+loadSt();
+updateHUD();
+
+// Restore toggle button states
+if(!st.soundOn){$('bsnd').textContent='🔇';$('bsnd').classList.add('on');}
+if(!st.motionOn){$('bmot').textContent='⬜';$('bmot').classList.add('on');}
+
+console.log('%c🔧 Pipe Connect – Debug API ready','color:#00e5ff;font-weight:bold;font-size:13px');
+console.log('Commands: PipeDebug.printBoard() | .printConnected() | .listPath() | .solve() | .verifySolution() | .checkPair(r1,c1,r2,c2) | .cellConns(r,c) | .getState()');
+</script>
+</body>
+</html>

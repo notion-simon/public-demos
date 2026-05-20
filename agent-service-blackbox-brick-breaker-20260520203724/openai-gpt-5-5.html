@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brick Breaker</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #111827;
+    --panel: #172033;
+    --ink: #f8fafc;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #fbbf24;
+    --danger: #fb7185;
+    --scale-width: min(480px, calc(100vw - 32px));
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    min-height: 100%;
+    display: grid;
+    place-items: start center;
+    overflow-x: hidden;
+    background:
+      radial-gradient(circle at 20% 15%, rgba(56,189,248,.20), transparent 28%),
+      radial-gradient(circle at 82% 8%, rgba(251,191,36,.15), transparent 26%),
+      linear-gradient(180deg, #0f172a 0%, #111827 58%, #020617 100%);
+    color: var(--ink);
+    font-family: ui-rounded, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  button {
+    border: 0;
+    border-radius: 999px;
+    min-width: 44px;
+    min-height: 44px;
+    cursor: pointer;
+    color: var(--ink);
+    background: rgba(255,255,255,.10);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 10px 30px rgba(0,0,0,.20);
+    transition: transform .14s ease, background .14s ease, box-shadow .14s ease;
+    touch-action: manipulation;
+  }
+  button:hover { transform: translateY(-1px); background: rgba(255,255,255,.16); }
+  button:active { transform: translateY(1px) scale(.98); }
+  button:focus-visible, canvas:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+  }
+  #app {
+    width: min(100vw, 560px);
+    min-height: 100svh;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    display: grid;
+    place-items: start center;
+  }
+  .screen { width: 100%; display: none; }
+  .screen.active { display: grid; }
+  #menuScreen {
+    min-height: min(720px, calc(100svh - 32px));
+    grid-template-rows: 64px 1fr 110px;
+    align-items: center;
+  }
+  .top-row, .bottom-row, .hud {
+    width: var(--scale-width);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .top-row { align-self: start; }
+  .icon-button svg { width: 24px; height: 24px; display: block; margin: auto; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .icon-button.warn { color: #fde68a; }
+  .icon-button.danger { color: #fecdd3; }
+  .hero { display: grid; justify-items: center; gap: 36px; align-self: center; }
+  .logo {
+    width: min(240px, 58vw);
+    filter: drop-shadow(0 28px 40px rgba(14,165,233,.25));
+  }
+  .primary {
+    padding: 0 28px;
+    min-width: 180px;
+    height: 56px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: .01em;
+    background: linear-gradient(135deg, #0ea5e9, #2563eb 55%, #7c3aed);
+  }
+  #gameScreen { align-content: center; justify-items: center; gap: 10px; }
+  .hud {
+    height: 40px;
+    font-size: 24px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .03em;
+  }
+  .scorebox, .levelbox { display: inline-flex; align-items: center; gap: 8px; }
+  .tiny-icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .levelbox { color: #fde68a; }
+  .play-wrap {
+    position: relative;
+    width: var(--scale-width);
+    height: calc(var(--scale-width) * 640 / 480);
+    border-radius: 22px;
+    padding: 0;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(15,23,42,.90), rgba(15,23,42,.62));
+    box-shadow: 0 28px 80px rgba(0,0,0,.38), inset 0 0 0 1px rgba(255,255,255,.12);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    background: transparent;
+  }
+  canvas.dim { opacity: .4; }
+  .bottom-row { padding-top: 4px; justify-content: center; gap: 22px; }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    place-items: center;
+    padding: 28px;
+    text-align: center;
+    background: radial-gradient(circle at center, rgba(15,23,42,.78), rgba(15,23,42,.34));
+    backdrop-filter: blur(2px);
+  }
+  .overlay.active { display: grid; }
+  .card {
+    width: min(340px, 100%);
+    padding: 28px 22px;
+    border-radius: 28px;
+    background: rgba(15,23,42,.84);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 28px 72px rgba(0,0,0,.35);
+    display: grid;
+    justify-items: center;
+    gap: 18px;
+  }
+  .headline { font-size: 32px; line-height: 1; font-weight: 950; letter-spacing: .01em; }
+  .big-number { font-size: 46px; line-height: 1; font-weight: 950; font-variant-numeric: tabular-nums; }
+  .best-line { display: inline-flex; align-items: center; gap: 10px; color: #fde68a; font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .new-best { color: #67e8f9; font-size: 18px; font-weight: 950; }
+  .overlay-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px; }
+  .text-button { padding: 0 22px; min-width: 132px; height: 52px; font-size: 18px; font-weight: 900; background: rgba(71,85,105,.92); box-shadow: inset 0 1px 0 rgba(255,255,255,.20), 0 12px 28px rgba(0,0,0,.28); }
+  .text-button.primary-action { background: linear-gradient(135deg, #0ea5e9, #2563eb 58%, #7c3aed); }
+  .text-button.secondary-action { background: rgba(51,65,85,.96); color: #e2e8f0; }
+  .settings-card { gap: 20px; }
+  .settings-row { display: flex; gap: 18px; align-items: center; justify-content: center; min-height: 54px; }
+  .confirm { display: none; gap: 14px; }
+  .confirm.active { display: flex; }
+  .color-accent { color: var(--accent); }
+  .color-danger { color: var(--danger); }
+  @media (max-height: 720px) and (min-width: 600px) {
+    #app { padding-top: 10px; padding-bottom: 10px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="menuScreen" class="screen active" aria-label="Menu">
+    <div class="top-row">
+      <button id="menuBest" class="icon-button warn" aria-label="Best score"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 3"/><path d="M17 6h3a3 3 0 0 1-3 3"/></svg></button>
+      <button id="menuSettings" class="icon-button" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.04.04a2.1 2.1 0 0 1-2.97 2.97l-.04-.04a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.66V21a2.1 2.1 0 0 1-4.2 0v-.06a1.8 1.8 0 0 0-1.1-1.66 1.8 1.8 0 0 0-1.98.36l-.04.04a2.1 2.1 0 1 1-2.97-2.97l.04-.04A1.8 1.8 0 0 0 3.8 15a1.8 1.8 0 0 0-1.66-1.1H2.1a2.1 2.1 0 0 1 0-4.2h.06A1.8 1.8 0 0 0 3.8 8.6a1.8 1.8 0 0 0-.36-1.98l-.04-.04a2.1 2.1 0 1 1 2.97-2.97l.04.04A1.8 1.8 0 0 0 8.4 4a1.8 1.8 0 0 0 1.1-1.66V2.1a2.1 2.1 0 1 1 4.2 0v.06A1.8 1.8 0 0 0 14.8 3.8a1.8 1.8 0 0 0 1.98-.36l.04-.04a2.1 2.1 0 0 1 2.97 2.97l-.04.04a1.8 1.8 0 0 0-.36 1.98c.2.56.72.95 1.31 1h.2a2.1 2.1 0 1 1 0 4.2h-.06A1.8 1.8 0 0 0 19.4 15z"/></svg></button>
+    </div>
+    <div class="hero">
+      <svg class="logo" viewBox="0 0 240 180" aria-hidden="true">
+        <defs><linearGradient id="lg" x1="0" x2="1"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
+        <circle cx="120" cy="58" r="20" fill="#f8fafc"/><path d="M38 145c26 15 138 15 164 0" stroke="url(#lg)" stroke-width="22" stroke-linecap="round" fill="none"/><rect x="72" y="100" width="96" height="18" rx="9" fill="url(#lg)"/><path d="M22 22h196v136H22z" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="6" rx="24"/></svg>
+      <button id="startButton" class="primary">Start Game</button>
+    </div>
+    <div></div>
+  </section>
+
+  <section id="gameScreen" class="screen" aria-label="Game">
+    <div class="hud">
+      <span id="scoreValue" class="scorebox" aria-label="Score" aria-live="polite">0</span>
+      <span class="levelbox"><svg class="tiny-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.9 6 6.6.9-4.8 4.7 1.2 6.5L12 17l-5.9 3.1 1.2-6.5-4.8-4.7 6.6-.9z"/></svg><span id="levelValue" aria-label="Level">1</span></span>
+    </div>
+    <div class="play-wrap">
+      <canvas id="gameCanvas" width="480" height="640" tabindex="0" aria-label="Playfield"></canvas>
+      <div id="pauseOverlay" class="overlay" aria-hidden="true">
+        <div class="card">
+          <div class="headline">Paused</div>
+          <div class="overlay-actions">
+            <button id="resumeButton" class="icon-button color-accent" aria-label="Resume"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg></button>
+            <button id="restartButton" class="icon-button" aria-label="Restart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
+            <button id="pauseSettings" class="icon-button" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19 12h3M2 12h3M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg></button>
+            <button id="pauseHome" class="icon-button" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <div id="gameOverOverlay" class="overlay" aria-hidden="true">
+        <div class="card">
+          <div class="headline">Game Over</div>
+          <div id="finalScore" class="big-number">0</div>
+          <div class="best-line"><svg class="tiny-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 3"/><path d="M17 6h3a3 3 0 0 1-3 3"/></svg><span id="bestScore">0</span></div>
+          <div id="newBest" class="new-best" hidden>New Best</div>
+          <div class="overlay-actions">
+            <button id="playAgainButton" class="text-button primary-action">Play Again</button>
+            <button id="menuButton" class="text-button secondary-action">Menu</button>
+          </div>
+        </div>
+      </div>
+      <div id="settingsOverlay" class="overlay" aria-hidden="true">
+        <div class="card settings-card">
+          <div class="settings-row">
+            <button id="soundButton" class="icon-button color-accent" aria-label="Sound"><svg id="soundOnIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a8 8 0 0 1 0 11"/></svg><svg id="soundOffIcon" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M4 9v6h4l5 4V5L8 9z"/><path d="m18 9 4 4"/><path d="m22 9-4 4"/></svg></button>
+            <button id="trashButton" class="icon-button danger" aria-label="Reset best score"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m6 6 1 15h10l1-15"/><path d="M10 11v6M14 11v6"/></svg></button>
+            <button id="settingsHome" class="icon-button" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></button>
+          </div>
+          <div id="confirmReset" class="confirm">
+            <button id="confirmResetYes" class="icon-button color-accent" aria-label="Confirm"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg></button>
+            <button id="confirmResetNo" class="icon-button color-danger" aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-row">
+      <button id="pauseButton" class="icon-button" aria-label="Pause"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button>
+      <button id="gameSettings" class="icon-button" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19 12h3M2 12h3M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg></button>
+    </div>
+  </section>
+</div>
+<script>
+(() => {
+  'use strict';
+  const W = 480, H = 640;
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('scoreValue');
+  const levelEl = document.getElementById('levelValue');
+  const menuScreen = document.getElementById('menuScreen');
+  const gameScreen = document.getElementById('gameScreen');
+  const pauseOverlay = document.getElementById('pauseOverlay');
+  const gameOverOverlay = document.getElementById('gameOverOverlay');
+  const settingsOverlay = document.getElementById('settingsOverlay');
+  document.getElementById('app').appendChild(settingsOverlay);
+  const finalScoreEl = document.getElementById('finalScore');
+  const bestScoreEl = document.getElementById('bestScore');
+  const newBestEl = document.getElementById('newBest');
+  const confirmReset = document.getElementById('confirmReset');
+  const soundOnIcon = document.getElementById('soundOnIcon');
+  const soundOffIcon = document.getElementById('soundOffIcon');
+
+  const state = {
+    screen: 'menu', prevScreen: 'menu', score: 0, level: 1, best: readBest(),
+    paddle: { x: W / 2, y: 590, w: 96, h: 14 },
+    ball: { x: W / 2, y: 560, r: 7, vx: 150, vy: -260 },
+    bricks: [], popups: [], keys: new Set(), last: 0,
+    sound: localStorage.getItem('brickBreakerSound') !== 'off', audio: null
+  };
+
+  function readBest() { return Number(localStorage.getItem('brickBreakerBest') || 0); }
+  function saveBest() { localStorage.setItem('brickBreakerBest', String(state.best)); }
+  function showMenu() {
+    state.screen = 'menu';
+    menuScreen.classList.add('active'); gameScreen.classList.remove('active');
+    closeOverlays(); draw();
+    document.getElementById('startButton').focus();
+  }
+  function showGame() { menuScreen.classList.remove('active'); gameScreen.classList.add('active'); canvas.focus({ preventScroll: true }); window.scrollTo(0, 0); }
+  function closeOverlays() {
+    for (const el of [pauseOverlay, gameOverOverlay, settingsOverlay]) { el.classList.remove('active'); el.setAttribute('aria-hidden', 'true'); }
+    confirmReset.classList.remove('active'); canvas.classList.remove('dim');
+  }
+  function openSettings() {
+    state.prevScreen = state.screen;
+    if (state.screen === 'playing') state.screen = 'settings';
+    settingsOverlay.classList.add('active'); settingsOverlay.setAttribute('aria-hidden', 'false');
+    syncSoundIcon(); document.getElementById('soundButton').focus();
+  }
+  function closeSettings() {
+    settingsOverlay.classList.remove('active'); settingsOverlay.setAttribute('aria-hidden', 'true');
+    confirmReset.classList.remove('active');
+    if (state.prevScreen === 'menu') showMenu();
+    else if (state.prevScreen === 'paused') pauseGame();
+    else if (state.prevScreen === 'gameover') gameOverOverlay.classList.add('active');
+    else { state.screen = 'playing'; canvas.focus(); }
+  }
+  function startGame() {
+    state.score = 0; state.level = 1; showGame(); setupLevel(); state.screen = 'playing'; updateHud(); closeOverlays(); state.last = performance.now(); requestAnimationFrame(loop);
+  }
+  function setupLevel() {
+    const rows = Math.min(8, 4 + state.level);
+    const paddleW = Math.max(56, 96 - 4 * (state.level - 1));
+    const speed = Math.min(520, 300 + 24 * (state.level - 1));
+    state.paddle = { x: W / 2, y: 590, w: paddleW, h: 14 };
+    state.ball = { x: W / 2, y: 560, r: 7, vx: speed * 0.5, vy: -Math.sqrt(Math.max(1, speed * speed - (speed * .5) ** 2)) };
+    if (state.level === 1) state.ball = { x: W / 2, y: 560, r: 7, vx: 150, vy: -260 };
+    state.bricks = [];
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < 8; col++) {
+        state.bricks.push({ x: 16 + col * 58, y: 64 + row * 26, w: 52, h: 20, row, col, alive: true });
+      }
+    }
+    state.popups = [];
+    updateHud();
+  }
+  function updateHud() { scoreEl.textContent = state.score; levelEl.textContent = state.level; scoreEl.setAttribute('aria-valuenow', state.score); levelEl.setAttribute('aria-valuenow', state.level); }
+  function pauseGame() { if (state.screen !== 'playing' && state.screen !== 'settings') return; state.screen = 'paused'; pauseOverlay.classList.add('active'); pauseOverlay.setAttribute('aria-hidden', 'false'); document.getElementById('resumeButton').focus(); }
+  function resumeGame() { closeOverlays(); state.screen = 'playing'; state.last = performance.now(); canvas.focus({ preventScroll: true }); requestAnimationFrame(loop); }
+  function endGame() {
+    state.screen = 'gameover'; playSound('gameover');
+    const wasBest = state.score > state.best;
+    if (wasBest) { state.best = state.score; saveBest(); }
+    finalScoreEl.textContent = state.score; bestScoreEl.textContent = state.best; newBestEl.hidden = !wasBest;
+    canvas.classList.add('dim'); gameOverOverlay.classList.add('active'); gameOverOverlay.setAttribute('aria-hidden', 'false');
+    document.getElementById('playAgainButton').focus(); draw();
+  }
+  function nextLevel() { state.level += 1; playSound('level'); setupLevel(); }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function setPaddleX(x) { state.paddle.x = clamp(x, state.paddle.w / 2, W - state.paddle.w / 2); }
+  function pointerX(evt) { const r = canvas.getBoundingClientRect(); return (evt.clientX - r.left) * W / r.width; }
+  canvas.addEventListener('pointermove', e => { if (state.screen === 'playing') setPaddleX(pointerX(e)); });
+  canvas.addEventListener('pointerdown', e => { e.preventDefault(); canvas.setPointerCapture(e.pointerId); if (state.screen === 'playing') setPaddleX(pointerX(e)); });
+  canvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (['arrowleft','arrowright','a','d','p',' '].includes(k)) e.preventDefault();
+    if (k === 'p' && state.screen === 'playing') pauseGame();
+    else if (k === 'p' && state.screen === 'paused') resumeGame();
+    if (k === 'arrowleft' || k === 'a') state.keys.add('left');
+    if (k === 'arrowright' || k === 'd') state.keys.add('right');
+  });
+  window.addEventListener('keyup', e => {
+    const k = e.key.toLowerCase();
+    if (k === 'arrowleft' || k === 'a') state.keys.delete('left');
+    if (k === 'arrowright' || k === 'd') state.keys.delete('right');
+  });
+
+  function move(dt) {
+    if (state.keys.has('left')) setPaddleX(state.paddle.x - 420 * dt);
+    if (state.keys.has('right')) setPaddleX(state.paddle.x + 420 * dt);
+    const b = state.ball, p = state.paddle;
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    if (b.x - b.r < 0) { b.x = b.r; b.vx = Math.abs(b.vx); playSound('wall'); }
+    if (b.x + b.r > W) { b.x = W - b.r; b.vx = -Math.abs(b.vx); playSound('wall'); }
+    if (b.y - b.r < 0) { b.y = b.r; b.vy = Math.abs(b.vy); playSound('wall'); }
+    if (b.vy > 0 && b.x + b.r >= p.x - p.w/2 && b.x - b.r <= p.x + p.w/2 && b.y + b.r >= p.y && b.y - b.r <= p.y + p.h) {
+      b.y = p.y - b.r;
+      const hit = clamp((b.x - p.x) / (p.w / 2), -1, 1);
+      const speed = Math.hypot(b.vx, b.vy);
+      b.vx = hit * speed * 0.75;
+      b.vy = -Math.abs(b.vy);
+      playSound('paddle');
+    }
+    for (const br of state.bricks) {
+      if (!br.alive) continue;
+      if (b.x + b.r < br.x || b.x - b.r > br.x + br.w || b.y + b.r < br.y || b.y - b.r > br.y + br.h) continue;
+      br.alive = false;
+      const amount = 10 * state.level;
+      state.score += amount; updateHud(); playSound('brick');
+      state.popups.push({ x: br.x + br.w / 2, y: br.y + br.h / 2, amount, age: 0 });
+      const overlapLeft = (b.x + b.r) - br.x;
+      const overlapRight = (br.x + br.w) - (b.x - b.r);
+      const overlapTop = (b.y + b.r) - br.y;
+      const overlapBottom = (br.y + br.h) - (b.y - b.r);
+      const min = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+      if (min === overlapLeft || min === overlapRight) b.vx *= -1; else b.vy *= -1;
+      break;
+    }
+    for (const p0 of state.popups) p0.age += dt * 1000;
+    state.popups = state.popups.filter(p0 => p0.age < 600);
+    if (b.y - b.r > H) { endGame(); return; }
+    if (state.bricks.length && state.bricks.every(br => !br.alive)) nextLevel();
+  }
+  function loop(t) {
+    if (state.screen !== 'playing') return;
+    const dt = Math.min(0.033, (t - state.last) / 1000 || 0); state.last = t;
+    move(dt); draw();
+    if (state.screen === 'playing') requestAnimationFrame(loop);
+  }
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#132033'); grd.addColorStop(1, '#07111f'); ctx.fillStyle = grd; roundRect(0, 0, W, H, 22); ctx.fill();
+    ctx.save(); ctx.globalAlpha = .24; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; for (let y = 32; y < H; y += 32) { ctx.beginPath(); ctx.moveTo(24, y); ctx.lineTo(W - 24, y); ctx.stroke(); } ctx.restore();
+    for (const br of state.bricks) if (br.alive) drawBrick(br);
+    const p = state.paddle;
+    const pg = ctx.createLinearGradient(p.x - p.w / 2, p.y, p.x + p.w / 2, p.y + p.h);
+    pg.addColorStop(0, '#f8fafc'); pg.addColorStop(.5, '#67e8f9'); pg.addColorStop(1, '#60a5fa');
+    ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 22; ctx.fillStyle = pg; roundRect(p.x - p.w / 2, p.y, p.w, p.h, 7); ctx.fill();
+    ctx.shadowBlur = 0; ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.stroke();
+    const b = state.ball;
+    ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 16; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 1.5, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.shadowBlur = 0; ctx.lineWidth = 2; ctx.strokeStyle = '#0f172a'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(b.x - 2.5, b.y - 2.5, 2.4, 0, Math.PI * 2); ctx.fillStyle = '#bae6fd'; ctx.fill();
+    ctx.font = '900 18px ui-rounded, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const pp of state.popups) { ctx.globalAlpha = 1 - pp.age / 600; ctx.fillStyle = '#fef08a'; ctx.fillText('+' + pp.amount, pp.x, pp.y - pp.age * 0.035); }
+    ctx.globalAlpha = 1;
+  }
+  function drawBrick(br) {
+    const hue = [190, 205, 230, 265, 38, 330, 155, 18][br.row % 8];
+    const g = ctx.createLinearGradient(br.x, br.y, br.x + br.w, br.y + br.h);
+    g.addColorStop(0, `hsl(${hue} 92% 70%)`); g.addColorStop(1, `hsl(${hue + 24} 88% 50%)`);
+    ctx.fillStyle = g; ctx.shadowColor = `hsl(${hue} 90% 55% / .65)`; ctx.shadowBlur = 12; roundRect(br.x, br.y, br.w, br.h, 6); ctx.fill();
+    ctx.shadowBlur = 0; ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.stroke();
+    ctx.globalAlpha = .48; ctx.fillStyle = '#fff'; roundRect(br.x + 5, br.y + 4, br.w - 10, 4, 2); ctx.fill(); ctx.globalAlpha = 1;
+  }
+  function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  function audioCtx() { if (!state.audio) state.audio = new (window.AudioContext || window.webkitAudioContext)(); return state.audio; }
+  function playSound(type) {
+    if (!state.sound) return;
+    try {
+      const ac = audioCtx(), now = ac.currentTime;
+      const osc = ac.createOscillator(), gain = ac.createGain(); osc.connect(gain); gain.connect(ac.destination);
+      const map = { paddle:[220,260,.04,'triangle'], wall:[620,620,.035,'square'], brick:[740,980,.08,'sine'], level:[440,880,.22,'sine'], gameover:[330,110,.32,'sawtooth'] }[type];
+      osc.type = map[3]; osc.frequency.setValueAtTime(map[0], now); osc.frequency.exponentialRampToValueAtTime(Math.max(1, map[1]), now + map[2]);
+      gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime(.08, now + .01); gain.gain.exponentialRampToValueAtTime(.0001, now + map[2]);
+      osc.start(now); osc.stop(now + map[2] + .02);
+    } catch (_) {}
+  }
+  function syncSoundIcon() { soundOnIcon.hidden = !state.sound; soundOffIcon.hidden = state.sound; localStorage.setItem('brickBreakerSound', state.sound ? 'on' : 'off'); }
+
+  document.getElementById('startButton').addEventListener('click', startGame);
+  document.getElementById('menuBest').addEventListener('click', () => {});
+  document.getElementById('menuSettings').addEventListener('click', openSettings);
+  document.getElementById('gameSettings').addEventListener('click', openSettings);
+  document.getElementById('pauseSettings').addEventListener('click', openSettings);
+  document.getElementById('pauseButton').addEventListener('click', pauseGame);
+  document.getElementById('resumeButton').addEventListener('click', resumeGame);
+  document.getElementById('restartButton').addEventListener('click', startGame);
+  document.getElementById('pauseHome').addEventListener('click', showMenu);
+  document.getElementById('playAgainButton').addEventListener('click', startGame);
+  document.getElementById('menuButton').addEventListener('click', showMenu);
+  document.getElementById('settingsHome').addEventListener('click', closeSettings);
+  document.getElementById('soundButton').addEventListener('click', () => { state.sound = !state.sound; syncSoundIcon(); });
+  document.getElementById('trashButton').addEventListener('click', () => confirmReset.classList.add('active'));
+  document.getElementById('confirmResetNo').addEventListener('click', () => confirmReset.classList.remove('active'));
+  document.getElementById('confirmResetYes').addEventListener('click', () => { state.best = 0; saveBest(); bestScoreEl.textContent = '0'; confirmReset.classList.remove('active'); });
+
+  window.__brickBreakerDebug = { state, startGame, setupLevel, move, endGame, nextLevel, setPaddleX };
+  syncSoundIcon(); draw();
+})();
+</script>
+</body>
+</html>

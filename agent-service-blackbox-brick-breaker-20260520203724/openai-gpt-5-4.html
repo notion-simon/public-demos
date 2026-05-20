@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brick Breaker</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-1: #0a0f1d;
+      --bg-2: #101936;
+      --panel: rgba(14, 20, 40, 0.84);
+      --panel-soft: rgba(22, 31, 61, 0.72);
+      --line: rgba(255, 255, 255, 0.12);
+      --line-strong: rgba(255, 255, 255, 0.22);
+      --text: #f7fbff;
+      --muted: rgba(247, 251, 255, 0.74);
+      --accent: #7dd3fc;
+      --accent-2: #c084fc;
+      --good: #4ade80;
+      --warn: #f59e0b;
+      --danger: #fb7185;
+      --shadow: 0 24px 60px rgba(2, 6, 23, 0.5);
+      --focus: #f8fafc;
+      --playfield-width: min(480px, calc(100vw - 32px));
+      --playfield-height: calc(var(--playfield-width) * 1.3333333333);
+      --radius: 28px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(125, 211, 252, 0.16), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(192, 132, 252, 0.18), transparent 30%),
+        linear-gradient(180deg, var(--bg-2), var(--bg-1));
+      color: var(--text);
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+
+    button {
+      border: 0;
+      color: inherit;
+      font: inherit;
+      background: none;
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .app {
+      position: relative;
+      width: min(560px, 100%);
+      min-height: min(860px, calc(100vh - 32px));
+      padding: 20px 16px 24px;
+      border: 1px solid var(--line);
+      border-radius: 36px;
+      background: linear-gradient(180deg, rgba(12, 18, 34, 0.82), rgba(7, 12, 25, 0.88));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .app::before,
+    .app::after {
+      content: "";
+      position: absolute;
+      inset: auto;
+      border-radius: 999px;
+      filter: blur(18px);
+      opacity: 0.6;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .app::before {
+      width: 220px;
+      height: 220px;
+      top: -72px;
+      right: -56px;
+      background: rgba(125, 211, 252, 0.2);
+    }
+
+    .app::after {
+      width: 240px;
+      height: 240px;
+      bottom: -112px;
+      left: -88px;
+      background: rgba(192, 132, 252, 0.16);
+    }
+
+    .screen {
+      min-height: calc(min(860px, calc(100vh - 32px)) - 44px);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .menu-screen {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 24px;
+      min-height: inherit;
+    }
+
+    .menu-top,
+    .hud,
+    .control-row,
+    .settings-actions,
+    .pause-actions,
+    .gameover-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .menu-top,
+    .hud {
+      justify-content: space-between;
+      width: var(--playfield-width);
+      margin: 0 auto;
+    }
+
+    .menu-center {
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 28px;
+      padding-bottom: 40px;
+    }
+
+    .badge,
+    .metric,
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 44px;
+      padding: 10px 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+      backdrop-filter: blur(10px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .badge strong,
+    .metric strong,
+    .pill strong,
+    .big-number {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .logo {
+      width: min(280px, calc(100vw - 96px));
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .logo-core {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background:
+        radial-gradient(circle at 50% 36%, rgba(125, 211, 252, 0.24), transparent 24%),
+        radial-gradient(circle at 50% 72%, rgba(192, 132, 252, 0.18), transparent 28%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 18px 40px rgba(0, 0, 0, 0.24);
+      display: grid;
+      place-items: center;
+    }
+
+    .logo svg {
+      width: 72%;
+      height: 72%;
+      overflow: visible;
+      filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35));
+    }
+
+    .primary-button,
+    .secondary-button,
+    .icon-button {
+      min-width: 44px;
+      min-height: 44px;
+      transition: transform 150ms ease, background 150ms ease, border-color 150ms ease, opacity 150ms ease;
+    }
+
+    .primary-button,
+    .secondary-button {
+      padding: 16px 28px;
+      border-radius: 999px;
+      font-weight: 900;
+      letter-spacing: 0.015em;
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.25);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .primary-button::before,
+    .secondary-button::before {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: inherit;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+
+    .primary-button {
+      color: #08111d;
+      background: linear-gradient(135deg, #f8fafc, #7dd3fc);
+      box-shadow: 0 16px 34px rgba(17, 24, 39, 0.36), 0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+    }
+
+    .primary-button::before {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.04));
+    }
+
+    .secondary-button {
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      background: linear-gradient(180deg, rgba(33, 45, 78, 0.94), rgba(12, 20, 39, 0.96));
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+    }
+
+    .secondary-button::before {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.02));
+    }
+
+    .icon-button {
+      width: 56px;
+      height: 56px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 14px 32px rgba(0, 0, 0, 0.22);
+    }
+
+    .icon-button:hover,
+    .primary-button:hover,
+    .secondary-button:hover {
+      transform: translateY(-1px);
+    }
+
+    .icon-button svg,
+    .badge svg,
+    .metric svg,
+    .pill svg {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
+    }
+
+    .icon-button.is-active {
+      border-color: rgba(74, 222, 128, 0.5);
+      background: linear-gradient(180deg, rgba(74, 222, 128, 0.18), rgba(74, 222, 128, 0.06));
+    }
+
+    .icon-button.is-danger {
+      border-color: rgba(251, 113, 133, 0.45);
+      background: linear-gradient(180deg, rgba(251, 113, 133, 0.18), rgba(251, 113, 133, 0.05));
+    }
+
+    .game-screen {
+      display: grid;
+      justify-items: center;
+      gap: 14px;
+      min-height: inherit;
+      align-content: center;
+      padding: 12px 0;
+    }
+
+    .stage-wrap {
+      position: relative;
+      width: var(--playfield-width);
+      height: var(--playfield-height);
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 24px 48px rgba(2, 6, 23, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      background: #07101d;
+    }
+
+    #gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    .stage-wrap.is-dim canvas {
+      opacity: 0.4;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+      background: rgba(3, 8, 20, 0.46);
+      backdrop-filter: blur(10px);
+    }
+
+    .overlay.active {
+      display: flex;
+    }
+
+    .overlay-card {
+      width: min(100%, 320px);
+      padding: 24px 18px 18px;
+      border-radius: 26px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: linear-gradient(180deg, rgba(10, 16, 30, 0.92), rgba(16, 25, 46, 0.9));
+      box-shadow: var(--shadow);
+      display: grid;
+      justify-items: center;
+      gap: 16px;
+    }
+
+    #gameOverOverlay .overlay-card {
+      width: min(100%, 352px);
+      padding: 26px 18px 18px;
+      border-color: rgba(125, 211, 252, 0.22);
+      background:
+        radial-gradient(circle at top, rgba(125, 211, 252, 0.12), transparent 34%),
+        linear-gradient(180deg, rgba(10, 16, 30, 0.96), rgba(16, 25, 46, 0.94));
+    }
+
+    .overlay-title {
+      margin: 0;
+      font-size: clamp(1.8rem, 5vw, 2.35rem);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      text-align: center;
+    }
+
+    .gameover-stack {
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+    }
+
+    .gameover-number {
+      font-size: clamp(2.4rem, 9vw, 4rem);
+      line-height: 1;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.05em;
+    }
+
+    .new-best {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.24), rgba(125, 211, 252, 0.16));
+      border: 1px solid rgba(74, 222, 128, 0.35);
+      font-weight: 800;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+    }
+
+    .gameover-actions {
+      width: 100%;
+      display: grid;
+      gap: 12px;
+    }
+
+    .gameover-actions .primary-button,
+    .gameover-actions .secondary-button {
+      width: 100%;
+      text-align: center;
+      justify-self: stretch;
+    }
+
+    .settings-layer {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(3, 8, 20, 0.54);
+      backdrop-filter: blur(12px);
+    }
+
+    .settings-layer.active {
+      display: flex;
+    }
+
+    .settings-card {
+      width: min(100%, 340px);
+      padding: 22px 18px 18px;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: linear-gradient(180deg, rgba(10, 16, 30, 0.95), rgba(17, 27, 50, 0.95));
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 18px;
+      justify-items: center;
+    }
+
+    .settings-actions {
+      flex-wrap: wrap;
+    }
+
+    .confirm-reset {
+      display: none;
+      gap: 10px;
+    }
+
+    .confirm-reset.active {
+      display: flex;
+    }
+
+    .footer-note {
+      min-height: 22px;
+    }
+
+    .footer-note .pill {
+      min-height: 34px;
+      padding: 6px 12px;
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 599px) {
+      .app {
+        padding-left: 8px;
+        padding-right: 8px;
+        border-radius: 28px;
+      }
+
+      .menu-top,
+      .hud,
+      .stage-wrap {
+        width: min(480px, calc(100vw - 32px));
+      }
+
+      .icon-button {
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+    <defs>
+      <symbol id="icon-gear" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M10.5 2.82c.86-.2 2.14-.2 3 0l.42 2.05c.37.1.73.25 1.07.44l1.85-1c.75.47 1.65 1.37 2.12 2.12l-1 1.85c.19.34.34.7.44 1.07l2.05.42c.2.86.2 2.14 0 3l-2.05.42a5.56 5.56 0 0 1-.44 1.07l1 1.85c-.47.75-1.37 1.65-2.12 2.12l-1.85-1c-.34.19-.7.34-1.07.44l-.42 2.05c-.86.2-2.14.2-3 0l-.42-2.05a5.56 5.56 0 0 1-1.07-.44l-1.85 1c-.75-.47-1.65-1.37-2.12-2.12l1-1.85a5.56 5.56 0 0 1-.44-1.07L2.82 13.5c-.2-.86-.2-2.14 0-3l2.05-.42c.1-.37.25-.73.44-1.07l-1-1.85c.47-.75 1.37-1.65 2.12-2.12l1.85 1c.34-.19.7-.34 1.07-.44zm1.5 5.18a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/>
+      </symbol>
+      <symbol id="icon-trophy" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M7 3h10v3h3v1a5 5 0 0 1-5 5h-.2A5 5 0 0 1 13 14.9V17h3v2H8v-2h3v-2.1A5 5 0 0 1 9.2 12H9A5 5 0 0 1 4 7V6h3zm10 5V5H7v3a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3m-11-1H6a3 3 0 0 0 3 3V8a5.5 5.5 0 0 1 .2-1M18 8v2a3 3 0 0 0 3-3h-.2A5.5 5.5 0 0 1 18 8"/>
+      </symbol>
+      <symbol id="icon-star" viewBox="0 0 24 24">
+        <path fill="currentColor" d="m12 2.5 2.93 5.93 6.55.95-4.74 4.62 1.12 6.52L12 17.43l-5.86 3.08 1.12-6.52L2.52 9.38l6.55-.95z"/>
+      </symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M7 4h4v16H7zm6 0h4v16h-4z"/>
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24">
+        <path fill="currentColor" d="m8 5 11 7-11 7z"/>
+      </symbol>
+      <symbol id="icon-restart" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 5a7 7 0 1 1-6.61 9.31l1.9-.62A5 5 0 1 0 12 7h-.17l1.58 1.59L12 10 8 6l4-4 1.41 1.41L11.83 5z"/>
+      </symbol>
+      <symbol id="icon-home" viewBox="0 0 24 24">
+        <path fill="currentColor" d="m12 4 8 6v10h-5v-6H9v6H4V10z"/>
+      </symbol>
+      <symbol id="icon-speaker" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M5 9h4l5-4v14l-5-4H5zm11.5 3a3.5 3.5 0 0 0-1.35-2.77l1.25-1.55A5.5 5.5 0 0 1 18.5 12a5.5 5.5 0 0 1-2.1 4.32l-1.25-1.55A3.5 3.5 0 0 0 16.5 12m2.5 0c0-2.22-.99-4.21-2.56-5.55l1.28-1.53A9 9 0 0 1 21 12a9 9 0 0 1-3.78 7.08l-1.28-1.53A7 7 0 0 0 19 12"/>
+      </symbol>
+      <symbol id="icon-mute" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M5 9h4l5-4v14l-5-4H5z"/>
+        <path fill="currentColor" d="m16.41 12 2.8-2.8 1.39 1.39-2.8 2.8 2.8 2.8-1.39 1.39-2.8-2.8-2.8 2.8-1.39-1.39 2.8-2.8-2.8-2.8 1.39-1.39z"/>
+      </symbol>
+      <symbol id="icon-trash" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4zm-2 6h2v9H7zm4 0h2v9h-2zm4 0h2v9h-2z"/>
+        <path fill="currentColor" d="M6 7h12l-1 13H7z" opacity=".55"/>
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <path fill="currentColor" d="m9.55 18.2-5.7-5.7 1.4-1.4 4.3 4.3 9-9 1.4 1.4z"/>
+      </symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24">
+        <path fill="currentColor" d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <main class="app" aria-live="polite">
+    <section id="menuScreen" class="screen menu-screen">
+      <div class="menu-top">
+        <div class="badge" aria-label="Best score">
+          <svg aria-hidden="true"><use href="#icon-trophy"></use></svg>
+          <strong id="menuBestScore" aria-label="Best score 0">0</strong>
+        </div>
+        <button id="menuSettingsButton" class="icon-button" type="button" aria-label="Open settings">
+          <svg aria-hidden="true"><use href="#icon-gear"></use></svg>
+        </button>
+      </div>
+      <div class="menu-center">
+        <div class="logo" aria-hidden="true">
+          <div class="logo-core">
+            <svg viewBox="0 0 240 240" fill="none">
+              <circle cx="120" cy="62" r="22" fill="#f8fafc" opacity="0.98"/>
+              <circle cx="120" cy="62" r="34" fill="#7dd3fc" opacity="0.18"/>
+              <rect x="60" y="138" width="120" height="20" rx="10" fill="#7dd3fc"/>
+              <rect x="46" y="172" width="148" height="22" rx="11" fill="#c084fc" opacity="0.18"/>
+              <path d="M68 126c17-24 36-42 52-42 14 0 30 10 52 40" stroke="#f8fafc" stroke-width="8" stroke-linecap="round" opacity="0.8"/>
+            </svg>
+          </div>
+        </div>
+        <button id="startButton" class="primary-button" type="button">Start Game</button>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="screen game-screen hidden">
+      <div class="hud">
+        <div class="metric" aria-label="Score">
+          <span id="scoreValue" aria-label="Score 0">0</span>
+        </div>
+        <div class="metric" aria-label="Level">
+          <svg aria-hidden="true"><use href="#icon-star"></use></svg>
+          <span id="levelValue" aria-label="Level 1">1</span>
+        </div>
+      </div>
+
+      <div id="stageWrap" class="stage-wrap">
+        <canvas id="gameCanvas" width="480" height="640" aria-label="Brick breaker playfield" tabindex="0"></canvas>
+
+        <div id="pauseOverlay" class="overlay" aria-hidden="true">
+          <div class="overlay-card">
+            <h2 class="overlay-title">Paused</h2>
+            <div class="pause-actions">
+              <button id="resumeButton" class="icon-button" type="button" aria-label="Resume game">
+                <svg aria-hidden="true"><use href="#icon-play"></use></svg>
+              </button>
+              <button id="restartButton" class="icon-button" type="button" aria-label="Restart game">
+                <svg aria-hidden="true"><use href="#icon-restart"></use></svg>
+              </button>
+              <button id="pauseSettingsButton" class="icon-button" type="button" aria-label="Open settings">
+                <svg aria-hidden="true"><use href="#icon-gear"></use></svg>
+              </button>
+              <button id="pauseMenuButton" class="icon-button" type="button" aria-label="Return to menu">
+                <svg aria-hidden="true"><use href="#icon-home"></use></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="gameOverOverlay" class="overlay" aria-hidden="true">
+          <div class="overlay-card">
+            <div class="gameover-stack">
+              <h2 class="overlay-title">Game Over</h2>
+              <div id="finalScoreValue" class="gameover-number" aria-label="Final score 0">0</div>
+              <div class="pill" aria-label="Best score">
+                <svg aria-hidden="true"><use href="#icon-trophy"></use></svg>
+                <strong id="bestScoreValue" aria-label="Best score 0">0</strong>
+              </div>
+              <div id="newBestBadge" class="new-best hidden">New Best</div>
+            </div>
+            <div class="gameover-actions">
+              <button id="playAgainButton" class="primary-button" type="button">Play Again</button>
+              <button id="gameOverMenuButton" class="secondary-button" type="button">Menu</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <button id="pauseButton" class="icon-button" type="button" aria-label="Pause game">
+          <svg aria-hidden="true"><use href="#icon-pause"></use></svg>
+        </button>
+        <button id="gameSettingsButton" class="icon-button" type="button" aria-label="Open settings">
+          <svg aria-hidden="true"><use href="#icon-gear"></use></svg>
+        </button>
+      </div>
+    </section>
+
+    <div id="settingsLayer" class="settings-layer" aria-hidden="true">
+      <div class="settings-card">
+        <div class="settings-actions">
+          <button id="soundButton" class="icon-button" type="button" aria-label="Toggle sound">
+            <svg id="soundIcon" aria-hidden="true"><use href="#icon-speaker"></use></svg>
+          </button>
+          <button id="resetBestButton" class="icon-button is-danger" type="button" aria-label="Reset best score">
+            <svg aria-hidden="true"><use href="#icon-trash"></use></svg>
+          </button>
+          <div id="confirmReset" class="confirm-reset" aria-label="Reset best score confirmation">
+            <button id="confirmResetButton" class="icon-button is-active" type="button" aria-label="Confirm best score reset">
+              <svg aria-hidden="true"><use href="#icon-check"></use></svg>
+            </button>
+            <button id="cancelResetButton" class="icon-button" type="button" aria-label="Cancel best score reset">
+              <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+            </button>
+          </div>
+          <button id="settingsBackButton" class="icon-button" type="button" aria-label="Return">
+            <svg aria-hidden="true"><use href="#icon-home"></use></svg>
+          </button>
+        </div>
+        <div class="footer-note">
+          <div class="badge" aria-label="Best score">
+            <svg aria-hidden="true"><use href="#icon-trophy"></use></svg>
+            <strong id="settingsBestScore" aria-label="Best score 0">0</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const WIDTH = 480;
+      const HEIGHT = 640;
+      const BRICK_COLUMNS = 8;
+      const BRICK_WIDTH = 52;
+      const BRICK_HEIGHT = 20;
+      const BRICK_GAP_X = 6;
+      const BRICK_GAP_Y = 6;
+      const BRICK_START_X = 16;
+      const BRICK_START_Y = 64;
+      const PADDLE_HEIGHT = 14;
+      const PADDLE_Y = 590;
+      const BALL_RADIUS = 7;
+      const KEYBOARD_SPEED = 420;
+      const STORAGE_BEST = 'brick-breaker-best-score-v1';
+      const STORAGE_SOUND = 'brick-breaker-sound-on-v1';
+      const POPUP_MS = 600;
+
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const menuScreen = document.getElementById('menuScreen');
+      const gameScreen = document.getElementById('gameScreen');
+      const stageWrap = document.getElementById('stageWrap');
+      const pauseOverlay = document.getElementById('pauseOverlay');
+      const gameOverOverlay = document.getElementById('gameOverOverlay');
+      const settingsLayer = document.getElementById('settingsLayer');
+
+      const startButton = document.getElementById('startButton');
+      const menuSettingsButton = document.getElementById('menuSettingsButton');
+      const pauseButton = document.getElementById('pauseButton');
+      const resumeButton = document.getElementById('resumeButton');
+      const restartButton = document.getElementById('restartButton');
+      const playAgainButton = document.getElementById('playAgainButton');
+      const gameOverMenuButton = document.getElementById('gameOverMenuButton');
+      const pauseMenuButton = document.getElementById('pauseMenuButton');
+      const pauseSettingsButton = document.getElementById('pauseSettingsButton');
+      const gameSettingsButton = document.getElementById('gameSettingsButton');
+      const settingsBackButton = document.getElementById('settingsBackButton');
+      const soundButton = document.getElementById('soundButton');
+      const soundIcon = document.getElementById('soundIcon');
+      const resetBestButton = document.getElementById('resetBestButton');
+      const confirmReset = document.getElementById('confirmReset');
+      const confirmResetButton = document.getElementById('confirmResetButton');
+      const cancelResetButton = document.getElementById('cancelResetButton');
+
+      const scoreValue = document.getElementById('scoreValue');
+      const levelValue = document.getElementById('levelValue');
+      const finalScoreValue = document.getElementById('finalScoreValue');
+      const bestScoreValue = document.getElementById('bestScoreValue');
+      const menuBestScore = document.getElementById('menuBestScore');
+      const settingsBestScore = document.getElementById('settingsBestScore');
+      const newBestBadge = document.getElementById('newBestBadge');
+
+      const state = {
+        screen: 'menu',
+        settingsOpen: false,
+        settingsReturnScreen: 'menu',
+        score: 0,
+        level: 1,
+        bestScore: readNumber(STORAGE_BEST, 0),
+        soundOn: readBoolean(STORAGE_SOUND, true),
+        newBest: false,
+        paddle: {
+          x: WIDTH / 2,
+          y: PADDLE_Y,
+          width: 96,
+          height: PADDLE_HEIGHT,
+        },
+        ball: {
+          x: WIDTH / 2,
+          y: 560,
+          r: BALL_RADIUS,
+          vx: 150,
+          vy: -260,
+        },
+        bricks: [],
+        popups: [],
+        keys: new Set(),
+        lastTime: 0,
+        pointerActive: false,
+      };
+
+      let audioCtx = null;
+      let animationHandle = 0;
+
+      function readNumber(key, fallback) {
+        const raw = localStorage.getItem(key);
+        const value = Number(raw);
+        return Number.isFinite(value) ? value : fallback;
+      }
+
+      function readBoolean(key, fallback) {
+        const raw = localStorage.getItem(key);
+        if (raw === null) return fallback;
+        return raw === 'true';
+      }
+
+      function saveSettings() {
+        localStorage.setItem(STORAGE_BEST, String(state.bestScore));
+        localStorage.setItem(STORAGE_SOUND, String(state.soundOn));
+      }
+
+      function getBrickRows(level) {
+        return Math.min(8, 4 + level);
+      }
+
+      function getPaddleWidth(level) {
+        return Math.max(56, 96 - 4 * (level - 1));
+      }
+
+      function getBallSpeed(level) {
+        return Math.min(520, 300 + 24 * (level - 1));
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function createBricks(level) {
+        const rows = getBrickRows(level);
+        const bricks = [];
+        for (let row = 0; row < rows; row += 1) {
+          for (let col = 0; col < BRICK_COLUMNS; col += 1) {
+            bricks.push({
+              x: BRICK_START_X + col * (BRICK_WIDTH + BRICK_GAP_X),
+              y: BRICK_START_Y + row * (BRICK_HEIGHT + BRICK_GAP_Y),
+              width: BRICK_WIDTH,
+              height: BRICK_HEIGHT,
+              alive: true,
+              hue: 195 + row * 12 + col * 2,
+            });
+          }
+        }
+        return bricks;
+      }
+
+      function updateHUD() {
+        scoreValue.textContent = String(state.score);
+        scoreValue.setAttribute('aria-label', `Score ${state.score}`);
+        levelValue.textContent = String(state.level);
+        levelValue.setAttribute('aria-label', `Level ${state.level}`);
+        finalScoreValue.textContent = String(state.score);
+        finalScoreValue.setAttribute('aria-label', `Final score ${state.score}`);
+        bestScoreValue.textContent = String(state.bestScore);
+        bestScoreValue.setAttribute('aria-label', `Best score ${state.bestScore}`);
+        menuBestScore.textContent = String(state.bestScore);
+        menuBestScore.setAttribute('aria-label', `Best score ${state.bestScore}`);
+        settingsBestScore.textContent = String(state.bestScore);
+        settingsBestScore.setAttribute('aria-label', `Best score ${state.bestScore}`);
+        newBestBadge.classList.toggle('hidden', !state.newBest);
+      }
+
+      function setScreen(screen) {
+        state.screen = screen;
+        menuScreen.classList.toggle('hidden', screen !== 'menu');
+        gameScreen.classList.toggle('hidden', screen === 'menu');
+        pauseOverlay.classList.toggle('active', screen === 'paused');
+        pauseOverlay.setAttribute('aria-hidden', String(screen !== 'paused'));
+        gameOverOverlay.classList.toggle('active', screen === 'gameover');
+        gameOverOverlay.setAttribute('aria-hidden', String(screen !== 'gameover'));
+        stageWrap.classList.toggle('is-dim', screen === 'gameover');
+
+        if (screen === 'menu') {
+          startButton.focus({ preventScroll: true });
+        } else if (screen === 'paused') {
+          resumeButton.focus({ preventScroll: true });
+        } else if (screen === 'gameover') {
+          playAgainButton.focus({ preventScroll: true });
+        } else {
+          canvas.focus({ preventScroll: true });
+        }
+      }
+
+      function resetBallForNewGame() {
+        state.ball.x = WIDTH / 2;
+        state.ball.y = 560;
+        state.ball.vx = 150;
+        state.ball.vy = -260;
+      }
+
+      function resetBallForLevel(level) {
+        const speed = getBallSpeed(level);
+        const vx = Math.min(150, speed * 0.5) * (level % 2 === 0 ? -1 : 1);
+        const vy = -Math.sqrt(Math.max(1, speed * speed - vx * vx));
+        state.ball.x = state.paddle.x;
+        state.ball.y = state.paddle.y - state.ball.r - 1;
+        state.ball.vx = vx;
+        state.ball.vy = vy;
+      }
+
+      function resetPaddle() {
+        state.paddle.width = getPaddleWidth(state.level);
+        state.paddle.x = WIDTH / 2;
+        state.paddle.y = PADDLE_Y;
+      }
+
+      function startNewGame() {
+        state.score = 0;
+        state.level = 1;
+        state.newBest = false;
+        resetPaddle();
+        resetBallForNewGame();
+        state.bricks = createBricks(1);
+        state.popups = [];
+        updateHUD();
+        closeSettings(true);
+        setScreen('game');
+      }
+
+      function advanceLevel() {
+        state.level += 1;
+        resetPaddle();
+        state.bricks = createBricks(state.level);
+        state.popups = [];
+        resetBallForLevel(state.level);
+        playToneSequence([
+          [740, 0.08, 'triangle', 0.05],
+          [860, 0.08, 'triangle', 0.05],
+          [980, 0.12, 'triangle', 0.05],
+        ]);
+        updateHUD();
+      }
+
+      function goToMenu() {
+        state.popups = [];
+        closeSettings(true);
+        setScreen('menu');
+        updateHUD();
+      }
+
+      function pauseGame() {
+        if (state.screen !== 'game' || state.settingsOpen) return;
+        setScreen('paused');
+      }
+
+      function resumeGame() {
+        if (state.screen !== 'paused') return;
+        setScreen('game');
+      }
+
+      function openSettings() {
+        state.settingsOpen = true;
+        state.settingsReturnScreen = state.screen;
+        settingsLayer.classList.add('active');
+        settingsLayer.setAttribute('aria-hidden', 'false');
+        confirmReset.classList.remove('active');
+        settingsBackButton.focus({ preventScroll: true });
+      }
+
+      function closeSettings(force = false) {
+        if (!state.settingsOpen && !force) return;
+        state.settingsOpen = false;
+        settingsLayer.classList.remove('active');
+        settingsLayer.setAttribute('aria-hidden', 'true');
+        confirmReset.classList.remove('active');
+      }
+
+      function returnFromSettings() {
+        const screen = state.settingsReturnScreen;
+        closeSettings();
+        if (screen === 'menu') {
+          startButton.focus({ preventScroll: true });
+        } else if (screen === 'paused') {
+          resumeButton.focus({ preventScroll: true });
+        } else if (screen === 'gameover') {
+          playAgainButton.focus({ preventScroll: true });
+        } else {
+          canvas.focus({ preventScroll: true });
+        }
+      }
+
+      function circleRectCollision(ball, rect) {
+        const nearestX = clamp(ball.x, rect.x, rect.x + rect.width);
+        const nearestY = clamp(ball.y, rect.y, rect.y + rect.height);
+        const dx = ball.x - nearestX;
+        const dy = ball.y - nearestY;
+        return dx * dx + dy * dy <= ball.r * ball.r;
+      }
+
+      function ballSpeedMagnitude() {
+        return Math.hypot(state.ball.vx, state.ball.vy);
+      }
+
+      function addScore(points, x, y) {
+        state.score += points;
+        state.popups.push({ x, y, value: `+${points}`, born: performance.now() });
+        if (state.score > state.bestScore) {
+          state.bestScore = state.score;
+          state.newBest = true;
+          saveSettings();
+        }
+        updateHUD();
+      }
+
+      function triggerGameOver() {
+        if (state.screen === 'gameover') return;
+        state.newBest = state.score >= state.bestScore && state.score > 0;
+        if (state.score > state.bestScore) {
+          state.bestScore = state.score;
+          saveSettings();
+        }
+        updateHUD();
+        playToneSequence([
+          [540, 0.11, 'sine', 0.045],
+          [400, 0.14, 'sine', 0.05],
+          [260, 0.2, 'sine', 0.06],
+        ]);
+        setScreen('gameover');
+      }
+
+      function clearExpiredPopups(now) {
+        state.popups = state.popups.filter((popup) => now - popup.born < POPUP_MS);
+      }
+
+      function clampPaddle() {
+        const half = state.paddle.width / 2;
+        state.paddle.x = clamp(state.paddle.x, half, WIDTH - half);
+      }
+
+      function handleKeyboard(dt) {
+        let direction = 0;
+        if (state.keys.has('ArrowLeft') || state.keys.has('KeyA')) direction -= 1;
+        if (state.keys.has('ArrowRight') || state.keys.has('KeyD')) direction += 1;
+        if (direction !== 0) {
+          state.paddle.x += direction * KEYBOARD_SPEED * dt;
+          clampPaddle();
+        }
+      }
+
+      function handlePaddleBounce() {
+        const oldVy = state.ball.vy;
+        const speed = getBallSpeed(state.level);
+        const hit = clamp((state.ball.x - state.paddle.x) / (state.paddle.width / 2), -1, 1);
+        state.ball.vx = hit * speed * 0.75;
+        state.ball.vy = -Math.abs(oldVy);
+        state.ball.y = state.paddle.y - state.ball.r;
+        playToneSequence([[440 + Math.abs(hit) * 90, 0.05, 'square', 0.025]]);
+      }
+
+      function handleBrickCollision(ballPrevX, ballPrevY) {
+        const ball = state.ball;
+        for (let i = 0; i < state.bricks.length; i += 1) {
+          const brick = state.bricks[i];
+          if (!brick.alive) continue;
+          if (!circleRectCollision(ball, brick)) continue;
+
+          brick.alive = false;
+          const points = 10 * state.level;
+          addScore(points, brick.x + brick.width / 2, brick.y + brick.height / 2);
+          playToneSequence([[760, 0.06, 'triangle', 0.03], [930, 0.09, 'triangle', 0.02]], 0.03);
+
+          const cameFromTop = ballPrevY + ball.r <= brick.y;
+          const cameFromBottom = ballPrevY - ball.r >= brick.y + brick.height;
+          const cameFromLeft = ballPrevX + ball.r <= brick.x;
+          const cameFromRight = ballPrevX - ball.r >= brick.x + brick.width;
+
+          if (cameFromTop) {
+            ball.y = brick.y - ball.r;
+            ball.vy = -Math.abs(ball.vy);
+          } else if (cameFromBottom) {
+            ball.y = brick.y + brick.height + ball.r;
+            ball.vy = Math.abs(ball.vy);
+          } else if (cameFromLeft) {
+            ball.x = brick.x - ball.r;
+            ball.vx = -Math.abs(ball.vx);
+          } else if (cameFromRight) {
+            ball.x = brick.x + brick.width + ball.r;
+            ball.vx = Math.abs(ball.vx);
+          } else {
+            ball.vy *= -1;
+          }
+
+          return true;
+        }
+        return false;
+      }
+
+      function stepGame(dt) {
+        handleKeyboard(dt);
+
+        const ball = state.ball;
+        const speed = Math.max(1, Math.hypot(ball.vx, ball.vy));
+        const steps = Math.max(1, Math.ceil((speed * dt) / 4));
+        const step = dt / steps;
+
+        for (let i = 0; i < steps; i += 1) {
+          const prevX = ball.x;
+          const prevY = ball.y;
+          ball.x += ball.vx * step;
+          ball.y += ball.vy * step;
+
+          if (ball.x - ball.r <= 0) {
+            ball.x = ball.r;
+            ball.vx = Math.abs(ball.vx);
+            playToneSequence([[660, 0.03, 'square', 0.02]]);
+          } else if (ball.x + ball.r >= WIDTH) {
+            ball.x = WIDTH - ball.r;
+            ball.vx = -Math.abs(ball.vx);
+            playToneSequence([[660, 0.03, 'square', 0.02]]);
+          }
+
+          if (ball.y - ball.r <= 0) {
+            ball.y = ball.r;
+            ball.vy = Math.abs(ball.vy);
+            playToneSequence([[680, 0.03, 'square', 0.02]]);
+          }
+
+          const paddleRect = {
+            x: state.paddle.x - state.paddle.width / 2,
+            y: state.paddle.y,
+            width: state.paddle.width,
+            height: state.paddle.height,
+          };
+
+          if (ball.vy > 0 && circleRectCollision(ball, paddleRect) && prevY + ball.r <= paddleRect.y + paddleRect.height) {
+            handlePaddleBounce();
+          }
+
+          handleBrickCollision(prevX, prevY);
+
+          if (ball.y + ball.r > HEIGHT) {
+            triggerGameOver();
+            return;
+          }
+
+          if (state.bricks.every((brick) => !brick.alive)) {
+            advanceLevel();
+            return;
+          }
+        }
+      }
+
+      function drawBackground() {
+        const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+        gradient.addColorStop(0, '#0c1a32');
+        gradient.addColorStop(1, '#07111f');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+        ctx.save();
+        ctx.globalAlpha = 0.16;
+        for (let i = 0; i < 9; i += 1) {
+          ctx.fillStyle = i % 2 === 0 ? '#7dd3fc' : '#c084fc';
+          ctx.beginPath();
+          ctx.arc(48 + i * 50, 56 + (i % 3) * 10, 1.2 + (i % 3), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.045)';
+        ctx.lineWidth = 1;
+        for (let x = 20; x < WIDTH; x += 40) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, HEIGHT);
+          ctx.stroke();
+        }
+        for (let y = 20; y < HEIGHT; y += 40) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(WIDTH, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        const glowA = ctx.createRadialGradient(100, 90, 10, 100, 90, 180);
+        glowA.addColorStop(0, 'rgba(125, 211, 252, 0.18)');
+        glowA.addColorStop(1, 'rgba(125, 211, 252, 0)');
+        ctx.fillStyle = glowA;
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+        const glowB = ctx.createRadialGradient(380, 580, 20, 380, 580, 200);
+        glowB.addColorStop(0, 'rgba(192, 132, 252, 0.18)');
+        glowB.addColorStop(1, 'rgba(192, 132, 252, 0)');
+        ctx.fillStyle = glowB;
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      }
+
+      function roundRectPath(x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + width, y, x + width, y + height, r);
+        ctx.arcTo(x + width, y + height, x, y + height, r);
+        ctx.arcTo(x, y + height, x, y, r);
+        ctx.arcTo(x, y, x + width, y, r);
+        ctx.closePath();
+      }
+
+      function drawBricks() {
+        state.bricks.forEach((brick) => {
+          if (!brick.alive) return;
+          const grad = ctx.createLinearGradient(brick.x, brick.y, brick.x, brick.y + brick.height);
+          grad.addColorStop(0, `hsla(${brick.hue}, 100%, 76%, 1)`);
+          grad.addColorStop(0.52, `hsla(${brick.hue + 8}, 98%, 63%, 1)`);
+          grad.addColorStop(1, `hsla(${brick.hue + 18}, 92%, 50%, 1)`);
+
+          ctx.save();
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = `hsla(${brick.hue + 6}, 95%, 58%, 0.34)`;
+          ctx.fillStyle = grad;
+          roundRectPath(brick.x, brick.y, brick.width, brick.height, 8);
+          ctx.fill();
+          ctx.restore();
+
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255,255,255,0.42)';
+          ctx.lineWidth = 1.2;
+          roundRectPath(brick.x, brick.y, brick.width, brick.height, 8);
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(6, 10, 22, 0.58)';
+          ctx.lineWidth = 1.1;
+          roundRectPath(brick.x + 0.5, brick.y + 0.5, brick.width - 1, brick.height - 1, 7.5);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.fillStyle = 'rgba(255,255,255,0.20)';
+          roundRectPath(brick.x + 4, brick.y + 3, brick.width - 8, 4, 4);
+          ctx.fill();
+
+          ctx.fillStyle = 'rgba(5, 10, 25, 0.18)';
+          roundRectPath(brick.x + 4, brick.y + brick.height - 6, brick.width - 8, 3, 3);
+          ctx.fill();
+        });
+      }
+
+      function drawPaddle() {
+        const x = state.paddle.x - state.paddle.width / 2;
+        const y = state.paddle.y;
+        const gradient = ctx.createLinearGradient(x, y, x, y + state.paddle.height);
+        gradient.addColorStop(0, '#ffffff');
+        gradient.addColorStop(0.45, '#f8fafc');
+        gradient.addColorStop(1, '#b8c7dc');
+
+        ctx.save();
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = 'rgba(125, 211, 252, 0.45)';
+        ctx.fillStyle = gradient;
+        roundRectPath(x, y, state.paddle.width, state.paddle.height, 7);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(8, 15, 29, 0.72)';
+        ctx.lineWidth = 1.4;
+        roundRectPath(x, y, state.paddle.width, state.paddle.height, 7);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = 'rgba(125, 211, 252, 0.26)';
+        roundRectPath(x + 8, y - 5, state.paddle.width - 16, 8, 4);
+        ctx.fill();
+      }
+
+      function drawBall() {
+        const x = state.ball.x;
+        const y = state.ball.y;
+
+        ctx.fillStyle = 'rgba(125, 211, 252, 0.22)';
+        ctx.beginPath();
+        ctx.arc(x, y, state.ball.r + 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.shadowBlur = 22;
+        ctx.shadowColor = 'rgba(248, 250, 252, 0.72)';
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, state.ball.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.strokeStyle = 'rgba(7, 12, 24, 0.7)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(x, y, state.ball.r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.beginPath();
+        ctx.arc(x - 2, y - 2, Math.max(1.8, state.ball.r * 0.34), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawPopups(now) {
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.font = '800 18px Inter, sans-serif';
+        state.popups.forEach((popup) => {
+          const age = now - popup.born;
+          const progress = clamp(age / POPUP_MS, 0, 1);
+          const y = popup.y - progress * 26;
+          ctx.globalAlpha = 1 - progress;
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillText(popup.value, popup.x, y);
+        });
+        ctx.restore();
+      }
+
+      function render(now = performance.now()) {
+        drawBackground();
+        drawBricks();
+        drawPaddle();
+        drawBall();
+        drawPopups(now);
+      }
+
+      function animate(now) {
+        if (!state.lastTime) state.lastTime = now;
+        const dt = Math.min(0.032, (now - state.lastTime) / 1000);
+        state.lastTime = now;
+
+        if (state.screen === 'game' && !state.settingsOpen) {
+          stepGame(dt);
+        }
+
+        clearExpiredPopups(now);
+        render(now);
+        animationHandle = requestAnimationFrame(animate);
+      }
+
+      function resumeAudioContext() {
+        if (!state.soundOn) return;
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return;
+          audioCtx = new AudioContextClass();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+      }
+
+      function playToneSequence(tones, gap = 0.02) {
+        if (!state.soundOn) return;
+        resumeAudioContext();
+        if (!audioCtx) return;
+        let start = audioCtx.currentTime + 0.005;
+        tones.forEach(([frequency, duration, type, gain]) => {
+          const osc = audioCtx.createOscillator();
+          const amp = audioCtx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(frequency, start);
+          amp.gain.setValueAtTime(0.0001, start);
+          amp.gain.exponentialRampToValueAtTime(gain, start + 0.01);
+          amp.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+          osc.connect(amp).connect(audioCtx.destination);
+          osc.start(start);
+          osc.stop(start + duration + 0.02);
+          start += duration + gap;
+        });
+      }
+
+      function setSound(on) {
+        state.soundOn = on;
+        soundIcon.innerHTML = `<use href="#${on ? 'icon-speaker' : 'icon-mute'}"></use>`;
+        soundButton.classList.toggle('is-active', on);
+        soundButton.setAttribute('aria-pressed', String(on));
+        saveSettings();
+      }
+
+      function handlePointer(event) {
+        if (state.screen !== 'game' || state.settingsOpen) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * WIDTH;
+        state.paddle.x = clamp(x, state.paddle.width / 2, WIDTH - state.paddle.width / 2);
+      }
+
+      function resetBestScore() {
+        state.bestScore = 0;
+        state.newBest = false;
+        saveSettings();
+        updateHUD();
+      }
+
+      function bindEvents() {
+        startButton.addEventListener('click', () => {
+          resumeAudioContext();
+          startNewGame();
+        });
+
+        menuSettingsButton.addEventListener('click', () => {
+          state.settingsReturnScreen = 'menu';
+          openSettings();
+        });
+
+        gameSettingsButton.addEventListener('click', () => {
+          state.settingsReturnScreen = state.screen;
+          openSettings();
+        });
+
+        pauseSettingsButton.addEventListener('click', () => {
+          state.settingsReturnScreen = 'paused';
+          openSettings();
+        });
+
+        settingsBackButton.addEventListener('click', returnFromSettings);
+        soundButton.addEventListener('click', () => setSound(!state.soundOn));
+        resetBestButton.addEventListener('click', () => confirmReset.classList.toggle('active'));
+        confirmResetButton.addEventListener('click', () => {
+          confirmReset.classList.remove('active');
+          resetBestScore();
+        });
+        cancelResetButton.addEventListener('click', () => confirmReset.classList.remove('active'));
+
+        pauseButton.addEventListener('click', pauseGame);
+        resumeButton.addEventListener('click', resumeGame);
+        restartButton.addEventListener('click', startNewGame);
+        playAgainButton.addEventListener('click', startNewGame);
+        gameOverMenuButton.addEventListener('click', goToMenu);
+        pauseMenuButton.addEventListener('click', goToMenu);
+
+        canvas.addEventListener('pointermove', handlePointer);
+        canvas.addEventListener('pointerdown', (event) => {
+          canvas.setPointerCapture?.(event.pointerId);
+          handlePointer(event);
+          resumeAudioContext();
+        });
+        canvas.addEventListener('pointerup', (event) => {
+          canvas.releasePointerCapture?.(event.pointerId);
+        });
+        canvas.addEventListener('touchmove', (event) => {
+          event.preventDefault();
+        }, { passive: false });
+
+        window.addEventListener('keydown', (event) => {
+          if (state.settingsOpen) {
+            if (event.code === 'Escape') {
+              event.preventDefault();
+              returnFromSettings();
+            }
+            return;
+          }
+
+          if (event.code === 'KeyP' && (state.screen === 'game' || state.screen === 'paused')) {
+            event.preventDefault();
+            if (state.screen === 'game') pauseGame();
+            else resumeGame();
+            return;
+          }
+
+          if (state.screen === 'menu' || state.screen === 'gameover') return;
+
+          if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(event.code)) {
+            event.preventDefault();
+            state.keys.add(event.code);
+          }
+        });
+
+        window.addEventListener('keyup', (event) => {
+          state.keys.delete(event.code);
+        });
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden && state.screen === 'game') pauseGame();
+        });
+      }
+
+      function init() {
+        updateHUD();
+        setSound(state.soundOn);
+        bindEvents();
+        render();
+        animationHandle = requestAnimationFrame(animate);
+      }
+
+      window.__brickBreakerTest = {
+        state,
+        startNewGame,
+        advanceLevel,
+        pauseGame,
+        resumeGame,
+        goToMenu,
+        openSettings,
+        returnFromSettings,
+        stepGame,
+        resetBestScore,
+        getBrickRows,
+        getPaddleWidth,
+        getBallSpeed,
+        snapshot() {
+          return {
+            screen: state.screen,
+            score: state.score,
+            level: state.level,
+            bestScore: state.bestScore,
+            paddle: { ...state.paddle },
+            ball: { ...state.ball },
+            brickCount: state.bricks.filter((brick) => brick.alive).length,
+            totalBricks: state.bricks.length,
+          };
+        },
+        setBall(ball) {
+          Object.assign(state.ball, ball);
+        },
+        setPaddleX(x) {
+          state.paddle.x = x;
+          clampPaddle();
+        },
+        setKeys(keys) {
+          state.keys = new Set(keys);
+        },
+        clearBricks() {
+          state.bricks.forEach((brick) => {
+            brick.alive = false;
+          });
+        },
+        restoreBricks() {
+          state.bricks = createBricks(state.level);
+        },
+      };
+
+      init();
+    })();
+  </script>
+</body>
+</html>

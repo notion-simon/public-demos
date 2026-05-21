@@ -378,86 +378,257 @@
   }
 
   // ============================================================
-  // Levels (the three ghosts)
+  // Seeded RNG (procedural variation per run)
   // ============================================================
-  // Melody notes: { p: midi-offset-from-root, b: beat-within-bar (0..4), d: duration in beats, g: gain }
-  const LEVELS = [
-    {
-      // ---- LA NOVIA -------------------------------------------------
-      id: 'novia',
-      name: 'La Novia', subtitle: 'The Bride · the haunted chapel',
-      bpm: 86,
-      root: 57,                         // A3
-      style: 'ballad',
-      // Am - F - C - G   (i - VI - III - VII in A minor)
-      prog: [{ r: 0, q: 'm' }, { r: -4, q: '' }, { r: 3, q: '' }, { r: -2, q: '' }],
-      melody: [
-        // Bar 1 — Am: A4 ... C5 ... E5
-        [{ p: 12, b: 1.0, d: 1.0 }, { p: 15, b: 2.0, d: 1.0 }, { p: 19, b: 3.0, d: 0.9 }],
-        // Bar 2 — F: F4 ... A4 ... C5
-        [{ p: 8, b: 1.0, d: 1.0 }, { p: 12, b: 2.0, d: 1.0 }, { p: 17, b: 3.0, d: 0.9 }],
-        // Bar 3 — C: G4 ... C5 ... E5
-        [{ p: 10, b: 0.5, d: 0.5 }, { p: 15, b: 1.5, d: 0.5 }, { p: 19, b: 2.5, d: 1.4 }],
-        // Bar 4 — G: D5 down to B4
-        [{ p: 17, b: 0.5, d: 0.5 }, { p: 14, b: 1.5, d: 0.5 }, { p: 10, b: 2.5, d: 1.0 }],
-      ],
-      noteCount: 22,
-      density: 0.40, chordChance: 0.04, streamChance: 0.02,
-      hauntPerMiss: 6.5, spiritPerHit: 3.0, wrongPress: 4.5,
-      scene: 'chapel',
+  // mulberry32 — small, fast, well-distributed PRNG
+  function mulberry32(seed) {
+    let s = seed >>> 0;
+    return function () {
+      s = (s + 0x6D2B79F5) >>> 0;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  let rng = Math.random; // default until a run starts
+  function pick(arr) { return arr[Math.floor(rng() * arr.length)]; }
+  function pickIdx(arr) { return Math.floor(rng() * arr.length); }
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+
+  // ============================================================
+  // Ghost specs (visual + audio character — fixed per ghost)
+  // ============================================================
+  // Each ghost has multiple chord progression variants and melody variants.
+  // Each ghost has 3 "mood" modifiers that nudge difficulty parameters.
+  // Notes in melodies are { p: midi-offset-from-bar's-chord-root-base, b: beat, d: duration }
+  const GHOSTS_SPEC = {
+    novia: {
+      id: 'novia', name: 'La Novia', subtitle: 'The Bride',
+      scene: 'chapel', sceneName: 'the haunted chapel',
+      style: 'ballad', baseBpm: 86, root: 57,                   // A
       flowerCol: '#ffd9e6',
-    },
-    {
-      // ---- EL BANDIDO -----------------------------------------------
-      id: 'bandido',
-      name: 'El Bandido', subtitle: 'The Bandit · the red canyon',
-      bpm: 122,
-      root: 62,                         // D4 root
-      style: 'corrido',
-      // D - D - G - A  (I - I - IV - V)
-      prog: [{ r: 0, q: '' }, { r: 0, q: '' }, { r: 5, q: '' }, { r: 7, q: '' }],
-      melody: [
-        // Bar 1 — D: heroic ascent
-        [{ p: 14, b: 0.0, d: 0.5 }, { p: 16, b: 0.5, d: 0.5 }, { p: 19, b: 1.0, d: 1.0 }, { p: 21, b: 2.5, d: 1.4 }],
-        // Bar 2 — D: variation answer
-        [{ p: 21, b: 0.0, d: 0.5 }, { p: 19, b: 0.5, d: 0.5 }, { p: 16, b: 1.0, d: 0.5 }, { p: 19, b: 2.0, d: 1.9 }],
-        // Bar 3 — G: lift up to high G/B
-        [{ p: 19, b: 0.0, d: 0.5 }, { p: 22, b: 0.5, d: 0.5 }, { p: 24, b: 1.0, d: 1.5 }, { p: 21, b: 3.0, d: 0.9 }],
-        // Bar 4 — A: resolve with V→I implied
-        [{ p: 21, b: 0.0, d: 0.5 }, { p: 17, b: 0.5, d: 0.5 }, { p: 14, b: 1.0, d: 0.5 }, { p: 17, b: 2.0, d: 1.9 }],
+      progressions: [
+        // Am F C G (i - VI - III - VII)
+        [{ r: 0, q: 'm' }, { r: -4, q: '' }, { r: 3, q: '' }, { r: -2, q: '' }],
+        // Am Em F G (i - v - VI - VII)
+        [{ r: 0, q: 'm' }, { r: -5, q: 'm' }, { r: -4, q: '' }, { r: -2, q: '' }],
+        // Am Dm G C (i - iv - VII - III) — "andalusian" feel
+        [{ r: 0, q: 'm' }, { r: -7, q: 'm' }, { r: -2, q: '' }, { r: 3, q: '' }],
+        // Am F Dm E (i - VI - iv - V) — minor turnaround
+        [{ r: 0, q: 'm' }, { r: -4, q: '' }, { r: -7, q: 'm' }, { r: -5, q: '' }],
       ],
-      noteCount: 36,
-      density: 0.58, chordChance: 0.16, streamChance: 0.14,
-      hauntPerMiss: 7.0, spiritPerHit: 2.7, wrongPress: 5.0,
-      scene: 'canyon',
+      melodies: [
+        // Variant A: gentle descending phrase
+        [
+          [{ p: 12, b: 1.0, d: 1.0 }, { p: 15, b: 2.0, d: 1.0 }, { p: 19, b: 3.0, d: 0.9 }],
+          [{ p: 8, b: 1.0, d: 1.0 }, { p: 12, b: 2.0, d: 1.0 }, { p: 17, b: 3.0, d: 0.9 }],
+          [{ p: 10, b: 0.5, d: 0.5 }, { p: 15, b: 1.5, d: 0.5 }, { p: 19, b: 2.5, d: 1.4 }],
+          [{ p: 17, b: 0.5, d: 0.5 }, { p: 14, b: 1.5, d: 0.5 }, { p: 10, b: 2.5, d: 1.0 }],
+        ],
+        // Variant B: higher register, more wistful
+        [
+          [{ p: 15, b: 0.5, d: 0.5 }, { p: 19, b: 1.5, d: 1.5 }, { p: 17, b: 3.0, d: 0.9 }],
+          [{ p: 12, b: 0.5, d: 0.5 }, { p: 17, b: 1.5, d: 1.5 }, { p: 15, b: 3.0, d: 0.9 }],
+          [{ p: 19, b: 0.0, d: 0.5 }, { p: 22, b: 0.5, d: 1.0 }, { p: 24, b: 2.0, d: 1.9 }],
+          [{ p: 14, b: 0.0, d: 1.0 }, { p: 10, b: 1.5, d: 1.0 }, { p: 7, b: 2.5, d: 1.4 }],
+        ],
+        // Variant C: call-and-response motif
+        [
+          [{ p: 12, b: 0.0, d: 0.5 }, { p: 15, b: 0.5, d: 0.5 }, { p: 12, b: 1.0, d: 0.5 }, { p: 19, b: 2.0, d: 1.9 }],
+          [{ p: 8, b: 0.0, d: 0.5 }, { p: 12, b: 0.5, d: 0.5 }, { p: 8, b: 1.0, d: 0.5 }, { p: 17, b: 2.0, d: 1.9 }],
+          [{ p: 15, b: 0.0, d: 0.5 }, { p: 19, b: 0.5, d: 1.0 }, { p: 22, b: 2.0, d: 1.9 }],
+          [{ p: 14, b: 0.0, d: 0.5 }, { p: 10, b: 0.5, d: 0.5 }, { p: 7, b: 1.0, d: 0.5 }, { p: 10, b: 2.0, d: 1.9 }],
+        ],
+      ],
+      modifiers: [
+        { id: 'softly', text: 'Tonight she weeps softly',
+          bpmMul: 0.94, densityMul: 0.85, streamMul: 0.4, chordMul: 0.7, hauntMul: 0.92 },
+        { id: 'devotion', text: 'Tonight she demands devotion',
+          bpmMul: 1.04, densityMul: 1.10, chordMul: 1.6, spiritMul: 1.05 },
+        { id: 'restless', text: 'Tonight her grief is restless',
+          streamMul: 2.4, chordMul: 1.2, densityMul: 1.05 },
+        { id: 'echoes', text: 'Tonight her veil drifts in echoes',
+          bpmMul: 0.98, streamMul: 1.8, densityMul: 0.95, hauntMul: 0.95 },
+      ],
+    },
+    bandido: {
+      id: 'bandido', name: 'El Bandido', subtitle: 'The Bandit',
+      scene: 'canyon', sceneName: 'the red canyon',
+      style: 'corrido', baseBpm: 118, root: 62,                  // D
       flowerCol: '#ffd166',
-    },
-    {
-      // ---- LA CATRINA -----------------------------------------------
-      id: 'catrina',
-      name: 'La Catrina', subtitle: 'Lady of the Dead · the cemetery',
-      bpm: 142,
-      root: 64,                         // E4 root (E harmonic minor / phrygian dominant)
-      style: 'dramatic',
-      // Em - B - Em - F  (i - V - i - bII, Spanish/phrygian flavor)
-      prog: [{ r: 0, q: 'm' }, { r: -5, q: '' }, { r: 0, q: 'm' }, { r: -11, q: '' }],
-      melody: [
-        // Bar 1 — Em: dark ascent E G B E
-        [{ p: 12, b: 0.0, d: 0.5 }, { p: 15, b: 0.5, d: 0.5 }, { p: 19, b: 1.0, d: 0.5 }, { p: 24, b: 1.5, d: 0.5 }, { p: 19, b: 2.0, d: 1.9 }],
-        // Bar 2 — B (V): D# F# A B — leading tone tension
-        [{ p: 23, b: 0.0, d: 0.5 }, { p: 18, b: 0.5, d: 0.5 }, { p: 23, b: 1.0, d: 0.5 }, { p: 26, b: 1.5, d: 1.5 }, { p: 23, b: 3.0, d: 0.9 }],
-        // Bar 3 — Em
-        [{ p: 19, b: 0.0, d: 0.5 }, { p: 15, b: 0.5, d: 0.5 }, { p: 12, b: 1.0, d: 0.5 }, { p: 15, b: 1.5, d: 0.5 }, { p: 19, b: 2.0, d: 1.9 }],
-        // Bar 4 — F (bII): phrygian punch, descend
-        [{ p: 17, b: 0.0, d: 0.5 }, { p: 20, b: 0.5, d: 0.5 }, { p: 25, b: 1.0, d: 1.0 }, { p: 23, b: 2.5, d: 0.5 }, { p: 19, b: 3.0, d: 0.9 }],
+      progressions: [
+        // D D G A (I-I-IV-V)
+        [{ r: 0, q: '' }, { r: 0, q: '' }, { r: 5, q: '' }, { r: 7, q: '' }],
+        // D A Bm G (I-V-vi-IV) — anthemic
+        [{ r: 0, q: '' }, { r: 7, q: '' }, { r: 9, q: 'm' }, { r: 5, q: '' }],
+        // D G D A (I-IV-I-V) — call-and-response
+        [{ r: 0, q: '' }, { r: 5, q: '' }, { r: 0, q: '' }, { r: 7, q: '' }],
+        // D Bm G A (I-vi-IV-V) — corrido turnaround
+        [{ r: 0, q: '' }, { r: 9, q: 'm' }, { r: 5, q: '' }, { r: 7, q: '' }],
       ],
-      noteCount: 44,
-      density: 0.66, chordChance: 0.22, streamChance: 0.22,
-      hauntPerMiss: 7.5, spiritPerHit: 2.4, wrongPress: 5.5,
-      scene: 'cemetery',
-      flowerCol: '#ff5ea0',
+      melodies: [
+        // Variant A: heroic ascent
+        [
+          [{ p: 14, b: 0.0, d: 0.5 }, { p: 16, b: 0.5, d: 0.5 }, { p: 19, b: 1.0, d: 1.0 }, { p: 21, b: 2.5, d: 1.4 }],
+          [{ p: 21, b: 0.0, d: 0.5 }, { p: 19, b: 0.5, d: 0.5 }, { p: 16, b: 1.0, d: 0.5 }, { p: 19, b: 2.0, d: 1.9 }],
+          [{ p: 19, b: 0.0, d: 0.5 }, { p: 22, b: 0.5, d: 0.5 }, { p: 24, b: 1.0, d: 1.5 }, { p: 21, b: 3.0, d: 0.9 }],
+          [{ p: 21, b: 0.0, d: 0.5 }, { p: 17, b: 0.5, d: 0.5 }, { p: 14, b: 1.0, d: 0.5 }, { p: 17, b: 2.0, d: 1.9 }],
+        ],
+        // Variant B: bolero-style — held high notes
+        [
+          [{ p: 19, b: 0.5, d: 1.5 }, { p: 21, b: 2.5, d: 1.4 }],
+          [{ p: 21, b: 0.5, d: 1.5 }, { p: 24, b: 2.5, d: 1.4 }],
+          [{ p: 22, b: 0.0, d: 1.0 }, { p: 19, b: 1.0, d: 0.5 }, { p: 17, b: 1.5, d: 0.5 }, { p: 22, b: 2.5, d: 1.4 }],
+          [{ p: 19, b: 0.0, d: 0.5 }, { p: 21, b: 0.5, d: 0.5 }, { p: 24, b: 1.0, d: 1.0 }, { p: 21, b: 2.5, d: 1.4 }],
+        ],
+        // Variant C: machine-gun rhythm
+        [
+          [{ p: 14, b: 0.0, d: 0.4 }, { p: 14, b: 0.5, d: 0.4 }, { p: 16, b: 1.0, d: 0.4 }, { p: 19, b: 1.5, d: 0.4 }, { p: 21, b: 2.0, d: 1.9 }],
+          [{ p: 21, b: 0.0, d: 0.4 }, { p: 19, b: 0.5, d: 0.4 }, { p: 16, b: 1.0, d: 0.4 }, { p: 14, b: 1.5, d: 0.4 }, { p: 17, b: 2.0, d: 1.9 }],
+          [{ p: 19, b: 0.0, d: 0.4 }, { p: 22, b: 0.5, d: 0.4 }, { p: 24, b: 1.0, d: 1.4 }, { p: 22, b: 2.5, d: 0.5 }, { p: 19, b: 3.0, d: 0.9 }],
+          [{ p: 21, b: 0.0, d: 0.4 }, { p: 19, b: 0.5, d: 0.4 }, { p: 17, b: 1.0, d: 0.4 }, { p: 14, b: 1.5, d: 0.4 }, { p: 12, b: 2.0, d: 1.9 }],
+        ],
+      ],
+      modifiers: [
+        { id: 'rides', text: 'Tonight he rides hard',
+          bpmMul: 1.06, densityMul: 1.08, chordMul: 1.25 },
+        { id: 'stalks', text: 'Tonight he stalks the trail',
+          bpmMul: 0.94, densityMul: 0.88, chordMul: 1.5, hauntMul: 0.95 },
+        { id: 'storm', text: 'Tonight a storm rolls in',
+          streamMul: 2.5, bpmMul: 1.0, densityMul: 1.05 },
+        { id: 'cards', text: 'Tonight he draws his cards',
+          chordMul: 2.0, streamMul: 0.7, densityMul: 0.96 },
+      ],
     },
+    catrina: {
+      id: 'catrina', name: 'La Catrina', subtitle: 'Lady of the Dead',
+      scene: 'cemetery', sceneName: 'the cemetery',
+      style: 'dramatic', baseBpm: 132, root: 64,                  // E
+      flowerCol: '#ff5ea0',
+      progressions: [
+        // Em B Em F (i-V-i-bII) — phrygian dominant flavor
+        [{ r: 0, q: 'm' }, { r: -5, q: '' }, { r: 0, q: 'm' }, { r: -11, q: '' }],
+        // Em D C B (i-VII-VI-V) — descending lament
+        [{ r: 0, q: 'm' }, { r: -2, q: '' }, { r: -4, q: '' }, { r: -5, q: '' }],
+        // Em Am B Em (i-iv-V-i) — Spanish minor
+        [{ r: 0, q: 'm' }, { r: -7, q: 'm' }, { r: -5, q: '' }, { r: 0, q: 'm' }],
+        // Em F Em B (i-bII-i-V) — phrygian dramatic
+        [{ r: 0, q: 'm' }, { r: -11, q: '' }, { r: 0, q: 'm' }, { r: -5, q: '' }],
+      ],
+      melodies: [
+        // Variant A: dark ascent
+        [
+          [{ p: 12, b: 0.0, d: 0.5 }, { p: 15, b: 0.5, d: 0.5 }, { p: 19, b: 1.0, d: 0.5 }, { p: 24, b: 1.5, d: 0.5 }, { p: 19, b: 2.0, d: 1.9 }],
+          [{ p: 23, b: 0.0, d: 0.5 }, { p: 18, b: 0.5, d: 0.5 }, { p: 23, b: 1.0, d: 0.5 }, { p: 26, b: 1.5, d: 1.5 }, { p: 23, b: 3.0, d: 0.9 }],
+          [{ p: 19, b: 0.0, d: 0.5 }, { p: 15, b: 0.5, d: 0.5 }, { p: 12, b: 1.0, d: 0.5 }, { p: 15, b: 1.5, d: 0.5 }, { p: 19, b: 2.0, d: 1.9 }],
+          [{ p: 17, b: 0.0, d: 0.5 }, { p: 20, b: 0.5, d: 0.5 }, { p: 25, b: 1.0, d: 1.0 }, { p: 23, b: 2.5, d: 0.5 }, { p: 19, b: 3.0, d: 0.9 }],
+        ],
+        // Variant B: flamenco trill — fast scale runs
+        [
+          [{ p: 12, b: 0.0, d: 0.3 }, { p: 13, b: 0.3, d: 0.3 }, { p: 15, b: 0.6, d: 0.3 }, { p: 17, b: 0.9, d: 0.3 }, { p: 19, b: 1.2, d: 1.8 }, { p: 22, b: 3.0, d: 0.9 }],
+          [{ p: 23, b: 0.0, d: 0.5 }, { p: 22, b: 0.5, d: 0.5 }, { p: 19, b: 1.0, d: 0.5 }, { p: 18, b: 1.5, d: 0.5 }, { p: 19, b: 2.0, d: 1.9 }],
+          [{ p: 19, b: 0.0, d: 0.3 }, { p: 22, b: 0.3, d: 0.3 }, { p: 24, b: 0.6, d: 0.3 }, { p: 26, b: 0.9, d: 1.1 }, { p: 24, b: 2.5, d: 1.4 }],
+          [{ p: 17, b: 0.0, d: 0.3 }, { p: 20, b: 0.3, d: 0.3 }, { p: 22, b: 0.6, d: 0.3 }, { p: 25, b: 1.0, d: 1.4 }, { p: 22, b: 2.5, d: 1.4 }],
+        ],
+        // Variant C: lurching held tension
+        [
+          [{ p: 12, b: 0.5, d: 0.5 }, { p: 15, b: 1.5, d: 0.5 }, { p: 19, b: 2.5, d: 1.4 }],
+          [{ p: 18, b: 0.5, d: 0.5 }, { p: 23, b: 1.5, d: 0.5 }, { p: 26, b: 2.5, d: 1.4 }],
+          [{ p: 12, b: 0.5, d: 0.5 }, { p: 19, b: 1.5, d: 0.5 }, { p: 24, b: 2.5, d: 1.4 }],
+          [{ p: 17, b: 0.5, d: 0.5 }, { p: 22, b: 1.5, d: 0.5 }, { p: 25, b: 2.5, d: 1.4 }],
+        ],
+      ],
+      modifiers: [
+        { id: 'calls', text: 'Tonight she calls the dead',
+          chordMul: 1.5, densityMul: 1.08, hauntMul: 1.05 },
+        { id: 'solo', text: 'Tonight she dances solo',
+          chordMul: 0.4, streamMul: 0.5, densityMul: 0.95, bpmMul: 1.04 },
+        { id: 'band', text: 'Tonight she summons the band',
+          streamMul: 1.9, chordMul: 1.3, densityMul: 1.05 },
+        { id: 'mournful', text: 'Tonight her dance is mournful',
+          bpmMul: 0.92, densityMul: 0.9, chordMul: 1.1, hauntMul: 0.95 },
+      ],
+    },
+  };
+
+  // ============================================================
+  // Slot difficulty tiers (slot 0 = opener, slot 2 = finale)
+  // ============================================================
+  const SLOTS = [
+    { name: 'opener', tempoMul: 0.93, density: 0.42, chord: 0.05, stream: 0.03, noteCount: 22, hauntPerMiss: 6.2, spiritPerHit: 3.0, wrongPress: 4.3 },
+    { name: 'middle', tempoMul: 1.05, density: 0.56, chord: 0.16, stream: 0.13, noteCount: 34, hauntPerMiss: 7.0, spiritPerHit: 2.6, wrongPress: 4.9 },
+    { name: 'finale', tempoMul: 1.16, density: 0.66, chord: 0.22, stream: 0.20, noteCount: 44, hauntPerMiss: 7.6, spiritPerHit: 2.3, wrongPress: 5.4 },
   ];
+
+  // ============================================================
+  // Run plan — generated fresh each new game
+  // ============================================================
+  const RUN = {
+    seed: 0,
+    order: ['novia', 'bandido', 'catrina'],
+    picks: {},        // {ghostId: {modIdx, progIdx, melIdx}}
+    chartSeeds: {},   // {ghostId: seed for chart rng}
+  };
+
+  function makeRun() {
+    const seed = ((Math.random() * 0xFFFFFFFF) >>> 0) || 1;
+    RUN.seed = seed;
+    rng = mulberry32(seed);
+    RUN.order = shuffle(Object.keys(GHOSTS_SPEC));
+    RUN.picks = {};
+    RUN.chartSeeds = {};
+    for (const id of RUN.order) {
+      const spec = GHOSTS_SPEC[id];
+      RUN.picks[id] = {
+        modIdx: pickIdx(spec.modifiers),
+        progIdx: pickIdx(spec.progressions),
+        melIdx: pickIdx(spec.melodies),
+      };
+      RUN.chartSeeds[id] = ((rng() * 0xFFFFFFFF) >>> 0) || 1;
+    }
+  }
+
+  // Build the effective Level used for a duel from the run plan.
+  function buildLevel(slotIdx) {
+    const ghostId = RUN.order[slotIdx];
+    const spec = GHOSTS_SPEC[ghostId];
+    const slot = SLOTS[slotIdx];
+    const picks = RUN.picks[ghostId];
+    const mod = spec.modifiers[picks.modIdx];
+    const bpm = Math.round(spec.baseBpm * slot.tempoMul * (mod.bpmMul || 1));
+    const noteCount = Math.max(14, Math.round(slot.noteCount * (mod.noteCountMul || 1)));
+    return {
+      id: ghostId,
+      name: spec.name,
+      subtitle: spec.subtitle + ' · ' + spec.sceneName,
+      modifier: mod,
+      bpm,
+      root: spec.root,
+      style: spec.style,
+      scene: spec.scene,
+      flowerCol: spec.flowerCol,
+      prog: spec.progressions[picks.progIdx],
+      melody: spec.melodies[picks.melIdx],
+      noteCount,
+      density: clamp(slot.density * (mod.densityMul || 1), 0.20, 0.92),
+      chordChance: clamp(slot.chord * (mod.chordMul || 1), 0, 0.55),
+      streamChance: clamp(slot.stream * (mod.streamMul || 1), 0, 0.40),
+      hauntPerMiss: slot.hauntPerMiss * (mod.hauntMul || 1),
+      spiritPerHit: slot.spiritPerHit * (mod.spiritMul || 1),
+      wrongPress: slot.wrongPress,
+      chartSeed: RUN.chartSeeds[ghostId],
+      slotName: slot.name,
+    };
+  }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
   // ============================================================
   // Game state
@@ -545,42 +716,44 @@
   // Chart generation
   // ============================================================
   function buildChart(level) {
+    // Use a per-duel seeded RNG so the chart is unique per run-and-ghost
+    // (and reproducible if the duel is restarted).
+    const chartRng = mulberry32(level.chartSeed || 1);
     const beat = 60 / level.bpm;
     const sub = beat / 2;
     const sub16 = beat / 4;
     const leadIn = 4 * beat;
     const chart = [];
     let i = 0;
-    let lastLane = -1, sameLaneCount = 0;
+    let lastLane = -1;
     let safety = 0;
-    while (chart.length < level.noteCount && safety < 240) {
+    while (chart.length < level.noteCount && safety < 260) {
       safety++;
       const tBase = leadIn + i * sub;
       i++;
-      if (Math.random() > level.density) continue;
+      if (chartRng() > level.density) continue;
 
       // Burst (16th-note triplet)
-      if (Math.random() < level.streamChance && chart.length + 3 <= level.noteCount) {
+      if (chartRng() < level.streamChance && chart.length + 3 <= level.noteCount) {
         const lane = pickLane(lastLane);
         for (let b = 0; b < 3; b++) {
           chart.push({ t: tBase + b * sub16, lane, judged: false, hit: false, chordPart: false });
         }
-        lastLane = lane; sameLaneCount = 1;
+        lastLane = lane;
         continue;
       }
       // Chord (two simultaneous lanes)
-      if (Math.random() < level.chordChance && chart.length + 2 <= level.noteCount) {
+      if (chartRng() < level.chordChance && chart.length + 2 <= level.noteCount) {
         const l1 = pickLane(lastLane);
-        let l2 = (l1 + 1 + Math.floor(Math.random() * 2)) % 3;
+        let l2 = (l1 + 1 + Math.floor(chartRng() * 2)) % 3;
         if (l2 === l1) l2 = (l1 + 1) % 3;
         chart.push({ t: tBase, lane: l1, judged: false, hit: false, chordPart: true });
         chart.push({ t: tBase, lane: l2, judged: false, hit: false, chordPart: true });
-        lastLane = l1; sameLaneCount = 1;
+        lastLane = l1;
         continue;
       }
       const lane = pickLane(lastLane);
       chart.push({ t: tBase, lane, judged: false, hit: false, chordPart: false });
-      if (lane === lastLane) sameLaneCount++; else sameLaneCount = 1;
       lastLane = lane;
     }
     chart.sort((a, b) => a.t - b.t || a.lane - b.lane);
@@ -588,7 +761,7 @@
 
     function pickLane(prev) {
       let l;
-      do { l = Math.floor(Math.random() * 3); } while (l === prev && Math.random() < 0.55);
+      do { l = Math.floor(chartRng() * 3); } while (l === prev && chartRng() < 0.55);
       return l;
     }
   }
@@ -607,12 +780,13 @@
     } catch (e) {}
     $('#intro').classList.add('hidden');
     $('#audioHud').classList.remove('hidden');
+    makeRun();
     G.levelIdx = 0;
     startLevel();
   }
 
   function startLevel() {
-    const lvl = LEVELS[G.levelIdx];
+    const lvl = buildLevel(G.levelIdx);
     G.level = lvl;
     G.chart = buildChart(lvl);
     G.spirit = 0; G.haunt = 0; G.combo = 0; G.maxCombo = 0;
@@ -665,7 +839,7 @@
       Audio.chime(880); setTimeout(() => Audio.chime(1318), 110); setTimeout(() => Audio.chime(1760), 220);
       Audio.trumpet(midiToFreq(G.level.root + 12), undefined, 0.7, 0.22);
       spawnPetalBurst(120);
-      if (G.levelIdx >= LEVELS.length - 1) setTimeout(() => winGame(), 1500);
+      if (G.levelIdx >= RUN.order.length - 1) setTimeout(() => winGame(), 1500);
       else setTimeout(() => showResult(true), 1000);
     } else {
       Audio.wail(undefined, 0.32);
@@ -678,9 +852,11 @@
     if (won) {
       $('#resultTitle').innerHTML = `${lvl.name} <span class="accent">is at rest</span>`;
       $('#resultSub').textContent = `Combo ${G.maxCombo} · Notes ${G.hits}/${G.chart.length}`;
-      const next = LEVELS[G.levelIdx + 1];
-      $('#resultBody').textContent = `The dusk lifts a little. Next: ${next.name} (${next.subtitle}).`;
-      $('#resultBtn').textContent = `▶ Face ${next.name}`;
+      const nextId = RUN.order[G.levelIdx + 1];
+      const nextSpec = GHOSTS_SPEC[nextId];
+      const nextMod = nextSpec.modifiers[RUN.picks[nextId].modIdx];
+      $('#resultBody').textContent = `The dusk lifts a little. Next: ${nextSpec.name} at ${nextSpec.sceneName}. ${nextMod.text}.`;
+      $('#resultBtn').textContent = `▶ Face ${nextSpec.name}`;
       $('#resultBtn').onclick = () => {
         Audio.click();
         $('#result').classList.add('hidden');
@@ -892,8 +1068,8 @@
   }
 
   function renderIntroBackdrop() {
-    // Use La Catrina scene with dimmed mood
-    const lvl = LEVELS[0];
+    // Use the cemetery scene as the intro mood
+    const lvl = { scene: 'cemetery' };
     paintSky(lvl);
     drawStars(80);
     paintFloor(lvl);
@@ -901,7 +1077,7 @@
   }
 
   function renderScene() {
-    const lvl = G.level || LEVELS[0];
+    const lvl = G.level || { scene: 'cemetery' };
     paintSky(lvl);
     if (G.bgFlash > 0) {
       ctx.fillStyle = `rgba(255, 200, 120, ${0.18 * G.bgFlash})`;
@@ -1437,7 +1613,7 @@
     ctx.fillStyle = '#fff7e6';
     ctx.font = 'bold 14px "Georgia", serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`Duel ${G.levelIdx + 1} / ${LEVELS.length}`, W / 2, 30);
+    ctx.fillText(`Duel ${G.levelIdx + 1} / ${RUN.order.length}`, W / 2, 30);
     ctx.restore();
   }
 
@@ -2191,6 +2367,16 @@
     const cy = hitY() - 220;
     ctx.strokeText(text, W / 2, cy);
     ctx.fillText(text, W / 2, cy);
+    // Modifier mood text (italic, persists through count-in)
+    if (G.level && G.level.modifier) {
+      ctx.globalAlpha = 0.95;
+      ctx.fillStyle = '#ffd166';
+      ctx.strokeStyle = '#1a0628'; ctx.lineWidth = 4;
+      ctx.font = 'italic bold 30px "Georgia", serif';
+      const my = cy + 100;
+      ctx.strokeText('— ' + G.level.modifier.text + ' —', W / 2, my);
+      ctx.fillText('— ' + G.level.modifier.text + ' —', W / 2, my);
+    }
     ctx.restore();
   }
 
@@ -2252,6 +2438,34 @@
     chartSummary() {
       if (!G.chart) return null;
       return { total: G.chart.length, judged: G.chart.filter(n => n.judged).length, hits: G.hits, misses: G.misses };
+    },
+    runPlan() {
+      return {
+        seed: RUN.seed,
+        order: RUN.order.slice(),
+        modifiers: RUN.order.map(id => GHOSTS_SPEC[id].modifiers[RUN.picks[id].modIdx].id),
+        progIdx: RUN.order.map(id => RUN.picks[id].progIdx),
+        melIdx: RUN.order.map(id => RUN.picks[id].melIdx),
+      };
+    },
+    currentLevel() {
+      if (!G.level) return null;
+      return {
+        id: G.level.id,
+        bpm: G.level.bpm,
+        noteCount: G.level.noteCount,
+        density: G.level.density,
+        chordChance: G.level.chordChance,
+        streamChance: G.level.streamChance,
+        modifier: G.level.modifier ? G.level.modifier.id : null,
+        slotName: G.level.slotName,
+        chartTotal: G.chart ? G.chart.length : 0,
+      };
+    },
+    chartSample(n) {
+      if (!G.chart) return null;
+      const arr = G.chart.slice(0, n || 8);
+      return arr.map(x => ({ t: Math.round(x.t * 100) / 100, lane: x.lane, chord: !!x.chordPart }));
     },
   };
 })();

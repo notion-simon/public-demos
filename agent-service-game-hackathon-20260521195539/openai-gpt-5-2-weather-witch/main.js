@@ -22,13 +22,58 @@
     LIGHTNING: { id:'LIGHTNING', name:'Lightning', accent:'#ff3bd4', desc:'Storm. Rods. Prayers. Power.' },
   };
 
-  const DAYS = [
-    { day:1, title:'The Orchard Fire', desc:'A spark leapt the creek. If the orchard burns, winter will be hungry.', required:'RAIN', mundane:'SUN' },
-    { day:2, title:'The River Is Too High', desc:'Floodwater is licking the steps. Lower it before night market.', required:'SUN', mundane:'RAIN' },
-    { day:3, title:'The Miasma Fair', desc:'A sour fog is choking the square. Clear it or the fair dies.', required:'WIND', mundane:'SUN' },
-    { day:4, title:'The Battery Church', desc:'The ward is empty. Charge the spires before the hungry spirits arrive.', required:'LIGHTNING', mundane:'WIND' },
-    { day:5, title:'Frost on the Wheat', desc:'Cold glitter is eating the stalks. Warm the field, seal the harvest.', required:'SUN', mundane:'LIGHTNING' },
+  // Scenario pool (procedural: we draw 5 per run in a seeded order)
+  const SCENARIOS = [
+    { title:'The Orchard Fire', desc:'A spark leapt the creek. If the orchard burns, winter will be hungry.', required:'RAIN', mundane:'SUN' },
+    { title:'The River Is Too High', desc:'Floodwater is licking the steps. Lower it before night market.', required:'SUN', mundane:'RAIN' },
+    { title:'The Miasma Fair', desc:'A sour fog is choking the square. Clear it or the fair dies.', required:'WIND', mundane:'SUN' },
+    { title:'The Battery Church', desc:'The ward is empty. Charge the spires before the hungry spirits arrive.', required:'LIGHTNING', mundane:'WIND' },
+    { title:'Frost on the Wheat', desc:'Cold glitter is eating the stalks. Warm the field, seal the harvest.', required:'SUN', mundane:'LIGHTNING' },
+    { title:'The Roof Parade', desc:'A wind of gossip is lifting shingles. Hold the town together.', required:'WIND', mundane:'RAIN' },
+    { title:'The Thirsty Fountain', desc:'The square’s fountain is dry. Heat it awake.', required:'SUN', mundane:'WIND' },
+    { title:'The Lantern Ward', desc:'The ward-lanterns are dull. Call power into the glass.', required:'LIGHTNING', mundane:'SUN' },
   ];
+
+  // Controlled procedural variation (still the same mechanic: click sigils before they fade)
+  const LAYOUTS = [
+    { id:'OPEN', name:'Open Map', hint:'Sigils can appear anywhere.' },
+    { id:'RING', name:'Ring District', hint:'Sigils orbit the center.' },
+    { id:'DIAGONAL', name:'River Diagonal', hint:'Sigils favor a diagonal band.' },
+    { id:'TWIN', name:'Twin Boroughs', hint:'Two hot zones: left + right.' },
+  ];
+
+  const STYLES = [
+    { id:'DRIZZLE', name:'Drizzle', hint:'Many slow sigils.', maxAlive: 6, spawnMin: 0.45, spawnMax: 0.85, ttlMin: 3.0, ttlMax: 4.1, rMin: 0.040, rMax: 0.060, valueBase: 6.0, valueCombo: 0.26 },
+    { id:'SPARKS', name:'Sparks', hint:'Fewer fast sigils (worth more).', maxAlive: 4, spawnMin: 0.55, spawnMax: 0.95, ttlMin: 2.2, ttlMax: 3.1, rMin: 0.036, rMax: 0.052, valueBase: 7.0, valueCombo: 0.30 },
+    { id:'BURSTS', name:'Bursts', hint:'Clusters, then silence.', maxAlive: 7, spawnMin: 0.90, spawnMax: 1.25, ttlMin: 2.6, ttlMax: 3.6, rMin: 0.040, rMax: 0.058, valueBase: 6.4, valueCombo: 0.28, burst: true },
+    { id:'DRIFT', name:'Drift', hint:'Sigils drift while fading.', maxAlive: 5, spawnMin: 0.55, spawnMax: 0.95, ttlMin: 2.6, ttlMax: 3.7, rMin: 0.038, rMax: 0.056, valueBase: 6.6, valueCombo: 0.28, drift: true },
+  ];
+
+  // Seeded RNG for repeatable-but-different runs
+  function mulberry32(seed){
+    let t = seed >>> 0;
+    return function(){
+      t += 0x6D2B79F5;
+      let x = Math.imul(t ^ (t >>> 15), 1 | t);
+      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function hashSeed(str){
+    let h = 2166136261 >>> 0;
+    for (let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function shuffleInPlace(arr, rng){
+    for (let i=arr.length-1;i>0;i--){
+      const j = Math.floor(rng()*(i+1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
 
   // ---------- DOM ----------
   const canvas = document.getElementById('game');
@@ -229,9 +274,14 @@
   const game = {
     state: State.INTRO,
     dayIndex: 0,
+    runSeed: 0,
+    rng: null,
+    runDays: [],
 
     required: 'RAIN',
     chosen: 'RAIN',
+    layoutId: 'OPEN',
+    styleId: 'DRIZZLE',
 
     belief: 0,
     beliefNeed: 55,
@@ -245,6 +295,7 @@
     staticAmt: 0,
     targets: [],
     spawnT: 0,
+    burstLeft: 0,
 
     // input
     pointer: {x:0, y:0, down:false, justPressed:false},
@@ -294,6 +345,7 @@
         </div>
         <div class="notice">
           <p><b>5 days.</b> Each day has a needed weather. Choose the right forecast to keep the Need low.</p>
+          <p class="small">Each run is procedurally remixed: new day order, new map layout, new broadcast mood.</p>
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
             <button id="playBtn" class="btn primary">Play</button>
             <button id="tipBtn" class="btn">One Tip</button>
@@ -323,6 +375,33 @@
 
   // ---------- campaign flow ----------
   function startCampaign(){
+    // Build a fresh procedural run (tasteful + readable)
+    const seed = (Date.now() ^ Math.floor(Math.random()*1e9)) >>> 0;
+    game.runSeed = seed;
+    game.rng = mulberry32(seed);
+    const rng = game.rng;
+
+    const pool = SCENARIOS.slice();
+    shuffleInPlace(pool, rng);
+    const picked = pool.slice(0, 5);
+
+    // Pick layouts/styles with light constraints (avoid too many repeats)
+    let lastLayout = null;
+    let lastStyle = null;
+    game.runDays = picked.map((s, i) => {
+      let layout = pick(LAYOUTS.map(x=>x.id));
+      let style = pick(STYLES.map(x=>x.id));
+      // seeded selection with rerolls for variety
+      const pickFrom = (arr) => arr[Math.floor(rng()*arr.length)];
+      layout = pickFrom(LAYOUTS.map(x=>x.id));
+      style = pickFrom(STYLES.map(x=>x.id));
+      if (layout === lastLayout) layout = pickFrom(LAYOUTS.map(x=>x.id));
+      if (style === lastStyle) style = pickFrom(STYLES.map(x=>x.id));
+      lastLayout = layout;
+      lastStyle = style;
+      return { day: i+1, ...s, layoutId: layout, styleId: style };
+    });
+
     game.dayIndex = 0;
     game.state = State.BRIEFING;
     hud.style.display = 'flex';
@@ -330,17 +409,22 @@
   }
 
   function showBriefing(){
-    const d = DAYS[game.dayIndex];
+    const d = game.runDays[game.dayIndex];
     game.required = d.required;
     game.chosen = d.required;
+    game.layoutId = d.layoutId;
+    game.styleId = d.styleId;
     game.belief = 0;
     game.targets.length = 0;
     audio.setBelief(0);
+    game.beliefNeed = computeNeed();
 
     updateHud();
 
     const req = WEATHER[d.required];
     const mun = WEATHER[d.mundane];
+    const layout = LAYOUTS.find(x => x.id === d.layoutId) || LAYOUTS[0];
+    const style = STYLES.find(x => x.id === d.styleId) || STYLES[0];
 
     const options = Object.values(WEATHER).map(w => {
       const recommended = (w.id === d.required);
@@ -365,6 +449,16 @@
         <div class="notice" style="flex:1; min-width:260px;">
           <p><b>Needed:</b> <span style="color:${req.accent}">${req.name}</span></p>
           <p class="small">Choose your forecast. Then go live.</p>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="notice" style="flex:1; min-width:260px;">
+          <p><b>Map layout:</b> ${layout.name}</p>
+          <p class="small">${layout.hint}</p>
+        </div>
+        <div class="notice" style="flex:1; min-width:260px;">
+          <p><b>Broadcast mood:</b> ${style.name}</p>
+          <p class="small">${style.hint}</p>
         </div>
       </div>
 
@@ -402,28 +496,36 @@
   function computeNeed(){
     const dayRamp = game.dayIndex * 2; // gentle
     const correct = game.chosen === game.required;
-    return clamp((correct ? 44 : 70) + dayRamp, 30, 92);
+    const style = STYLES.find(x => x.id === game.styleId) || STYLES[0];
+    const styleMod = style.id === 'SPARKS' ? 4 : style.id === 'BURSTS' ? 2 : style.id === 'DRIFT' ? 2 : 0;
+    return clamp((correct ? 44 : 70) + dayRamp + styleMod, 30, 92);
   }
 
   function beginLive(){
     game.state = State.LIVE;
     hideOverlay();
 
+    const style = STYLES.find(x => x.id === game.styleId) || STYLES[0];
+
     game.belief = 0;
     game.combo = 0;
     game.staticAmt = 0;
     game.time = 0;
-    game.duration = 25;
+    // small procedural variation in round length, kept readable
+    game.duration = style.id === 'SPARKS' ? 23 : 25;
     game.scanX = 0.05;
-    game.scanSpeed = 0.28;
+    // scanline is an optional bonus cue; vary speed a bit per run
+    const rng = game.rng || Math.random;
+    game.scanSpeed = 0.24 + rng()*0.08;
     game.spawnT = 0;
+    game.burstLeft = 0;
     game.targets.length = 0;
 
     game.beliefNeed = computeNeed();
     audio.setWeatherAccent(game.chosen);
     audio.setBelief(0);
 
-    caption(`ON AIR — Click sigils on the scanline. Need ${Math.round(game.beliefNeed)}.`);
+    caption(`ON AIR — Click sigils before they fade. Need ${Math.round(game.beliefNeed)}.`);
     updateHud();
   }
 
@@ -431,7 +533,7 @@
     const success = game.belief >= game.beliefNeed;
     game.state = State.RESULT;
 
-    const d = DAYS[game.dayIndex];
+    const d = game.runDays[game.dayIndex];
     const chosen = WEATHER[game.chosen];
     const req = WEATHER[game.required];
 
@@ -462,7 +564,7 @@
         <div class="small">Same mechanic every day. Different pressure.</div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button id="retry" class="btn">Retry</button>
-          <button id="next" class="btn primary">${success ? (game.dayIndex === DAYS.length-1 ? 'Finish' : 'Continue') : 'Continue Anyway'}</button>
+          <button id="next" class="btn primary">${success ? (game.dayIndex === game.runDays.length-1 ? 'Finish' : 'Continue') : 'Continue Anyway'}</button>
         </div>
       </div>
     `);
@@ -478,7 +580,7 @@
       if (success){
         game.dayIndex += 1;
       }
-      if (game.dayIndex >= DAYS.length){
+      if (game.dayIndex >= game.runDays.length){
         showWin();
         return;
       }
@@ -505,8 +607,8 @@
 
   // ---------- HUD ----------
   function updateHud(){
-    const d = DAYS[game.dayIndex] ?? DAYS[0];
-    hudDay.textContent = String(d.day);
+    const d = game.runDays[game.dayIndex] || {day: game.dayIndex+1, required: game.required, chosen: game.chosen};
+    hudDay.textContent = String(d.day ?? (game.dayIndex+1));
     hudBelief.textContent = String(Math.round(game.belief));
     hudNeed.textContent = String(Math.round(game.beliefNeed));
     hudRequired.textContent = WEATHER[game.required].name;
@@ -584,13 +686,48 @@
     return {rx,ry,rw,rh,mx,my,mw,mh};
   }
 
+  function samplePos(layoutId, rng){
+    // All positions are normalized in [0..1] inside the map rect.
+    const r01 = () => (typeof rng === 'function' ? rng() : Math.random());
+    const clamp01 = (v) => clamp(v, 0.06, 0.94);
+
+    if (layoutId === 'RING'){
+      const a = r01() * Math.PI * 2;
+      const rad = 0.30 + (r01()-0.5)*0.10;
+      const x = 0.5 + Math.cos(a) * rad;
+      const y = 0.5 + Math.sin(a) * rad;
+      return {x: clamp01(x), y: clamp01(y)};
+    }
+
+    if (layoutId === 'DIAGONAL'){
+      const t = r01();
+      const j = (r01()-0.5) * 0.16;
+      const x = lerp(0.12, 0.88, t) + j;
+      const y = lerp(0.22, 0.82, t) - j;
+      return {x: clamp01(x), y: clamp01(y)};
+    }
+
+    if (layoutId === 'TWIN'){
+      const side = r01() < 0.5 ? 0.30 : 0.70;
+      const x = side + (r01()-0.5)*0.22;
+      const y = 0.50 + (r01()-0.5)*0.40;
+      return {x: clamp01(x), y: clamp01(y)};
+    }
+
+    // OPEN
+    return {x: lerp(0.10,0.90,r01()), y: lerp(0.10,0.90,r01())};
+  }
+
   function spawnTarget(){
-    // keep targets inside "map" region
-    const x = rand(0.10, 0.90);
-    const y = rand(0.10, 0.90);
-    const r = rand(0.040, 0.055);
-    const ttl = rand(2.4, 3.4);
-    game.targets.push({x,y,r,ttl,pulse:rand(0,10)});
+    const rng = game.rng || Math.random;
+    const style = STYLES.find(x => x.id === game.styleId) || STYLES[0];
+    const pos = samplePos(game.layoutId, rng);
+    const r = style.rMin + rng()*(style.rMax - style.rMin);
+    const ttl = style.ttlMin + rng()*(style.ttlMax - style.ttlMin);
+    const drift = !!style.drift;
+    const vx = drift ? (rng()-0.5) * 0.06 : 0;
+    const vy = drift ? (rng()-0.5) * 0.06 : 0;
+    game.targets.push({x:pos.x,y:pos.y,r,ttl,pulse:rng()*10,vx,vy});
   }
 
   function decayTargets(dt){
@@ -651,8 +788,9 @@
     // Hit: always succeeds on sigil click. Timing just adds extra belief.
     game.targets.splice(idx,1);
     game.combo += 1;
-    const base = 6.4 + Math.min(5, game.combo*0.28);
-    const gain = base + (timingBonus ? 3.0 : 0.0);
+    const style = STYLES.find(x => x.id === game.styleId) || STYLES[0];
+    const base = style.valueBase + Math.min(5, game.combo*style.valueCombo);
+    const gain = base + (timingBonus ? 2.5 : 0.0);
     game.belief = clamp(game.belief + gain, 0, 100);
     game.staticAmt = Math.max(0, game.staticAmt - 0.10);
     audio.hit();
@@ -905,15 +1043,48 @@
       game.scanX += game.scanSpeed * dt;
       if (game.scanX > 1) game.scanX -= 1;
 
-      // spawn targets steadily; keep ~3-5 alive
+      // spawn targets with a controlled procedural \"mood\" (style)
+      const rng = game.rng || Math.random;
+      const style = STYLES.find(x => x.id === game.styleId) || STYLES[0];
+      const maxAlive = style.maxAlive;
+
       game.spawnT -= dt;
-      if (game.spawnT <= 0){
-        if (game.targets.length < 5) spawnTarget();
-        game.spawnT = rand(0.65, 1.05);
+      if (style.burst){
+        if (game.burstLeft <= 0 && game.spawnT <= 0){
+          game.burstLeft = 2 + Math.floor(rng()*3); // 2–4
+          game.spawnT = 0; // start immediately
+        }
+        if (game.burstLeft > 0 && game.spawnT <= 0){
+          if (game.targets.length < maxAlive) spawnTarget();
+          game.burstLeft -= 1;
+          // rapid internal burst cadence
+          game.spawnT = 0.06 + rng()*0.08;
+          if (game.burstLeft <= 0){
+            // pause between bursts
+            game.spawnT = style.spawnMin + rng()*(style.spawnMax-style.spawnMin);
+          }
+        }
+      } else {
+        if (game.spawnT <= 0){
+          if (game.targets.length < maxAlive) spawnTarget();
+          game.spawnT = style.spawnMin + rng()*(style.spawnMax-style.spawnMin);
+        }
       }
 
       decayTargets(dt);
       game.staticAmt = Math.max(0, game.staticAmt - 0.12*dt);
+
+      // drift behavior (still the same mechanic; just moving targets)
+      if (style.drift){
+        for (const tg of game.targets){
+          tg.x += tg.vx * dt;
+          tg.y += tg.vy * dt;
+          if (tg.x < 0.06 || tg.x > 0.94) tg.vx *= -1;
+          if (tg.y < 0.06 || tg.y > 0.94) tg.vy *= -1;
+          tg.x = clamp(tg.x, 0.06, 0.94);
+          tg.y = clamp(tg.y, 0.06, 0.94);
+        }
+      }
 
       if (game.pointer.justPressed){
         attemptHit(false);
@@ -982,16 +1153,21 @@
     window.__WW = {
       get: () => ({
         state: game.state,
+        runSeed: game.runSeed,
         dayIndex: game.dayIndex,
+        dayTitle: game.runDays[game.dayIndex]?.title,
         required: game.required,
         chosen: game.chosen,
+        layoutId: game.layoutId,
+        styleId: game.styleId,
         belief: game.belief,
         beliefNeed: game.beliefNeed,
         time: game.time,
         targets: game.targets.map(t => ({x:t.x, y:t.y, r:t.r, ttl:t.ttl})),
         scanX: game.scanX,
         pointer: {x: game.pointer.x, y: game.pointer.y, down: game.pointer.down},
-        spaceCount: game.spaceCount
+        spaceCount: game.spaceCount,
+        runSequence: game.runDays.map(d => d.title)
       })
     };
 

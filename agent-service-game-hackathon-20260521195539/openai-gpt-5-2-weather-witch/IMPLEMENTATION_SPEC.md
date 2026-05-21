@@ -1,63 +1,45 @@
-# Weather Witch: Forecast a Lie — Simplified Implementation Spec
-
-## Goal (new fun-first rubric)
-Build a browser game that is fun within 30 seconds, with **one readable core mechanic** and strong feedback.
+# Weather Witch: Forecast a Lie — Fun-First Spec (Procedural Remix)
 
 ## Core Mechanic (single verb)
-**Click the glowing sigil exactly as the bright scanline passes through it.**
+**Click glowing sigils before they fade to build Belief.**
 
-- If you hit: belief rises, the studio “locks in,” and your forecast becomes more real.
-- If you miss: belief drops a bit and static increases.
-
-This is the whole game’s skill expression: **aim + timing + rhythm.**
+- Click = success (no hidden rules).
+- Optional bonus: clicking as the scanline passes gives a small Belief boost.
 
 ## Core Loop
-For each day (5 total):
-1. Briefing: a town crisis needs a specific weather.
-2. Choose your forecast (Rain / Sun / Wind / Lightning).
-3. Go Live (20 seconds): hit enough sigils to reach the belief threshold.
-4. Result: Success advances to next day; Failure lets you retry instantly.
+Each day:
+1) Briefing: shows the crisis + required weather.
+2) Choose forecast.
+3) Go Live: click sigils until you reach the visible Need.
+4) Result: Retry or Continue.
 
-## Clarity / Cause & Effect
-- The UI always shows:
-  - Required weather for the day
-  - Your chosen forecast
-  - Belief meter + a clear threshold marker (how much belief you need)
-  - Time remaining
-- Choosing the **wrong** forecast is allowed, but the belief threshold is visibly higher.
+## Procedural Variation (controlled, readable)
+Each new run is a *remix* with constraints:
+- **Day sequence**: 5 scenarios drawn from a pool and shuffled with a run seed.
+- **Map layout**: each day picks one of several layout masks (Open / Ring / Diagonal / Twin).
+- **Broadcast mood**: each day picks one style affecting spawn cadence/TTL (Drizzle / Sparks / Bursts / Drift).
+- Minor tuning: scanline speed varies slightly per run.
 
-## Difficulty / Fairness
-- Correct forecast: moderate threshold (achievable for first-time players).
-- Wrong forecast: high threshold (possible with strong play, but clearly harder).
-- Failure is non-punitive: instant retry from the same day.
+All variation is explained in the briefing with a short label + hint.
 
-## Visual Identity
-- CRT weather broadcast frame, neon isobars, occult circles.
-- Target sigils are bright, animated, and obviously clickable.
-- Hits produce a satisfying pulse + particles; misses produce glitch/static.
+## Fairness
+- Correct forecast lowers Need; wrong forecast raises it.
+- No punitive "miss" clicks on empty space.
+- Failure is non-punitive: retry instantly.
 
 ## Audio
-- WebAudio procedural soundtrack.
-- Hit SFX: bright chime; Miss SFX: low thud + static.
-- Belief affects mix: more belief = less static + brighter music.
-- Volume slider + mute toggle.
+- Procedural WebAudio music + noise.
+- Belief reduces static and brightens the mix.
+- Mute + volume slider.
 
-## Screens / Flow
-- Intro overlay with short explanation + Play button (unlocks audio).
-- Briefing overlay each day.
-- Live broadcast canvas gameplay.
-- Result overlay (success/fail) with Continue/Retry.
-- Win overlay after Day 5.
+## Client-only
+Static `index.html`, `styles.css`, `main.js`. No network dependencies.
 
-## Files
-- `index.html`, `styles.css`, `main.js`
-- No external dependencies, no server.
-
-## Testing Plan (agent-browser)
-- Verify intro + Play enters game and audio unlocks.
-- Verify a full day: choose forecast → live → result.
-- Verify failure → retry loop.
-- Verify win flow after day 5.
-- Verify mute/volume.
-- Verify no missing assets and no console-breaking errors.
+## Testing
+Use `agent-browser` to verify:
+- Intro → Play works.
+- Two fresh runs have different sequences/layouts/styles.
+- At least one full 5-day run is finishable.
+- Mute/volume.
+- Retry on failure.
 

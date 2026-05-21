@@ -1,4 +1,4 @@
-/* Wax Museum Midnight — Tile-Step Stealth */
+/* Wax Museum Midnight — Procedural Tile-Step Stealth */
 
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
@@ -16,69 +16,189 @@ let state = 'INTRO';
 let levelIdx = 0;
 let tiles = [];
 let waxPools = [];
+let waxCaches = [];
 let particles = [];
 let time = 0;
 let camX = 0, camY = 0;
+let runSeed = 0;
+let rngState = 0;
+let currentRunLevels = [];
 
 const player = { gx: 1, gy: 1, x: 1, y: 1, wax: WAX_MAX, lastDrip: 0, moving: false, moveT: 0, moveFrom: {x:0,y:0}, moveTo: {x:0,y:0}, alive: true };
-const watchman = { x: 0, y: 0, gx: 0, gy: 0, wp: 0, waiting: false, waitT: 0, moving: false, angle: 0, speed: 1, spotted: false, spotT: 0 };
+const watchman = { x: 0, y: 0, gx: 0, gy: 0, wp: 0, waiting: false, waitT: 0, moving: false, angle: 0, speed: 1, spotted: false, spotT: 0, forward: true };
 
-const LEVELS = [
-  {
-    name: "The Lesson",
-    map: [
-      "###########",
-      "#S---X--E#",
-      "###########"
-    ],
-    watchman: null
-  },
-  {
-    name: "The Window",
-    map: [
-      "#############",
-      "#S----X---E#",
-      "#-----------#",
-      "#-----------#",
-      "#############"
-    ],
-    watchman: { waypoints: [{x:1,y:3},{x:11,y:3}], speed: 1.4, wait: 600 }
-  },
-  {
-    name: "Two Lamps",
-    map: [
-      "################",
-      "#S----X---X--E#",
-      "#--------------#",
-      "#--------------#",
-      "################"
-    ],
-    watchman: { waypoints: [{x:1,y:3},{x:14,y:3}], speed: 1.6, wait: 400 }
-  },
-  {
-    name: "The Run",
-    map: [
-      "##################",
-      "#S-X-X-X-X-X-X-E#",
-      "#----------------#",
-      "#----------------#",
-      "##################"
-    ],
-    watchman: { waypoints: [{x:1,y:3},{x:16,y:3}], speed: 2.0, wait: 250 }
-  },
-  {
-    name: "The Gauntlet",
-    map: [
-      "###############",
-      "#S---X-------E#",
-      "#----#-X------#",
-      "#--------X----#",
-      "###############"
-    ],
-    watchman: { waypoints: [{x:1,y:1},{x:13,y:1},{x:13,y:3},{x:1,y:3}], speed: 1.6, wait: 350 }
-  }
+/* ---------- Seeded RNG ---------- */
+function srand(seed) { rngState = seed >>> 0; }
+function rand() { rngState = (rngState * 1103515245 + 12345) & 0x7fffffff; return rngState / 0x7fffffff; }
+function randInt(min, max) { return min + Math.floor(rand() * (max - min + 1)); }
+function randItem(arr) { return arr[Math.floor(rand() * arr.length)]; }
+
+/* ---------- Procedural Generation ---------- */
+const ROOM_NAMES = [
+  "The Lesson","The Vestibule","The Cloister","The Atrium","The Scriptorium",
+  "The Antechamber","The Belfry","The Refectory","The Oratory","The Consistory",
+  "The Tribune","The Mausoleum","The Panopticon","The Hypogeum","The Orrery",
+  "The Nave","The Crypt","The Annex","The Rotunda","The Purgatory"
 ];
 
+function generateRun() {
+  runSeed = Date.now() % 1000000;
+  srand(runSeed);
+  currentRunLevels = [];
+  for (let i = 0; i < 5; i++) currentRunLevels.push(generateLevel(i));
+  const el = document.getElementById('run-id');
+  if (el) el.textContent = 'Exhibit #' + runSeed;
+  const hudEl = document.getElementById('run-hud-id');
+  if (hudEl) hudEl.textContent = '#' + runSeed;
+}
+
+function generateLevel(idx) {
+  // Dimensions vary by difficulty and randomness
+  const isWide = rand() < 0.6;
+  const width = isWide ? Math.min(24, 11 + idx * 3 + randInt(0, 2)) : Math.min(18, 9 + idx * 2 + randInt(0, 1));
+  const height = isWide ? Math.min(9, 5 + idx + randInt(0, 1)) : Math.min(11, 5 + idx + randInt(0, 2));
+
+  const grid = [];
+  for (let y = 0; y < height; y++) {
+    grid[y] = [];
+    for (let x = 0; x < width; x++) grid[y][x] = TILE.WALL;
+  }
+
+  const corridorY = Math.floor(height / 2);
+
+  // --- Guaranteed horizontal corridor (the spine) ---
+  for (let x = 1; x < width - 1; x++) {
+    grid[corridorY][x] = TILE.FLOOR;
+  }
+
+  // --- Meander: shift the corridor up or down for random segments ---
+  const meanders = randInt(0, Math.min(3, idx + 1));
+  for (let m = 0; m < meanders; m++) {
+    const segStart = randInt(2, width - 5);
+    const segLen = randInt(2, Math.min(5, width - segStart - 2));
+    const offset = rand() < 0.5 ? -1 : 1;
+    const altY = corridorY + offset;
+    if (altY > 0 && altY < height - 1) {
+      for (let x = segStart; x < segStart + segLen; x++) {
+        grid[altY][x] = TILE.FLOOR;
+      }
+      // Ensure vertical connectivity at segment ends
+      grid[altY][segStart] = TILE.FLOOR;
+      grid[corridorY][segStart] = TILE.FLOOR;
+      if (segStart + segLen < width - 1) {
+        grid[altY][segStart + segLen - 1] = TILE.FLOOR;
+        grid[corridorY][segStart + segLen - 1] = TILE.FLOOR;
+      }
+    }
+  }
+
+  // --- Random vertical connectors / alcoves near the corridor ---
+  for (let x = 2; x < width - 2; x++) {
+    if (rand() < 0.10 && corridorY > 1) grid[corridorY - 1][x] = TILE.FLOOR;
+    if (rand() < 0.10 && corridorY < height - 2) grid[corridorY + 1][x] = TILE.FLOOR;
+  }
+
+  // --- Start and Exit on the main corridor ---
+  grid[corridorY][1] = TILE.START;
+  grid[corridorY][width - 2] = TILE.EXIT;
+
+  // --- Gaps on the corridor (never on start or exit) ---
+  const gapCandidates = [];
+  for (let x = 2; x < width - 2; x++) {
+    if (grid[corridorY][x] === TILE.FLOOR) gapCandidates.push({x, y: corridorY});
+  }
+  // Fisher-Yates shuffle
+  for (let i = gapCandidates.length - 1; i > 0; i--) {
+    const j = randInt(0, i);
+    [gapCandidates[i], gapCandidates[j]] = [gapCandidates[j], gapCandidates[i]];
+  }
+  const maxGaps = Math.min(gapCandidates.length, 1 + idx + randInt(0, Math.max(1, Math.floor(idx / 2))));
+  for (let i = 0; i < maxGaps; i++) {
+    const g = gapCandidates[i];
+    grid[g.y][g.x] = TILE.GAP;
+  }
+
+  // --- Branching rooms / alcoves off the corridor ---
+  const roomCount = randInt(0, Math.min(3, idx + 1));
+  for (let r = 0; r < roomCount; r++) {
+    const rx = randInt(2, width - 3);
+    const ry = randInt(1, height - 2);
+    if (grid[ry][rx] === TILE.WALL) {
+      grid[ry][rx] = TILE.FLOOR;
+      if (rand() < 0.35 && rx + 1 < width - 1) grid[ry][rx + 1] = TILE.FLOOR;
+      if (rand() < 0.35 && ry + 1 < height - 1) grid[ry + 1][rx] = TILE.FLOOR;
+    }
+  }
+
+  // --- Watchman patrols (levels 1+) on open horizontal lanes ---
+  let watchmanDef = null;
+  if (idx >= 1) {
+    const lanes = [];
+    for (let y = 1; y < height - 1; y++) {
+      const openX = [];
+      for (let x = 1; x < width - 1; x++) {
+        if (grid[y][x] !== TILE.WALL) openX.push(x);
+      }
+      if (openX.length >= 4) lanes.push({y, openX});
+    }
+    if (lanes.length > 0) {
+      const lane = randItem(lanes);
+      const y = lane.y;
+      const xs = lane.openX;
+      const wps = [];
+      const step = Math.max(1, Math.floor(xs.length / 3));
+      for (let i = 0; i < Math.min(4, xs.length); i += step) {
+        const pick = i + randInt(0, Math.max(0, Math.min(step - 1, xs.length - i - 1)));
+        wps.push({x: xs[Math.min(pick, xs.length - 1)], y});
+      }
+      // Keep waypoints reasonably far from start and exit
+      const filtered = wps.filter(p => p.x > 3 && p.x < width - 3);
+      if (filtered.length >= 2) {
+        const speed = 1.2 + idx * 0.2 + rand() * 0.35;
+        const wait = Math.max(200, 600 - idx * 80 - rand() * 100);
+        const pingpong = rand() < 0.5;
+        watchmanDef = { waypoints: filtered, speed, wait, pingpong };
+      }
+    }
+  }
+
+  // --- Wax caches off the main corridor ---
+  const caches = [];
+  const cacheCount = randInt(0, Math.min(3, idx + 1));
+  for (let i = 0; i < cacheCount; i++) {
+    let attempts = 0;
+    while (attempts < 100) {
+      const cx = randInt(2, width - 3);
+      const cy = randInt(1, height - 2);
+      if (grid[cy][cx] === TILE.FLOOR && cy !== corridorY) {
+        caches.push({x: cx, y: cy});
+        break;
+      }
+      attempts++;
+    }
+  }
+
+  const name = ROOM_NAMES[randInt(0, ROOM_NAMES.length - 1)];
+
+  // Convert grid to string map
+  const mapLines = [];
+  for (let y = 0; y < height; y++) {
+    let line = "";
+    for (let x = 0; x < width; x++) {
+      const t = grid[y][x];
+      if (t === TILE.WALL) line += '#';
+      else if (t === TILE.START) line += 'S';
+      else if (t === TILE.EXIT) line += 'E';
+      else if (t === TILE.GAP) line += 'X';
+      else line += '-';
+    }
+    mapLines.push(line);
+  }
+
+  return { name, map: mapLines, watchman: watchmanDef, caches };
+}
+
+/* ---------- Map Parsing ---------- */
 function parseMap(lines) {
   const h = lines.length;
   const w = lines[0].length;
@@ -113,6 +233,7 @@ function hasWax(gx, gy) {
   return waxPools.some(p => p.gx === gx && p.gy === gy);
 }
 
+/* ---------- Core Systems ---------- */
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -120,10 +241,11 @@ function resize() {
 
 function loadLevel(idx) {
   levelIdx = idx;
-  const def = LEVELS[idx];
+  const def = currentRunLevels[idx];
   const parsed = parseMap(def.map);
   tiles = parsed.tiles;
   waxPools = [];
+  waxCaches = (def.caches || []).slice();
   particles = [];
 
   player.gx = parsed.start.x;
@@ -135,6 +257,7 @@ function loadLevel(idx) {
   player.moving = false;
   player.lastDrip = 0;
 
+  watchman.forward = true;
   const w = def.watchman;
   if (w && w.waypoints) {
     const w0 = w.waypoints[0];
@@ -197,7 +320,7 @@ function winLevel() {
   AUDIO.stopAll();
   show('room-end-screen');
   setTimeout(() => {
-    if (levelIdx + 1 < LEVELS.length) loadLevel(levelIdx + 1);
+    if (levelIdx + 1 < currentRunLevels.length) loadLevel(levelIdx + 1);
     else {
       state = 'VICTORY';
       show('victory-screen');
@@ -211,7 +334,6 @@ function tryMove(dx, dy) {
   const tx = player.gx + dx;
   const ty = player.gy + dy;
   if (!isWalkable(tx, ty)) {
-    // Bump feedback
     AUDIO.creak();
     return;
   }
@@ -228,7 +350,6 @@ function drip() {
   player.wax -= WAX_DRIP_COST;
   player.lastDrip = now;
   const gx = player.gx, gy = player.gy;
-  // Cover current tile and all 4 adjacent gap tiles
   const targets = [[gx, gy], [gx+1, gy], [gx-1, gy], [gx, gy+1], [gx, gy-1]];
   targets.forEach(([tx, ty]) => {
     if (tileAt(tx, ty) === TILE.GAP) {
@@ -249,11 +370,9 @@ function update(dt) {
   if (state !== 'PLAYING') return;
   const dtSec = dt * 0.001;
 
-  // Move tween
   if (player.moving) {
     player.moveT += dt;
     const t = Math.min(1, player.moveT / MOVE_DUR);
-    // ease out quad
     const ease = 1 - (1 - t) * (1 - t);
     player.x = player.moveFrom.x + (player.moveTo.x - player.moveFrom.x) * ease;
     player.y = player.moveFrom.y + (player.moveTo.y - player.moveFrom.y) * ease;
@@ -264,6 +383,20 @@ function update(dt) {
       player.x = player.gx;
       player.y = player.gy;
       AUDIO.harden();
+
+      // Wax cache pickup
+      const cIdx = waxCaches.findIndex(c => c.x === player.gx && c.y === player.gy);
+      if (cIdx !== -1) {
+        player.wax = Math.min(WAX_MAX, player.wax + 20);
+        waxCaches.splice(cIdx, 1);
+        AUDIO.drip(0.9);
+        for (let i = 0; i < 6; i++) {
+          const spx = (player.x + 0.5) * TILE_S + camX;
+          const spy = (player.y + 0.5) * TILE_S + camY;
+          particles.push({ x: spx, y: spy - 10, vx: (Math.random()-0.5)*4, vy: -Math.random()*3, life: 1.0, color: 'rgba(255,220,120,' });
+        }
+      }
+
       if (tileAt(player.gx, player.gy) === TILE.EXIT) {
         winLevel();
         return;
@@ -271,7 +404,6 @@ function update(dt) {
     }
   }
 
-  // Wax pools
   const now = Date.now();
   waxPools = waxPools.filter(p => {
     const age = now - p.created;
@@ -281,7 +413,7 @@ function update(dt) {
 
   if (player.wax <= 0) { die("Your flame guttered and died."); return; }
 
-  if (LEVELS[levelIdx].watchman) updateWatchman(dtSec);
+  if (currentRunLevels[levelIdx].watchman) updateWatchman(dtSec);
 
   particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.03; p.life -= dtSec; });
   particles = particles.filter(p => p.life > 0);
@@ -298,7 +430,7 @@ function update(dt) {
 }
 
 function updateWatchman(dtSec) {
-  const def = LEVELS[levelIdx];
+  const def = currentRunLevels[levelIdx];
   const w = def.watchman;
   if (!w) return;
 
@@ -306,7 +438,17 @@ function updateWatchman(dtSec) {
     watchman.waitT -= dtSec * 1000;
     if (watchman.waitT <= 0) {
       watchman.waiting = false;
-      watchman.wp = (watchman.wp + 1) % w.waypoints.length;
+      if (w.pingpong) {
+        if (watchman.forward) {
+          watchman.wp++;
+          if (watchman.wp >= w.waypoints.length - 1) watchman.forward = false;
+        } else {
+          watchman.wp--;
+          if (watchman.wp <= 0) watchman.forward = true;
+        }
+      } else {
+        watchman.wp = (watchman.wp + 1) % w.waypoints.length;
+      }
     }
     watchman.moving = false;
   } else {
@@ -364,7 +506,7 @@ function updateWatchman(dtSec) {
   }
 }
 
-// Drawing
+/* ---------- Drawing ---------- */
 function draw() {
   ctx.fillStyle = '#050505';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -373,7 +515,7 @@ function draw() {
   const px = (player.x + 0.5) * TILE_S + camX;
   const py = (player.y + 0.5) * TILE_S + camY;
 
-  // Draw tiles
+  // Tiles
   for (let y = 0; y < tiles.length; y++) {
     for (let x = 0; x < tiles[y].length; x++) {
       const t = tiles[y][x];
@@ -405,7 +547,6 @@ function draw() {
         ctx.strokeStyle = 'rgba(40,30,20,0.3)';
         ctx.lineWidth = 1;
         ctx.strokeRect(sx + 4, sy + 4, TILE_S - 8, TILE_S - 8);
-        // X marks the gap
         ctx.strokeStyle = 'rgba(60,45,30,0.15)';
         ctx.beginPath();
         ctx.moveTo(sx + 8, sy + 8);
@@ -417,9 +558,27 @@ function draw() {
     }
   }
 
+  // Wax caches
+  waxCaches.forEach(c => {
+    const sx = c.x * TILE_S + camX;
+    const sy = c.y * TILE_S + camY;
+    const cx = sx + TILE_S * 0.5;
+    const cy = sy + TILE_S * 0.5;
+    const pulse = 0.6 + Math.sin(time * 0.005 + c.x * 3 + c.y * 7) * 0.4;
+    ctx.fillStyle = `rgba(212,192,144,${0.25 * pulse})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6 + pulse * 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(255,235,180,${0.5 * pulse})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
   // Wax pools
+  const now = Date.now();
   waxPools.forEach(p => {
-    const age = Date.now() - p.created;
+    const age = now - p.created;
     const fade = Math.max(0, 1 - age / 15000);
     const size = p.size * 20;
     const sx = p.gx * TILE_S + camX + TILE_S * 0.5;
@@ -435,7 +594,7 @@ function draw() {
   });
 
   // Watchman
-  if (LEVELS[levelIdx].watchman) {
+  if (currentRunLevels[levelIdx] && currentRunLevels[levelIdx].watchman) {
     const wx = watchman.x * TILE_S + camX;
     const wy = watchman.y * TILE_S + camY;
     ctx.fillStyle = '#0a0806';
@@ -459,7 +618,6 @@ function draw() {
     ctx.arc(hx, hy, 3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Beam
     const a = watchman.angle + Math.PI * 0.3;
     const sp = FOV_A * 0.5;
     ctx.fillStyle = watchman.spotted ? 'rgba(220,80,40,0.15)' : 'rgba(240,180,60,0.08)';
@@ -533,7 +691,7 @@ function draw() {
   ctx.fill();
 }
 
-// Loop
+/* ---------- Loop & Input ---------- */
 let lastT = 0;
 function frame(now) {
   const dt = Math.min(now - lastT, 50);
@@ -543,7 +701,6 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-// Input
 window.addEventListener('keydown', e => {
   if (state !== 'PLAYING') {
     if (e.key === 'Escape') {
@@ -567,7 +724,7 @@ window.addEventListener('resize', resize);
 function resumeGame() {
   if (state === 'PAUSED') {
     state = 'PLAYING';
-    if (LEVELS[levelIdx].watchman) {
+    if (currentRunLevels[levelIdx] && currentRunLevels[levelIdx].watchman) {
       AUDIO.startFootsteps(watchman, () => Math.hypot(watchman.x - player.x, watchman.y - player.y));
     }
     hideAll();
@@ -575,11 +732,12 @@ function resumeGame() {
   }
 }
 
-// UI bindings
+/* ---------- UI Bindings ---------- */
 document.getElementById('play-btn').addEventListener('click', () => {
   AUDIO.init();
   AUDIO.setVolume(parseFloat(document.getElementById('volume-slider').value));
   resize();
+  generateRun();
   loadLevel(0);
 });
 
@@ -607,6 +765,7 @@ document.getElementById('gameover-quit-btn').addEventListener('click', () => {
 });
 document.getElementById('victory-replay-btn').addEventListener('click', () => {
   AUDIO.init();
+  generateRun();
   loadLevel(0);
 });
 document.getElementById('volume-slider').addEventListener('input', e => {

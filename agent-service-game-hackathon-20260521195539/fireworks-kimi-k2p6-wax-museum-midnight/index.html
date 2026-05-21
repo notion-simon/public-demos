@@ -14,11 +14,13 @@
     <div class="intro-content">
       <h1>Wax Museum Midnight</h1>
       <p class="tagline">You are a candle. The floor is gone.<br>Build your own path.</p>
+      <p class="run-id" id="run-id"></p>
       <div class="intro-text">
         <p>Walk with <strong>WASD / Arrows</strong>.<br>
         Stand next to a dark gap, press <strong>SPACE</strong> to fill it with wax.<br>
         Reach the <strong>EXIT</strong> before the Watchman's lantern finds you.<br>
         Don't run out of wax — your flame is your life.</p>
+        <p class="hint">Look for <strong>soft golden pools</strong> off the path. They restore wax.</p>
       </div>
       <div class="controls">
         <p><strong>WASD / Arrows</strong> — Walk</p>
@@ -32,6 +34,7 @@
   <div id="hud" class="overlay">
     <div id="wax-meter"><div id="wax-fill"></div></div>
     <div id="room-label">Room</div>
+    <div id="run-hud-id"></div>
     <button id="mute-btn" class="icon-btn" title="Toggle sound">🔊</button>
     <button id="pause-btn" class="icon-btn" title="Pause">⏸</button>
   </div>

@@ -49,13 +49,24 @@ h1 {
   font-size:1.15rem;
   color:#b89870;
   font-style:italic;
-  margin-bottom:1.2rem;
+  margin-bottom:0.8rem;
+}
+.run-id {
+  font-size:0.75rem;
+  color:#786850;
+  letter-spacing:0.08em;
+  margin-bottom:1rem;
 }
 .intro-text p {
   font-size:1.05rem;
   line-height:1.6;
   margin-bottom:1rem;
   color:#c8b898;
+}
+.intro-text .hint {
+  font-size:0.95rem;
+  color:#d4b878;
+  font-style:italic;
 }
 .controls {
   text-align:left;
@@ -118,6 +129,16 @@ h1 {
   color:#b89870;
   letter-spacing:0.05em;
   text-shadow:0 1px 4px rgba(0,0,0,0.8);
+}
+
+#run-hud-id {
+  font-size:0.7rem;
+  color:#786850;
+  letter-spacing:0.06em;
+  text-shadow:0 1px 4px rgba(0,0,0,0.8);
+  padding:0.2rem 0.4rem;
+  background:rgba(10,8,6,0.6);
+  border-radius:3px;
 }
 
 .icon-btn {

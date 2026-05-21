@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grandmother's House Eats the Guests</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="intro" class="screen active">
+    <div class="intro-card">
+      <div class="eyebrow">A one-button haunted-house routing game</div>
+      <h1>Grandmother's House<br><span>Eats the Guests</span></h1>
+      <p class="hook">Click rooms to rotate their glowing hallways. Several guests move at once: guide green guests to tea and red guests to the hungry basement before suspicion boils over!</p>
+      <div class="rules simpleRules">
+        <div><b>One verb:</b><br>click any hallway room to rotate it.</div>
+        <div><b>Green guests</b><br>want the Tea Room.</div>
+        <div><b>Red guests</b><br>belong in the Basement Mouth.</div>
+      </div>
+      <button id="playBtn" class="big-btn">Light the Candles & Play</button>
+      <p class="small">Single-player • client-only • sound recommended</p>
+    </div>
+  </div>
+
+  <div id="gameScreen" class="screen">
+    <header class="hud">
+      <div class="brand">Grandmother's House Eats the Guests</div>
+      <div class="meter"><span>Suspicion</span><div class="bar"><i id="suspicionFill"></i></div><b id="suspicionText">0%</b></div>
+      <div class="meter"><span>Guests</span><b id="scoreText">0/12</b></div>
+      <div class="audioControls">
+        <button id="muteBtn" title="Mute (M)">🔊</button>
+        <input id="volume" type="range" min="0" max="1" step="0.01" value="0.55" title="Volume" />
+      </div>
+      <button id="restartBtn">Restart</button>
+    </header>
+    <main class="layout simplified">
+      <aside class="panel left">
+        <h2>How to Haunt</h2>
+        <div class="oneMechanic">Click a room to rotate its hallway.</div>
+        <div class="hint bigHint">Line up glowing hallway ends. Multiple guests move at once, so rotate ahead!</div>
+        <div class="miniLegend"><span class="goodDot"></span> Green/☕ → Tea Exit</div>
+        <div class="miniLegend"><span class="badDot"></span> Red/🦷 → Mouth Exit</div>
+        <p class="smallTip">Tip: shared doorways glow when two rooms connect. If a guest waits in a dead end, suspicion rises.</p>
+      </aside>
+      <section class="stageWrap">
+        <canvas id="game" width="960" height="720" aria-label="Rotating haunted house room board"></canvas>
+      </section>
+      <aside class="panel right">
+        <h2>Dinner Line</h2>
+        <div id="guestList"></div>
+        <p class="legend">Several guests may be inside at once. Watch their icons: ☕ wants tea, 🦷 needs basement.</p>
+      </aside>
+    </main>
+  </div>
+
+  <div id="endModal" class="modal hidden">
+    <div class="modal-card">
+      <h2 id="endTitle">Dinner is served.</h2>
+      <p id="endText"></p>
+      <button id="againBtn" class="big-btn">Play Again</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

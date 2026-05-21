@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Wax Museum Midnight</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="game-container">
+  <canvas id="game-canvas"></canvas>
+
+  <div id="intro-screen" class="overlay active">
+    <div class="intro-content">
+      <h1>Wax Museum Midnight</h1>
+      <p class="tagline">You are a candle. The floor is gone.<br>Build your own path.</p>
+      <div class="intro-text">
+        <p>Walk with <strong>WASD / Arrows</strong>.<br>
+        Stand next to a dark gap, press <strong>SPACE</strong> to fill it with wax.<br>
+        Reach the <strong>EXIT</strong> before the Watchman's lantern finds you.<br>
+        Don't run out of wax — your flame is your life.</p>
+      </div>
+      <div class="controls">
+        <p><strong>WASD / Arrows</strong> — Walk</p>
+        <p><strong>Space (hold)</strong> — Drip wax bridge</p>
+        <p><strong>Esc</strong> — Pause</p>
+      </div>
+      <button id="play-btn" class="big-btn">Light the Wick</button>
+    </div>
+  </div>
+
+  <div id="hud" class="overlay">
+    <div id="wax-meter"><div id="wax-fill"></div></div>
+    <div id="room-label">Room</div>
+    <button id="mute-btn" class="icon-btn" title="Toggle sound">🔊</button>
+    <button id="pause-btn" class="icon-btn" title="Pause">⏸</button>
+  </div>
+
+  <div id="pause-screen" class="overlay">
+    <div class="menu-content">
+      <h2>Paused</h2>
+      <label>Volume
+        <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.7">
+      </label>
+      <button id="resume-btn" class="big-btn">Resume</button>
+      <button id="restart-room-btn" class="big-btn">Restart Room</button>
+      <button id="quit-btn" class="big-btn">Quit to Menu</button>
+    </div>
+  </div>
+
+  <div id="room-end-screen" class="overlay">
+    <div class="menu-content">
+      <h2>The flame survives.</h2>
+    </div>
+  </div>
+
+  <div id="gameover-screen" class="overlay">
+    <div class="menu-content">
+      <h2>Snuffed.</h2>
+      <p id="death-reason">The lantern found you.</p>
+      <button id="retry-btn" class="big-btn">Try Again</button>
+      <button id="gameover-quit-btn" class="big-btn">Quit to Menu</button>
+    </div>
+  </div>
+
+  <div id="victory-screen" class="overlay">
+    <div class="menu-content">
+      <h2>Dawn breaks.</h2>
+      <p>The flame escapes the museum.</p>
+      <p class="credits">A game for one candle.</p>
+      <button id="victory-replay-btn" class="big-btn">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script src="audio.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

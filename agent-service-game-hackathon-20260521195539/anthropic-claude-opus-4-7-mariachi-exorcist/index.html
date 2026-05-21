@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mariachi Exorcist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="stage" width="1280" height="800"></canvas>
+
+    <div id="audioHud" class="hidden">
+      <button id="muteBtn" title="Mute (M)">🔊</button>
+      <input id="volSlider" type="range" min="0" max="100" value="75" title="Volume" />
+    </div>
+
+    <div id="intro" class="screen">
+      <div class="papel-row top"></div>
+      <div class="intro-card">
+        <h1>Mariachi <span class="accent">Exorcist</span></h1>
+        <p class="tagline">Strum three ghosts to rest.</p>
+        <div class="intro-body">
+          <p>Notes fall in three lanes. Hit them on the beat — with the right key.</p>
+          <p class="keys-row">
+            <span><kbd>A</kbd> <small>low strum</small></span>
+            <span><kbd>S</kbd> <small>chord</small></span>
+            <span><kbd>D</kbd> <small>trumpet</small></span>
+          </p>
+          <p>Hits fill your <b style="color:var(--gold)">Spirit</b> bar. Misses <em>and</em> wrong-key strikes feed the ghost's <b style="color:var(--magenta-bright)">Haunt</b> bar. First to 100% wins the duel.</p>
+          <p class="quiet">Three ghosts await: La Novia, El Bandido, La Catrina. Banish all three to free San Sepulcro.</p>
+        </div>
+        <button id="playBtn" class="big-btn">▶ Play</button>
+        <p class="footer-note">Headphones recommended · <kbd>M</kbd> mute · <kbd>Esc</kbd> pause</p>
+      </div>
+      <div class="papel-row bottom"></div>
+    </div>
+
+    <div id="result" class="screen hidden">
+      <div class="papel-row top"></div>
+      <div class="intro-card">
+        <h1 id="resultTitle">—</h1>
+        <p class="tagline" id="resultSub">—</p>
+        <div class="intro-body">
+          <p id="resultBody">—</p>
+        </div>
+        <button id="resultBtn" class="big-btn">▶ Continue</button>
+      </div>
+      <div class="papel-row bottom"></div>
+    </div>
+
+    <div id="winScreen" class="screen hidden">
+      <div class="papel-row top"></div>
+      <div class="intro-card">
+        <h1>The Town is <span class="accent">Free</span></h1>
+        <p class="tagline">Three corridos sung. Three souls at rest.</p>
+        <div class="intro-body">
+          <p>San Sepulcro sings again. Marigolds bloom on every roof, and the dusk lifts.</p>
+        </div>
+        <button id="playAgainBtn" class="big-btn">↻ Play Again</button>
+      </div>
+      <div class="papel-row bottom"></div>
+    </div>
+
+    <div id="pause" class="modal hidden">
+      <div class="modal-inner small">
+        <h2>Paused</h2>
+        <p>Press <kbd>Esc</kbd> to resume.</p>
+        <div class="pause-btns">
+          <button id="resumeBtn" class="big-btn">▶ Resume</button>
+          <button id="restartBtn" class="big-btn alt">↻ Restart Duel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Weather Witch: Forecast a Lie</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="game" aria-label="Weather Witch game canvas" role="img"></canvas>
+
+    <div id="overlay" class="overlay">
+      <div class="card" id="overlayCard"></div>
+    </div>
+
+    <div id="hud" class="hud" aria-hidden="true">
+      <div class="hud-left">
+        <div class="pill"><span class="label">Day</span> <span id="hudDay">1</span>/5</div>
+        <div class="pill"><span class="label">Need</span> <span id="hudNeed">55</span></div>
+        <div class="pill"><span class="label">Belief</span> <span id="hudBelief">0</span>%</div>
+      </div>
+
+      <div class="hud-right">
+        <div class="pill"><span class="label">Today</span> <span id="hudRequired">Rain</span></div>
+        <div class="pill"><span class="label">You</span> <span id="hudChosen">Rain</span></div>
+        <button id="btnMute" class="pill-btn" title="Mute (M)">Mute</button>
+        <label class="vol">
+          <span>Vol</span>
+          <input id="vol" type="range" min="0" max="1" step="0.01" value="0.8" />
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>

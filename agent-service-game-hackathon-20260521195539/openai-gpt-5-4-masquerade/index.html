@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Masquerade of the Thirteenth Moon</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="gameCanvas" aria-label="Masquerade of the Thirteenth Moon game canvas"></canvas>
+
+    <div id="introScreen" class="overlay active">
+      <div class="panel title-panel">
+        <div class="moon-emblem"></div>
+        <h1>Masquerade of the<br />Thirteenth Moon</h1>
+        <p class="lead">
+          A single forbidden dance can bend the room around you. Step through the court,
+          charm nearby guests on the beat, gather three whispered secrets, and flee through the Moon Gate.
+        </p>
+        <div class="instruction-grid compact-grid">
+          <div><strong>Move</strong><span>WASD / Arrows</span></div>
+          <div><strong>Dance Pulse</strong><span>Space on the beat</span></div>
+          <div><strong>Goal</strong><span>Collect 3 secrets</span></div>
+          <div><strong>Escape</strong><span>Reach the glowing gate</span></div>
+        </div>
+        <div class="story-tip">One pulse, one opening, one more step through the crowd.</div>
+        <div class="controls-row">
+          <button id="playButton" class="primary-button">Play</button>
+          <button id="muteButton" class="secondary-button" aria-pressed="false">Mute</button>
+          <label class="volume-wrap">
+            <span>Volume</span>
+            <input id="volumeSlider" type="range" min="0" max="100" value="75" />
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div id="hud" class="hud hidden">
+      <div class="hud-left">
+        <div class="hud-card wide">
+          <div class="hud-label">Secrets</div>
+          <div id="clueList" class="hud-value">0 / 3</div>
+        </div>
+      </div>
+
+      <div class="hud-center">
+        <div class="metronome-shell">
+          <div id="beatIndicator" class="beat-indicator"></div>
+        </div>
+        <div id="contextHint" class="context-hint">Press Space on the beat to charm nearby guests.</div>
+      </div>
+
+      <div class="hud-right">
+        <div class="hud-card danger">
+          <div class="hud-label">Suspicion</div>
+          <div class="meter"><div id="suspicionFill" class="meter-fill"></div></div>
+          <div id="suspicionText" class="hud-value small">0%</div>
+        </div>
+        <div class="hud-controls">
+          <button id="muteButtonHud" class="secondary-button small-button">Mute</button>
+          <label class="volume-wrap compact">
+            <span>Vol</span>
+            <input id="volumeSliderHud" type="range" min="0" max="100" value="75" />
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div id="pauseOverlay" class="overlay hidden">
+      <div class="panel pause-panel">
+        <h2>Paused</h2>
+        <p>Move through the court. Pulse on the beat. Slip through the openings you create.</p>
+        <div class="controls-row center">
+          <button id="resumeButton" class="primary-button">Resume</button>
+          <button id="restartButtonPause" class="secondary-button">Restart</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="endScreen" class="overlay hidden">
+      <div class="panel end-panel">
+        <h2 id="endTitle">Escaped Beneath the Thirteenth Moon</h2>
+        <p id="endText">The Moon Gate sealed behind you.</p>
+        <div id="endStats" class="end-stats"></div>
+        <div class="controls-row center">
+          <button id="restartButton" class="primary-button">Play Again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FINAL FORM</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ============================================================
+     CANVAS (battle/intro/victory background)
+     ============================================================ -->
+<canvas id="gameCanvas" width="800" height="500"></canvas>
+
+<!-- ============================================================
+     VOLUME CONTROL (always visible)
+     ============================================================ -->
+<div id="volume-control">
+  <button id="btn-mute" title="Mute/Unmute">🔊</button>
+  <input id="vol-slider" type="range" min="0" max="100" value="50" title="Volume">
+</div>
+
+<!-- ============================================================
+     SCREEN: INTRO
+     ============================================================ -->
+<div id="screen-intro" class="screen">
+  <div class="intro-content">
+    <div class="game-title">FINAL<br><span>FORM</span></div>
+    <div class="game-subtitle">You are the legend. Make it legendary.</div>
+    <div class="intro-rules">
+      You are a final boss who keeps getting defeated.<br>
+      Between each attempt, <strong>redesign your own attacks</strong>,<br>
+      weak point, and battle form — then watch the fight unfold.<br><br>
+      You're not scored on <em>surviving</em>.<br>
+      You're scored on putting on a <em>spectacular show</em>.
+    </div>
+    <button id="btn-play" class="btn-primary">TAKE THE STAGE</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: DESIGN
+     ============================================================ -->
+<div id="screen-design" class="screen">
+  <div class="design-header">
+    <h2>⚔ REDESIGN YOUR FORM ⚔</h2>
+    <div id="run-number">Attempt #1</div>
+  </div>
+
+  <div id="prev-score-area"></div>
+
+  <div class="design-layout">
+
+    <!-- Left panel: Attacks + Weak Point -->
+    <div class="design-panel">
+      <div class="panel-title">⚡ Attack Sequence</div>
+      <div id="attack-slots"></div>
+      <div class="slot-hint">Click each slot to cycle through attack types. Sequence loops in battle.</div>
+
+      <div class="panel-title" style="margin-top:20px">🎯 Weak Point Location</div>
+      <div class="weak-point-btns">
+        <button class="wp-btn" id="wp-head">Head</button>
+        <button class="wp-btn" id="wp-chest">Chest</button>
+        <button class="wp-btn" id="wp-feet">Feet</button>
+      </div>
+      <div class="slot-hint">Where the hero can deal bonus damage. Easier = more exciting hits!</div>
+    </div>
+
+    <!-- Center panel: Boss Preview -->
+    <div class="design-panel" style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+      <div class="panel-title" style="width:100%">👁 Boss Preview</div>
+      <canvas id="previewCanvas" width="200" height="200"></canvas>
+      <div class="slot-hint" style="text-align:center">Your Phase 1 form</div>
+    </div>
+
+    <!-- Right panel: Phase & Monologue -->
+    <div class="design-panel">
+      <div class="panel-title">🌑 Phase 2 Trigger</div>
+      <div class="phase-slider-row">
+        <input id="phase-slider" type="range" min="20" max="75" value="50">
+        <span id="phase-label">50%</span>
+      </div>
+      <div class="phase-hint">Boss transforms when HP drops to this threshold. Higher = earlier transformation!</div>
+
+      <div class="panel-title" style="margin-top:20px">✨ Phase 2 Color</div>
+      <div class="color-btns">
+        <div class="color-btn" id="color-crimson" style="background:#ff1a1a"><span>Crimson</span></div>
+        <div class="color-btn" id="color-purple"  style="background:#9900ff"><span>Void</span></div>
+        <div class="color-btn" id="color-green"   style="background:#00ff44"><span>Toxic</span></div>
+        <div class="color-btn" id="color-ice"     style="background:#00ccff"><span>Ice</span></div>
+      </div>
+
+      <div class="panel-title" style="margin-top:26px">🎭 Pre-Battle Monologue</div>
+      <textarea id="monologue-input" placeholder="Speak your villainous words... (optional, but earns audience points)"></textarea>
+      <div id="monologue-count">0/140</div>
+    </div>
+
+  </div>
+
+  <div class="design-footer">
+    <button id="btn-take-stage" class="btn-primary">⚔ TAKE THE STAGE ⚔</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: MONOLOGUE
+     ============================================================ -->
+<div id="screen-monologue" class="screen">
+  <div class="monologue-box">
+    <div class="monologue-label">The Boss Speaks...</div>
+    <div id="monologue-text"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: RESULT
+     ============================================================ -->
+<div id="screen-result" class="screen">
+  <div class="result-header">
+    <h2>THE AUDIENCE SPEAKS</h2>
+    <div id="result-outcome"></div>
+    <div id="result-stars"></div>
+    <div id="result-quote"></div>
+  </div>
+
+  <div class="ornament">— ✦ —</div>
+
+  <div id="score-breakdown"></div>
+  <div id="result-total"></div>
+
+  <div id="result-tips"></div>
+  <div id="result-progress"></div>
+
+  <div class="result-actions">
+    <button id="btn-redesign" class="btn-primary">⚔ REDESIGN & RETRY</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCREEN: VICTORY
+     ============================================================ -->
+<div id="screen-victory" class="screen">
+  <div class="victory-content">
+    <div class="victory-title">LEGEND<br>COMPLETE</div>
+    <div id="victory-score"></div>
+    <div id="victory-stars"></div>
+    <div id="victory-runs"></div>
+    <button id="btn-play-again" class="btn-primary">⚔ FACE THEM AGAIN</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCRIPTS
+     ============================================================ -->
+<script src="js/audio.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/scoring.js"></script>
+<script src="js/game.js"></script>
+
+</body>
+</html>

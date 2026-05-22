@@ -1,0 +1,1440 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Falling Blocks</title>
+    <style>
+      :root {
+        --bg: #0b0e14;
+        --panel: #121826;
+        --panel2: #0f1522;
+        --text: #e8eefc;
+        --muted: #9aa7c2;
+        --outline: #ffffff;
+        --cell: #111827;
+        --grid: rgba(255, 255, 255, 0.09);
+        --shadow: rgba(0, 0, 0, 0.35);
+        --accent: #7c3aed;
+        --accent2: #22c55e;
+        --danger: #ef4444;
+        --warn: #f59e0b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: radial-gradient(1200px 900px at 50% 30%, #141b2e, var(--bg));
+        color: var(--text);
+        overflow: hidden;
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+        background: transparent;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      button:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 2px solid var(--outline);
+        outline-offset: 2px;
+      }
+
+      .app {
+        height: 100%;
+        width: 100%;
+        display: grid;
+        place-items: center;
+      }
+
+      .frame {
+        width: min(900px, 100vw);
+        height: min(780px, 100vh);
+        padding: 18px;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 12px;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+      }
+
+      .topbar .left,
+      .topbar .right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .topbar .right {
+        justify-content: flex-end;
+      }
+
+      .iconBtn {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.06);
+        display: grid;
+        place-items: center;
+        box-shadow: 0 10px 30px var(--shadow);
+      }
+      .iconBtn:active {
+        transform: translateY(1px);
+      }
+
+      .metric {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        line-height: 1;
+        user-select: none;
+      }
+      .metric .big {
+        font-size: 28px;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.3px;
+      }
+      .metric .small {
+        font-size: 18px;
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+      }
+
+      .center {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+      }
+
+      .boardWrap {
+        grid-column: 2;
+        display: grid;
+        place-items: center;
+        gap: 12px;
+      }
+
+      .board {
+        --cellSize: 28px;
+        width: calc(var(--cellSize) * 10 + 2px);
+        height: calc(var(--cellSize) * 20 + 2px);
+        background: linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px), var(--panel2);
+        background-size: var(--cellSize) var(--cellSize);
+        background-position: 1px 1px;
+        border-radius: 18px;
+        padding: 1px;
+        box-shadow: 0 20px 60px var(--shadow);
+        position: relative;
+        touch-action: none;
+        user-select: none;
+      }
+
+      .cells {
+        position: absolute;
+        inset: 1px;
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        grid-template-rows: repeat(20, 1fr);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+
+      .cell {
+        background: transparent;
+      }
+
+      .cell.filled {
+        background: var(--cell);
+      }
+
+      .cell.pI {
+        background: linear-gradient(180deg, #38bdf8, #0ea5e9);
+      }
+      .cell.pO {
+        background: linear-gradient(180deg, #fde047, #facc15);
+      }
+      .cell.pT {
+        background: linear-gradient(180deg, #c084fc, #9333ea);
+      }
+      .cell.pS {
+        background: linear-gradient(180deg, #34d399, #10b981);
+      }
+      .cell.pZ {
+        background: linear-gradient(180deg, #fb7185, #ef4444);
+      }
+      .cell.pJ {
+        background: linear-gradient(180deg, #60a5fa, #3b82f6);
+      }
+      .cell.pL {
+        background: linear-gradient(180deg, #fdba74, #f97316);
+      }
+
+      .side {
+        display: grid;
+        align-content: start;
+        gap: 12px;
+      }
+
+      .nextBox {
+        width: 170px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 18px;
+        padding: 12px;
+        box-shadow: 0 20px 60px var(--shadow);
+        display: grid;
+        place-items: center;
+      }
+
+      .next {
+        --n: 24px;
+        width: calc(var(--n) * 4);
+        height: calc(var(--n) * 4);
+        background: linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px), rgba(0, 0, 0, 0.18);
+        background-size: var(--n) var(--n);
+        border-radius: 14px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .nextCells {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+      }
+
+      .bottombar {
+        display: grid;
+        place-items: center;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+      }
+
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        display: none;
+        place-items: center;
+        z-index: 10;
+        backdrop-filter: blur(6px);
+      }
+
+      .overlay.on {
+        display: grid;
+      }
+
+      .card {
+        width: min(540px, calc(100vw - 40px));
+        background: rgba(18, 24, 38, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 22px;
+        padding: 18px;
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+        display: grid;
+        gap: 14px;
+      }
+
+      .logo {
+        display: grid;
+        place-items: center;
+        padding: 18px 0 6px;
+      }
+
+      .logoMark {
+        width: 220px;
+        height: 120px;
+        border-radius: 24px;
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.35), rgba(34, 197, 94, 0.22));
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .logoMark::before {
+        content: "";
+        position: absolute;
+        inset: -40px;
+        background: radial-gradient(circle at 30% 30%, rgba(56, 189, 248, 0.30), transparent 60%),
+          radial-gradient(circle at 70% 40%, rgba(253, 224, 71, 0.24), transparent 55%),
+          radial-gradient(circle at 40% 75%, rgba(251, 113, 133, 0.20), transparent 60%);
+        filter: blur(10px);
+      }
+
+      .logoBlocks {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        grid-template-rows: repeat(5, 1fr);
+        padding: 14px;
+        gap: 8px;
+      }
+
+      .b {
+        border-radius: 8px;
+        opacity: 0.96;
+      }
+
+      .cta {
+        display: grid;
+        place-items: center;
+        padding: 8px 0 12px;
+      }
+
+      .primary {
+        background: linear-gradient(180deg, rgba(124, 58, 237, 0.95), rgba(91, 33, 182, 0.95));
+        border: 1px solid rgba(255, 255, 255, 0.20);
+        height: 52px;
+        padding: 0 18px;
+        min-width: 200px;
+        border-radius: 16px;
+        box-shadow: 0 18px 50px rgba(124, 58, 237, 0.28);
+        letter-spacing: 0.2px;
+      }
+      .primary:active {
+        transform: translateY(1px);
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .bigWord {
+        font-size: 34px;
+        letter-spacing: 0.2px;
+        text-align: center;
+        user-select: none;
+      }
+
+      .scoreRow {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        font-size: 26px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .miniBtn {
+        height: 48px;
+        border-radius: 16px;
+        padding: 0 16px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+      }
+
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .settingsGrid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .toggleRow {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .pill {
+        width: 62px;
+        height: 34px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        display: grid;
+        align-items: center;
+        padding: 4px;
+      }
+      .pill .dot {
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.18);
+        transform: translateX(0);
+        transition: transform 120ms ease;
+      }
+      .pill.on {
+        background: rgba(34, 197, 94, 0.18);
+        border-color: rgba(34, 197, 94, 0.35);
+      }
+      .pill.on .dot {
+        transform: translateX(28px);
+        background: rgba(34, 197, 94, 0.65);
+      }
+
+      .confirmRow {
+        display: none;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .confirmRow.on {
+        display: flex;
+      }
+
+      @media (max-width: 720px) {
+        .frame {
+          height: 100vh;
+        }
+        .center {
+          grid-template-columns: 1fr;
+          grid-template-rows: auto auto;
+          gap: 12px;
+        }
+        .boardWrap {
+          grid-column: 1;
+          grid-row: 1;
+        }
+        .side {
+          grid-row: 2;
+          justify-items: center;
+        }
+        .nextBox {
+          width: min(320px, calc(100vw - 40px));
+        }
+        .board {
+          --cellSize: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="frame">
+        <div class="topbar">
+          <div class="left">
+            <button id="trophyBtnTop" class="iconBtn" aria-label="Best score">
+              <span id="trophyIconTop"></span>
+            </button>
+            <div id="scoreMetric" class="metric" aria-hidden="true" style="display: none">
+              <div id="scoreNum" class="big">0</div>
+              <div id="linesNum" class="small">0</div>
+            </div>
+          </div>
+          <div></div>
+          <div class="right">
+            <div id="levelMetric" class="metric" aria-hidden="true" style="display: none">
+              <div class="big" style="display: flex; align-items: center; gap: 8px">
+                <span id="starIcon"></span><span id="levelNum">1</span>
+              </div>
+            </div>
+            <button id="gearBtnTop" class="iconBtn" aria-label="Settings">
+              <span id="gearIconTop"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="center">
+          <div></div>
+          <div class="boardWrap">
+            <div
+              id="board"
+              class="board"
+              role="grid"
+              aria-label="Board"
+              tabindex="0"
+            >
+              <div id="cells" class="cells"></div>
+            </div>
+          </div>
+          <div class="side">
+            <div class="nextBox" aria-label="Next piece">
+              <div id="next" class="next">
+                <div id="nextCells" class="nextCells"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bottombar">
+          <div class="controls">
+            <button id="pauseBtn" class="iconBtn" aria-label="Pause">
+              <span id="pauseIcon"></span>
+            </button>
+            <button id="gearBtnBottom" class="iconBtn" aria-label="Settings">
+              <span id="gearIconBottom"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menu overlay -->
+    <div id="menuOverlay" class="overlay on" role="dialog" aria-modal="true">
+      <div class="card" style="align-items: stretch">
+        <div class="row">
+          <button id="trophyBtnMenu" class="iconBtn" aria-label="Best score">
+            <span id="trophyIconMenu"></span>
+          </button>
+          <button id="gearBtnMenu" class="iconBtn" aria-label="Settings">
+            <span id="gearIconMenu"></span>
+          </button>
+        </div>
+
+        <div class="logo" aria-hidden="true">
+          <div class="logoMark">
+            <div class="logoBlocks">
+              <div class="b" style="grid-column: 2 / span 2; grid-row: 2; background: #60a5fa"></div>
+              <div class="b" style="grid-column: 4 / span 2; grid-row: 2; background: #c084fc"></div>
+              <div class="b" style="grid-column: 6 / span 2; grid-row: 2; background: #34d399"></div>
+              <div class="b" style="grid-column: 3 / span 2; grid-row: 3; background: #fde047"></div>
+              <div class="b" style="grid-column: 5 / span 2; grid-row: 3; background: #fb7185"></div>
+              <div class="b" style="grid-column: 7 / span 2; grid-row: 3; background: #fdba74"></div>
+              <div class="b" style="grid-column: 4 / span 2; grid-row: 4; background: #38bdf8"></div>
+              <div class="b" style="grid-column: 6 / span 2; grid-row: 4; background: #f97316"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cta">
+          <button id="startBtn" class="primary">Start Game</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pause overlay (click to resume) -->
+    <div id="pauseOverlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="card" style="place-items: center">
+        <div class="bigWord">Paused</div>
+      </div>
+    </div>
+
+    <!-- Game over overlay -->
+    <div id="overOverlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="card">
+        <div class="bigWord">Game Over</div>
+        <div class="stack">
+          <div class="scoreRow" aria-label="Final score">
+            <span id="finalScore">0</span>
+          </div>
+          <div class="scoreRow" aria-label="Best score">
+            <span id="trophyIconOver"></span>
+            <span id="bestScoreOver">0</span>
+          </div>
+          <div id="newBestWord" style="display: none; text-align: center; font-size: 22px">
+            New Best
+          </div>
+        </div>
+        <div class="row" style="justify-content: center; gap: 12px; flex-wrap: wrap">
+          <button id="playAgainBtn" class="miniBtn">Play Again</button>
+          <button id="menuBtn" class="miniBtn">Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings overlay (no visible words; icons only) -->
+    <div id="settingsOverlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="card">
+        <div class="row">
+          <button id="closeSettingsBtn" class="iconBtn" aria-label="Close">
+            <span id="closeIcon"></span>
+          </button>
+          <div style="flex: 1"></div>
+        </div>
+
+        <div class="settingsGrid">
+          <div class="toggleRow">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <span id="speakerIcon" aria-hidden="true"></span>
+            </div>
+            <button id="soundToggle" class="pill" aria-label="Sound">
+              <span class="dot"></span>
+            </button>
+          </div>
+
+          <div class="toggleRow">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <span id="motionIcon" aria-hidden="true"></span>
+            </div>
+            <button id="motionToggle" class="pill on" aria-label="Motion">
+              <span class="dot"></span>
+            </button>
+          </div>
+
+          <div class="toggleRow">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <span id="trashIcon" aria-hidden="true"></span>
+            </div>
+            <button id="resetBestBtn" class="iconBtn" aria-label="Reset best score">
+              <span id="trashBtnIcon"></span>
+            </button>
+          </div>
+
+          <div id="confirmRow" class="confirmRow" aria-label="Confirm reset">
+            <button id="confirmResetBtn" class="iconBtn" aria-label="Confirm">
+              <span id="checkIcon"></span>
+            </button>
+            <button id="cancelResetBtn" class="iconBtn" aria-label="Cancel">
+              <span id="xIcon"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+/* eslint-disable no-var */
+/* Falling Blocks core logic (DOM-free) */
+(function () {
+  "use strict";
+
+  /** @typedef {"I"|"O"|"T"|"S"|"Z"|"J"|"L"} PieceType */
+
+  /** @type {PieceType[]} */
+  const PIECE_TYPES = ["I", "O", "T", "S", "Z", "J", "L"];
+
+  /** @param {number} n */
+  function clampMin(n, min) {
+    return n < min ? min : n;
+  }
+
+  function makeEmptyBoard() {
+    /** @type {(PieceType|null)[][]} */
+    const b = [];
+    for (let r = 0; r < 20; r++) {
+      const row = new Array(10).fill(null);
+      b.push(row);
+    }
+    return b;
+  }
+
+  class Bag7 {
+    constructor(rng = Math.random) {
+      this.rng = rng;
+      /** @type {PieceType[]} */
+      this.bag = [];
+      this._refill();
+    }
+    _refill() {
+      this.bag = PIECE_TYPES.slice();
+      // Fisher–Yates shuffle
+      for (let i = this.bag.length - 1; i > 0; i--) {
+        const j = Math.floor(this.rng() * (i + 1));
+        const t = this.bag[i];
+        this.bag[i] = this.bag[j];
+        this.bag[j] = t;
+      }
+    }
+    /** @returns {PieceType} */
+    draw() {
+      if (this.bag.length === 0) this._refill();
+      const v = this.bag.pop();
+      // bag cannot be empty here
+      return /** @type {PieceType} */ (v);
+    }
+  }
+
+  // Spawn block definitions in a local coordinate system (x,y)
+  // The "standard rotation origin" here is (0,0) for transforms; blocks are rotated around it.
+  // Shapes are chosen to match common modern tetris coordinates.
+  /** @type {Record<PieceType, {blocks: {x:number,y:number}[], origin:{x:number,y:number}}>} */
+  const SPAWN = {
+    I: { blocks: [{ x: -1, y: 0 }, { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }], origin: { x: 0.5, y: 0.5 } },
+    O: { blocks: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }], origin: { x: 0.5, y: 0.5 } },
+    T: { blocks: [{ x: -1, y: 0 }, { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }], origin: { x: 0, y: 0 } },
+    S: { blocks: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: -1, y: 1 }, { x: 0, y: 1 }], origin: { x: 0, y: 0 } },
+    Z: { blocks: [{ x: -1, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }], origin: { x: 0, y: 0 } },
+    J: { blocks: [{ x: -1, y: 0 }, { x: 0, y: 0 }, { x: 1, y: 0 }, { x: -1, y: 1 }], origin: { x: 0, y: 0 } },
+    L: { blocks: [{ x: -1, y: 0 }, { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }], origin: { x: 0, y: 0 } },
+  };
+
+  /**
+   * Rotate a block around an origin clockwise.
+   * Uses floating origins for I/O.
+   * @param {{x:number,y:number}} p
+   * @param {{x:number,y:number}} origin
+   * @returns {{x:number,y:number}}
+   */
+  function rotCW(p, origin) {
+    const x = p.x - origin.x;
+    const y = p.y - origin.y;
+    // (x,y) -> (y,-x)
+    const rx = y;
+    const ry = -x;
+    return { x: Math.round(rx + origin.x), y: Math.round(ry + origin.y) };
+  }
+
+  /**
+   * Rotate a block around an origin counterclockwise.
+   * @param {{x:number,y:number}} p
+   * @param {{x:number,y:number}} origin
+   * @returns {{x:number,y:number}}
+   */
+  function rotCCW(p, origin) {
+    const x = p.x - origin.x;
+    const y = p.y - origin.y;
+    // (x,y) -> (-y,x)
+    const rx = -y;
+    const ry = x;
+    return { x: Math.round(rx + origin.x), y: Math.round(ry + origin.y) };
+  }
+
+  /**
+   * @param {(PieceType|null)[][]} board
+   * @param {{type: PieceType, x:number, y:number, blocks:{x:number,y:number}[]}} piece
+   */
+  function canPlace(board, piece) {
+    for (const b of piece.blocks) {
+      const x = piece.x + b.x;
+      const y = piece.y + b.y;
+      if (x < 0 || x >= 10) return false;
+      if (y < 0 || y >= 20) return false;
+      if (board[y][x]) return false;
+    }
+    return true;
+  }
+
+  /**
+   * @param {(PieceType|null)[][]} board
+   * @param {{type: PieceType, x:number, y:number, blocks:{x:number,y:number}[]}} piece
+   */
+  function lockPiece(board, piece) {
+    for (const b of piece.blocks) {
+      const x = piece.x + b.x;
+      const y = piece.y + b.y;
+      if (y < 0 || y >= 20 || x < 0 || x >= 10) continue;
+      board[y][x] = piece.type;
+    }
+  }
+
+  /**
+   * @param {(PieceType|null)[][]} board
+   * @returns {{cleared: number, newBoard: (PieceType|null)[][]}}
+   */
+  function clearFullLines(board) {
+    const kept = [];
+    let cleared = 0;
+    for (let r = 0; r < 20; r++) {
+      const full = board[r].every((c) => !!c);
+      if (full) cleared++;
+      else kept.push(board[r].slice());
+    }
+    while (kept.length < 20) kept.unshift(new Array(10).fill(null));
+    return { cleared, newBoard: kept };
+  }
+
+  function lineScore(linesCleared, level) {
+    if (linesCleared === 1) return 100 * level;
+    if (linesCleared === 2) return 300 * level;
+    if (linesCleared === 3) return 500 * level;
+    if (linesCleared === 4) return 800 * level;
+    return 0;
+  }
+
+  function levelForLines(totalLines) {
+    return Math.floor(totalLines / 10) + 1;
+  }
+
+  function fallMsForLevel(level) {
+    return clampMin(800 - 60 * (level - 1), 100);
+  }
+
+  class GameCore {
+    constructor(rng = Math.random) {
+      this.rng = rng;
+      this.board = makeEmptyBoard();
+      this.score = 0;
+      this.lines = 0;
+      this.level = 1;
+      this.fallMs = 800;
+      this.paused = false;
+
+      this.bag = new Bag7(rng);
+      this.currentPiece = null;
+      this.nextPiece = this.bag.draw();
+      this.spawnNext();
+
+      this._accum = 0;
+      /** @type {null|"lock"|"clear"|"over"} */
+      this.lastEvent = null;
+    }
+
+    /** @returns {{x:number,y:number}[]} */
+    static getSpawnBlocks(type) {
+      return SPAWN[type].blocks.map((b) => ({ x: b.x, y: b.y }));
+    }
+
+    _makePiece(type) {
+      return {
+        type,
+        x: 4,
+        y: 0,
+        blocks: GameCore.getSpawnBlocks(type),
+      };
+    }
+
+    _pieceWith(blocks, x = this.currentPiece.x, y = this.currentPiece.y) {
+      return { type: this.currentPiece.type, x, y, blocks };
+    }
+
+    spawnNext() {
+      const t = this.nextPiece;
+      this.nextPiece = this.bag.draw();
+      const p = this._makePiece(t);
+      // If spawn overlaps, game over.
+      if (!canPlace(this.board, p)) {
+        this.lastEvent = "over";
+        this.currentPiece = p; // keep for render
+        return false;
+      }
+      this.currentPiece = p;
+      return true;
+    }
+
+    update(dt) {
+      this.lastEvent = null;
+      if (this.paused) return;
+      this._accum += dt;
+      while (this._accum >= this.fallMs) {
+        this._accum -= this.fallMs;
+        if (!this._stepDown()) break;
+      }
+    }
+
+    _stepDown() {
+      const p = this.currentPiece;
+      if (!p) return false;
+      const moved = { ...p, y: p.y + 1 };
+      if (canPlace(this.board, moved)) {
+        this.currentPiece = moved;
+        return true;
+      }
+      // lock
+      lockPiece(this.board, p);
+      this.lastEvent = "lock";
+      const res = clearFullLines(this.board);
+      if (res.cleared) {
+        this.board = res.newBoard;
+        this.score += lineScore(res.cleared, this.level);
+        this.lines += res.cleared;
+        this.level = levelForLines(this.lines);
+        this.fallMs = fallMsForLevel(this.level);
+        this.lastEvent = "clear";
+      }
+      const ok = this.spawnNext();
+      if (!ok) this.lastEvent = "over";
+      return false;
+    }
+
+    move(dx, dy) {
+      if (!this.currentPiece) return false;
+      const moved = { ...this.currentPiece, x: this.currentPiece.x + dx, y: this.currentPiece.y + dy };
+      if (!canPlace(this.board, moved)) return false;
+      this.currentPiece = moved;
+      return true;
+    }
+
+    softDrop() {
+      if (!this.currentPiece) return false;
+      const moved = { ...this.currentPiece, y: this.currentPiece.y + 1 };
+      if (!canPlace(this.board, moved)) return false;
+      this.currentPiece = moved;
+      this.score += 1;
+      return true;
+    }
+
+    hardDrop() {
+      if (!this.currentPiece) return false;
+      let rows = 0;
+      let p = this.currentPiece;
+      while (true) {
+        const moved = { ...p, y: p.y + 1 };
+        if (!canPlace(this.board, moved)) break;
+        p = moved;
+        rows++;
+      }
+      if (rows === 0) {
+        // still locks immediately
+      }
+      this.currentPiece = p;
+      this.score += rows * 2;
+      // lock immediately
+      this._accum = 0;
+      this._stepDown();
+      return true;
+    }
+
+    rotateCW() {
+      return this._rotate(true);
+    }
+    rotateCCW() {
+      return this._rotate(false);
+    }
+
+    _rotate(clockwise) {
+      if (!this.currentPiece) return false;
+      const type = this.currentPiece.type;
+      if (type === "O") return true; // no-op but "succeeds"
+      const origin = SPAWN[type].origin;
+      const rotatedBlocks = this.currentPiece.blocks.map((b) => (clockwise ? rotCW(b, origin) : rotCCW(b, origin)));
+      const base = this._pieceWith(rotatedBlocks);
+      if (canPlace(this.board, base)) {
+        this.currentPiece = base;
+        return true;
+      }
+      const kicks = [-1, 1, -2, 2];
+      for (const k of kicks) {
+        const kicked = this._pieceWith(rotatedBlocks, this.currentPiece.x + k, this.currentPiece.y);
+        if (canPlace(this.board, kicked)) {
+          this.currentPiece = kicked;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    getBoardWithActivePiece() {
+      const out = this.board.map((r) => r.slice());
+      const p = this.currentPiece;
+      if (!p) return out;
+      for (const b of p.blocks) {
+        const x = p.x + b.x;
+        const y = p.y + b.y;
+        if (x < 0 || x >= 10 || y < 0 || y >= 20) continue;
+        out[y][x] = p.type;
+      }
+      return out;
+    }
+  }
+
+  var api = {
+    PIECE_TYPES,
+    Bag7,
+    GameCore,
+    _internals: {
+      SPAWN,
+      canPlace,
+      clearFullLines,
+      lineScore,
+      levelForLines,
+      fallMsForLevel,
+    },
+  };
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = api;
+  } else {
+    window.FallingBlocksCore = api;
+  }
+})();
+
+</script>
+    <script>
+      (() => {
+        "use strict";
+
+        const { GameCore, PIECE_TYPES } = window.FallingBlocksCore;
+
+        const BEST_KEY = "fallingBlocksBestScore_v1";
+        const SETTINGS_KEY = "fallingBlocksSettings_v1";
+
+        /** @type {{soundOn: boolean, motionOn: boolean}} */
+        let settings = { soundOn: false, motionOn: true };
+        try {
+          const raw = localStorage.getItem(SETTINGS_KEY);
+          if (raw) settings = { ...settings, ...JSON.parse(raw) };
+        } catch {}
+
+        const icons = {
+          trophy: () => svgIcon("M12 2h2a2 2 0 0 1 2 2v2h2a1 1 0 0 1 1 1v2a6 6 0 0 1-6 6h-1v2h2a1 1 0 0 1 1 1v1H9v-1a1 1 0 0 1 1-1h2v-2h-1A6 6 0 0 1 5 11V9a1 1 0 0 1 1-1h2V4a2 2 0 0 1 2-2h2zm-4 6H7v3a4 4 0 0 0 4 4h2a4 4 0 0 0 4-4V8h-1v3a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5V8zm2-4v6a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V4h-6z", "#facc15"),
+          gear: () => svgIcon("M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9 4a7.95 7.95 0 0 1-.24 1.95l2.02 1.58-2 3.46-2.43-.98a8.11 8.11 0 0 1-3.37 1.95L14.5 22h-5l-.5-2.04a8.11 8.11 0 0 1-3.37-1.95l-2.43.98-2-3.46 2.02-1.58A7.95 7.95 0 0 1 3 12c0-.66.08-1.31.24-1.95L1.22 8.47l2-3.46 2.43.98A8.11 8.11 0 0 1 9.02 4.04L9.5 2h5l.5 2.04a8.11 8.11 0 0 1 3.37 1.95l2.43-.98 2 3.46-2.02 1.58c.16.64.24 1.29.24 1.95z", "#e8eefc"),
+          star: () => svgIcon("M12 2l2.92 6.63L22 9.24l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.11 2 9.24l7.08-.61L12 2z", "#f59e0b"),
+          pause: () => svgIcon("M7 4h3v16H7V4zm7 0h3v16h-3V4z", "#e8eefc"),
+          close: () => svgIcon("M6 6l12 12M18 6L6 18", "#e8eefc", 2.4, true),
+          speaker: () => svgIcon("M11 5L6 9H2v6h4l5 4V5zm7.07 1.93a1 1 0 0 1 1.41 0 10 10 0 0 1 0 14.14 1 1 0 1 1-1.41-1.41 8 8 0 0 0 0-11.32 1 1 0 0 1 0-1.41z", "#e8eefc"),
+          motion: () => svgIcon("M4 12a8 8 0 0 1 8-8v3l4-4-4-4v3A10 10 0 1 0 22 12h-2a8 8 0 0 1-16 0z", "#e8eefc"),
+          trash: () => svgIcon("M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM6 9h2v9H6V9z", "#e8eefc"),
+          check: () => svgIcon("M20 6L9 17l-5-5", "#22c55e", 2.6, true),
+          x: () => svgIcon("M6 6l12 12M18 6L6 18", "#ef4444", 2.6, true),
+        };
+
+        function svgIcon(pathD, color, strokeWidth = 0, strokeOnly = false) {
+          const stroke = strokeOnly ? `stroke="${color}" stroke-width="${strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round"` : "";
+          const fill = strokeOnly ? "" : `fill="${color}"`;
+          return `<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">${
+            strokeOnly
+              ? `<path d="${pathD}" ${stroke}></path>`
+              : `<path d="${pathD}" ${fill}></path>`
+          }</svg>`;
+        }
+
+        function setIcon(id, html) {
+          const el = document.getElementById(id);
+          if (el) el.innerHTML = html;
+        }
+
+        setIcon("trophyIconTop", icons.trophy());
+        setIcon("trophyIconMenu", icons.trophy());
+        setIcon("gearIconTop", icons.gear());
+        setIcon("gearIconMenu", icons.gear());
+        setIcon("gearIconBottom", icons.gear());
+        setIcon("pauseIcon", icons.pause());
+        setIcon("starIcon", icons.star());
+        setIcon("trophyIconOver", icons.trophy());
+        setIcon("closeIcon", icons.close());
+        setIcon("speakerIcon", icons.speaker());
+        setIcon("motionIcon", icons.motion());
+        setIcon("trashIcon", icons.trash());
+        setIcon("trashBtnIcon", icons.trash());
+        setIcon("checkIcon", icons.check());
+        setIcon("xIcon", icons.x());
+
+        const el = {
+          menuOverlay: document.getElementById("menuOverlay"),
+          pauseOverlay: document.getElementById("pauseOverlay"),
+          overOverlay: document.getElementById("overOverlay"),
+          settingsOverlay: document.getElementById("settingsOverlay"),
+          startBtn: document.getElementById("startBtn"),
+          playAgainBtn: document.getElementById("playAgainBtn"),
+          menuBtn: document.getElementById("menuBtn"),
+          pauseBtn: document.getElementById("pauseBtn"),
+          gearBtnTop: document.getElementById("gearBtnTop"),
+          gearBtnBottom: document.getElementById("gearBtnBottom"),
+          gearBtnMenu: document.getElementById("gearBtnMenu"),
+          closeSettingsBtn: document.getElementById("closeSettingsBtn"),
+          trophyBtnTop: document.getElementById("trophyBtnTop"),
+          trophyBtnMenu: document.getElementById("trophyBtnMenu"),
+          scoreMetric: document.getElementById("scoreMetric"),
+          levelMetric: document.getElementById("levelMetric"),
+          scoreNum: document.getElementById("scoreNum"),
+          linesNum: document.getElementById("linesNum"),
+          levelNum: document.getElementById("levelNum"),
+          finalScore: document.getElementById("finalScore"),
+          bestScoreOver: document.getElementById("bestScoreOver"),
+          newBestWord: document.getElementById("newBestWord"),
+          board: document.getElementById("board"),
+          cells: document.getElementById("cells"),
+          nextCells: document.getElementById("nextCells"),
+          soundToggle: document.getElementById("soundToggle"),
+          motionToggle: document.getElementById("motionToggle"),
+          resetBestBtn: document.getElementById("resetBestBtn"),
+          confirmRow: document.getElementById("confirmRow"),
+          confirmResetBtn: document.getElementById("confirmResetBtn"),
+          cancelResetBtn: document.getElementById("cancelResetBtn"),
+        };
+
+        for (let r = 0; r < 20; r++) {
+          for (let c = 0; c < 10; c++) {
+            const d = document.createElement("div");
+            d.className = "cell";
+            d.setAttribute("role", "gridcell");
+            d.dataset.row = String(r);
+            d.dataset.col = String(c);
+            d.tabIndex = -1;
+            el.cells.appendChild(d);
+          }
+        }
+
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 4; c++) {
+            const d = document.createElement("div");
+            d.className = "cell";
+            el.nextCells.appendChild(d);
+          }
+        }
+
+        function getBestScore() {
+          try {
+            const v = Number(localStorage.getItem(BEST_KEY));
+            return Number.isFinite(v) ? v : 0;
+          } catch {
+            return 0;
+          }
+        }
+        function setBestScore(score) {
+          try {
+            localStorage.setItem(BEST_KEY, String(score));
+          } catch {}
+        }
+
+        function persistSettings() {
+          try {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+          } catch {}
+        }
+
+        function applySettingsUI() {
+          el.soundToggle.classList.toggle("on", settings.soundOn);
+          el.motionToggle.classList.toggle("on", settings.motionOn);
+        }
+        applySettingsUI();
+
+        function beep(type = "lock") {
+          if (!settings.soundOn) return;
+          const ctx = beep._ctx || (beep._ctx = new (window.AudioContext || window.webkitAudioContext)());
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.connect(g);
+          g.connect(ctx.destination);
+          o.type = "sine";
+          const now = ctx.currentTime;
+          const map = {
+            lock: 180,
+            clear: 380,
+            over: 90,
+            move: 140,
+            rotate: 220,
+            drop: 260,
+          };
+          o.frequency.setValueAtTime(map[type] || 200, now);
+          g.gain.setValueAtTime(0.0001, now);
+          g.gain.exponentialRampToValueAtTime(0.06, now + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + 0.10);
+          o.start(now);
+          o.stop(now + 0.11);
+        }
+
+        /** @type {GameCore | null} */
+        let game = null;
+
+        /** @type {number | null} */
+        let rafId = null;
+        let lastTs = 0;
+
+        function showMenu() {
+          el.menuOverlay.classList.add("on");
+          el.pauseOverlay.classList.remove("on");
+          el.overOverlay.classList.remove("on");
+          el.scoreMetric.style.display = "none";
+          el.levelMetric.style.display = "none";
+        }
+
+        function showGameUI() {
+          el.menuOverlay.classList.remove("on");
+          el.overOverlay.classList.remove("on");
+          el.scoreMetric.style.display = "";
+          el.levelMetric.style.display = "";
+        }
+
+        function showPause(on) {
+          el.pauseOverlay.classList.toggle("on", on);
+        }
+
+        function showSettings(on) {
+          el.settingsOverlay.classList.toggle("on", on);
+          if (on) el.confirmRow.classList.remove("on");
+        }
+
+        function startNewGame() {
+          game = new GameCore();
+          showGameUI();
+          showPause(false);
+          renderAll();
+          el.board.focus();
+          if (rafId == null) {
+            lastTs = performance.now();
+            rafId = requestAnimationFrame(tick);
+          }
+        }
+
+        function endToGameOver() {
+          if (!game) return;
+          const bestBefore = getBestScore();
+          const isNewBest = game.score > bestBefore;
+          if (isNewBest) setBestScore(game.score);
+          el.finalScore.textContent = String(game.score);
+          el.bestScoreOver.textContent = String(Math.max(getBestScore(), game.score));
+          el.newBestWord.style.display = isNewBest ? "" : "none";
+          el.overOverlay.classList.add("on");
+          beep("over");
+        }
+
+        function tick(ts) {
+          rafId = requestAnimationFrame(tick);
+          const dt = ts - lastTs;
+          lastTs = ts;
+          if (!game) return;
+          if (el.settingsOverlay.classList.contains("on")) return;
+          if (el.menuOverlay.classList.contains("on")) return;
+          if (el.overOverlay.classList.contains("on")) return;
+
+          if (!game.paused) {
+            game.update(dt);
+            if (game.lastEvent === "lock") beep("lock");
+            if (game.lastEvent === "clear") beep("clear");
+            if (game.lastEvent === "over") endToGameOver();
+          }
+          renderAll();
+        }
+
+        function renderAll() {
+          if (!game) {
+            renderBoard(new GameCore()); // empty board visuals
+            renderNext(null);
+            return;
+          }
+          el.scoreNum.textContent = String(game.score);
+          el.linesNum.textContent = String(game.lines);
+          el.levelNum.textContent = String(game.level);
+          renderBoard(game);
+          renderNext(game.nextPiece);
+          showPause(game.paused);
+        }
+
+        function renderBoard(g) {
+          const occupied = g.getBoardWithActivePiece();
+          const nodes = el.cells.children;
+          for (let r = 0; r < 20; r++) {
+            for (let c = 0; c < 10; c++) {
+              const idx = r * 10 + c;
+              const node = nodes[idx];
+              const t = occupied[r][c];
+              node.className = "cell" + (t ? ` filled p${t}` : "");
+              const filled = !!t;
+              node.dataset.filled = filled ? "1" : "0";
+              node.dataset.type = t ? t : "";
+              node.setAttribute(
+                "aria-label",
+                `row ${r} column ${c} filled ${filled ? "1" : "0"} type ${t || "none"}`
+              );
+            }
+          }
+        }
+
+        function renderNext(pieceType) {
+          const nodes = el.nextCells.children;
+          for (let i = 0; i < nodes.length; i++) nodes[i].className = "cell";
+          if (!pieceType) return;
+          const shape = GameCore.getSpawnBlocks(pieceType);
+          // place centered in 4x4
+          const minX = Math.min(...shape.map((b) => b.x));
+          const maxX = Math.max(...shape.map((b) => b.x));
+          const minY = Math.min(...shape.map((b) => b.y));
+          const maxY = Math.max(...shape.map((b) => b.y));
+          const w = maxX - minX + 1;
+          const h = maxY - minY + 1;
+          const offX = Math.floor((4 - w) / 2) - minX;
+          const offY = Math.floor((4 - h) / 2) - minY;
+          for (const b of shape) {
+            const x = b.x + offX;
+            const y = b.y + offY;
+            if (x < 0 || x > 3 || y < 0 || y > 3) continue;
+            nodes[y * 4 + x].className = `cell filled p${pieceType}`;
+          }
+        }
+
+        function togglePause() {
+          if (!game) return;
+          if (el.overOverlay.classList.contains("on")) return;
+          if (el.menuOverlay.classList.contains("on")) return;
+          if (el.settingsOverlay.classList.contains("on")) return;
+          game.paused = !game.paused;
+          renderAll();
+        }
+
+        function onKeyDown(e) {
+          if (e.key === "Tab") return;
+          if (el.settingsOverlay.classList.contains("on")) return;
+          if (el.menuOverlay.classList.contains("on")) return;
+          if (el.overOverlay.classList.contains("on")) return;
+          if (!game) return;
+
+          if (e.key === "p" || e.key === "P") {
+            e.preventDefault();
+            togglePause();
+            return;
+          }
+
+          if (game.paused) return;
+
+          if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            if (game.move(-1, 0)) beep("move");
+          } else if (e.key === "ArrowRight") {
+            e.preventDefault();
+            if (game.move(1, 0)) beep("move");
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (game.softDrop()) beep("move");
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (game.rotateCW()) beep("rotate");
+          } else if (e.key === "z" || e.key === "Z") {
+            e.preventDefault();
+            if (game.rotateCCW()) beep("rotate");
+          } else if (e.key === " ") {
+            e.preventDefault();
+            if (game.hardDrop()) beep("drop");
+          }
+          renderAll();
+          if (game.lastEvent === "over") endToGameOver();
+        }
+
+        // Touch gestures
+        const touch = {
+          active: false,
+          startX: 0,
+          startY: 0,
+          lastX: 0,
+          lastY: 0,
+          moved: false,
+        };
+
+        function onPointerDown(e) {
+          if (!game) return;
+          if (el.menuOverlay.classList.contains("on")) return;
+          if (el.overOverlay.classList.contains("on")) return;
+          if (el.settingsOverlay.classList.contains("on")) return;
+          if (game.paused) return;
+          touch.active = true;
+          touch.startX = e.clientX;
+          touch.startY = e.clientY;
+          touch.lastX = e.clientX;
+          touch.lastY = e.clientY;
+          touch.moved = false;
+          el.board.setPointerCapture(e.pointerId);
+        }
+
+        function onPointerMove(e) {
+          if (!touch.active || !game || game.paused) return;
+          const dx = e.clientX - touch.startX;
+          const dy = e.clientY - touch.startY;
+          const adx = Math.abs(dx);
+          const ady = Math.abs(dy);
+
+          // Horizontal swipe: one move per threshold
+          if (adx > 26 && adx > ady) {
+            const dir = dx > 0 ? 1 : -1;
+            if (game.move(dir, 0)) beep("move");
+            touch.startX = e.clientX;
+            touch.startY = e.clientY;
+            touch.moved = true;
+          }
+
+          // Soft drop: one row per threshold
+          if (ady > 32 && ady > adx && dy > 0) {
+            if (game.softDrop()) beep("move");
+            touch.startX = e.clientX;
+            touch.startY = e.clientY;
+            touch.moved = true;
+          }
+          renderAll();
+        }
+
+        function onPointerUp(e) {
+          if (!touch.active) return;
+          touch.active = false;
+          if (!game || game.paused) return;
+
+          const dx = e.clientX - touch.startX;
+          const dy = e.clientY - touch.startY;
+          const adx = Math.abs(dx);
+          const ady = Math.abs(dy);
+
+          if (!touch.moved && adx < 10 && ady < 10) {
+            // Tap rotate CW
+            if (game.rotateCW()) beep("rotate");
+          } else if (ady > 180 && dy > 0 && ady > adx) {
+            // Long swipe down = hard drop
+            if (game.hardDrop()) beep("drop");
+          }
+          renderAll();
+          if (game.lastEvent === "over") endToGameOver();
+        }
+
+        // Wiring
+        el.startBtn.addEventListener("click", startNewGame);
+        el.playAgainBtn.addEventListener("click", () => {
+          el.overOverlay.classList.remove("on");
+          startNewGame();
+        });
+        el.menuBtn.addEventListener("click", () => {
+          el.overOverlay.classList.remove("on");
+          game = null;
+          showMenu();
+          renderAll();
+        });
+
+        el.pauseBtn.addEventListener("click", togglePause);
+        el.pauseOverlay.addEventListener("click", togglePause);
+
+        function openSettings() {
+          showSettings(true);
+          applySettingsUI();
+          el.closeSettingsBtn.focus();
+        }
+        function closeSettings() {
+          showSettings(false);
+          el.board.focus();
+        }
+        el.gearBtnTop.addEventListener("click", openSettings);
+        el.gearBtnBottom.addEventListener("click", openSettings);
+        el.gearBtnMenu.addEventListener("click", openSettings);
+        el.closeSettingsBtn.addEventListener("click", closeSettings);
+        el.settingsOverlay.addEventListener("click", (e) => {
+          if (e.target === el.settingsOverlay) closeSettings();
+        });
+
+        el.soundToggle.addEventListener("click", () => {
+          settings.soundOn = !settings.soundOn;
+          persistSettings();
+          applySettingsUI();
+        });
+        el.motionToggle.addEventListener("click", () => {
+          settings.motionOn = !settings.motionOn;
+          persistSettings();
+          applySettingsUI();
+        });
+
+        el.resetBestBtn.addEventListener("click", () => {
+          el.confirmRow.classList.add("on");
+        });
+        el.cancelResetBtn.addEventListener("click", () => {
+          el.confirmRow.classList.remove("on");
+        });
+        el.confirmResetBtn.addEventListener("click", () => {
+          setBestScore(0);
+          el.confirmRow.classList.remove("on");
+        });
+
+        // Trophy buttons do not open a worded modal; just ensure best is visible in game over screen.
+        el.trophyBtnTop.addEventListener("click", () => {
+          // no-op by spec constraints (no extra words)
+        });
+        el.trophyBtnMenu.addEventListener("click", () => {
+          // no-op
+        });
+
+        document.addEventListener("keydown", onKeyDown);
+        el.board.addEventListener("pointerdown", onPointerDown);
+        el.board.addEventListener("pointermove", onPointerMove);
+        el.board.addEventListener("pointerup", onPointerUp);
+        el.board.addEventListener("pointercancel", () => (touch.active = false));
+
+        // Initial visuals
+        renderAll();
+      })();
+    </script>
+  </body>
+</html>

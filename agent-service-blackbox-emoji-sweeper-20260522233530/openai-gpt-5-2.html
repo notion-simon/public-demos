@@ -597,6 +597,26 @@ function reveal(game, r, c, rng = Math.random) {
 
   if (!game.hazardsPlaced) {
     placeHazardsAndSparkles(game, r, c, rng);
+
+    // Revised design: keep the first click safe, but avoid huge opening cascades.
+    // Reveal only the local first-reveal safe zone (3x3: cell + adjacent 8).
+    // Do NOT perform zero flood-fill beyond this zone on the opening move.
+    const changed = [];
+    const safe = safeZoneSet(game, r, c);
+    for (const key of safe) {
+      const [rr, cc] = key.split(",").map(Number);
+      const cell = game.board[rr][cc];
+      if (cell.marked || cell.revealed) continue;
+      // Hazards are guaranteed absent in the safe zone.
+      cell.revealed = true;
+      changed.push(cell);
+    }
+
+    if (checkWin(game)) {
+      game.won = true;
+      return { status: "win", changed };
+    }
+    return { status: "ok", changed };
   }
 
   const changed = [];

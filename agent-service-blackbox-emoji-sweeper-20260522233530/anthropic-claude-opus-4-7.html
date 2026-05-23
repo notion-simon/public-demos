@@ -545,33 +545,78 @@ function neighbors4(r, c) {
   return out;
 }
 
+function shuffleArr(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function placeHazards(safeR, safeC) {
+  // Safe zone: clicked cell + 8 neighbors (per spec).
   const safeZone = new Set();
   safeZone.add(safeR + "," + safeC);
   for (const [r, c] of neighbors8(safeR, safeC)) safeZone.add(r + "," + c);
-  const candidates = [];
-  for (let r = 0; r < game.rows; r++)
-    for (let c = 0; c < game.cols; c++)
-      if (!safeZone.has(r + "," + c)) candidates.push([r, c]);
 
-  // shuffle
-  for (let i = candidates.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  // To prevent the opening flood from spilling out of the safe zone,
+  // ensure every cell on the boundary of the safe zone (i.e. the 8 click neighbors)
+  // has at least one hazard among its OUTER neighbors (cells in ring-1).
+  // That guarantees each boundary cell is a non-zero "border number" and the
+  // zero-flood from the click cell stops at the safe zone (≤ 9 cells revealed).
+  const boundaryCells = neighbors8(safeR, safeC); // in-bounds 8 neighbors
+  shuffleArr(boundaryCells);
+
+  const hazardSet = new Set();
+  const ringNeighborsOf = (br, bc) =>
+    neighbors8(br, bc).filter(([r, c]) => !safeZone.has(r + "," + c));
+
+  // Pass 1: cover each boundary cell with at least one hazard among its ring neighbors.
+  // Reuse hazards across boundary cells when possible.
+  for (const [br, bc] of boundaryCells) {
+    if (hazardSet.size >= game.hazardCount) break;
+    const ringNbrs = ringNeighborsOf(br, bc);
+    if (ringNbrs.length === 0) continue;
+    if (ringNbrs.some(([r, c]) => hazardSet.has(r + "," + c))) continue;
+    shuffleArr(ringNbrs);
+    const [hr, hc] = ringNbrs[0];
+    hazardSet.add(hr + "," + hc);
   }
-  const hazardCount = Math.min(game.hazardCount, candidates.length);
-  for (let i = 0; i < hazardCount; i++) {
-    const [r, c] = candidates[i];
+
+  // Pass 2: fill remaining hazards randomly anywhere outside the safe zone.
+  const remaining = [];
+  for (let r = 0; r < game.rows; r++)
+    for (let c = 0; c < game.cols; c++) {
+      const k = r + "," + c;
+      if (!safeZone.has(k) && !hazardSet.has(k)) remaining.push([r, c]);
+    }
+  shuffleArr(remaining);
+  while (hazardSet.size < game.hazardCount && remaining.length) {
+    const [r, c] = remaining.pop();
+    hazardSet.add(r + "," + c);
+  }
+
+  // Apply hazards
+  for (const key of hazardSet) {
+    const [r, c] = key.split(",").map(Number);
     game.cells[r][c].hazard = true;
   }
-  // Sparkles among remaining non-hazard cells outside safe zone
-  const sparkleCandidates = candidates.slice(hazardCount);
+
+  // Sparkles: place in non-hazard cells outside the safe zone.
+  const sparkleCandidates = [];
+  for (let r = 0; r < game.rows; r++)
+    for (let c = 0; c < game.cols; c++) {
+      const k = r + "," + c;
+      if (!safeZone.has(k) && !game.cells[r][c].hazard) sparkleCandidates.push([r, c]);
+    }
+  shuffleArr(sparkleCandidates);
   const sc = Math.min(sparkleCount(game.level), sparkleCandidates.length);
   for (let i = 0; i < sc; i++) {
     const [r, c] = sparkleCandidates[i];
     game.cells[r][c].sparkle = true;
   }
-  // adj counts
+
+  // Adjacency counts
   for (let r = 0; r < game.rows; r++) {
     for (let c = 0; c < game.cols; c++) {
       if (game.cells[r][c].hazard) continue;

@@ -757,20 +757,6 @@ function getAdjacentSafeZone(row, col, rows, cols) {
   return zone;
 }
 
-// Get the extended safe zone for the first reveal (9-cell block)
-function getExtendedSafeZone(row, col, rows, cols) {
-  const zone = new Set();
-  for (let dr = -1; dr <= 1; dr++) {
-    for (let dc = -1; dc <= 1; dc++) {
-      const nr = row + dr, nc = col + dc;
-      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-        zone.add(`${nr},${nc}`);
-      }
-    }
-  }
-  return zone;
-}
-
 function computeAdjacent(board, rows, cols) {
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -865,24 +851,28 @@ function doReveal(row, col, fromSparkle = false) {
   state.revealedCount++;
 
   const animate = state.settings.motion;
+
   if (cell.sparkle) {
     playSparkle();
-    // Sparkle reveals orthogonal safe neighbors
+    // Sparkle reveals orthogonal safe neighbors only (no recursion deeper)
     const cfg = levelConfig(state.level);
     const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
     for (const [dr, dc] of dirs) {
       const nr = row+dr, nc = col+dc;
       if (nr>=0 && nr<cfg.rows && nc>=0 && nc<cfg.cols) {
         const nc_ = state.board[nr][nc];
-        if (nc_.hidden && !nc_.marked && !nc_.hazard) {
-          doReveal(nr, nc, true);
+        if (nc_.hidden && !nc_.marked && !nc_.hazard && !nc_.sparkle) {
+          nc_.hidden = false;
+          state.revealedCount++;
+          if (animate) addAnimClass(nr, nc, 'animate-reveal');
+          renderCell(nr, nc);
         }
       }
     }
     if (animate) addAnimClass(row, col, 'animate-sparkle');
     else addAnimClass(row, col, 'animate-reveal');
   } else if (cell.adjacent === 0) {
-    // Flood fill
+    // Zero cell: reveal self + border number cells only (no recursive cascade)
     const cfg = levelConfig(state.level);
     const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
     for (const [dr, dc] of dirs) {
@@ -890,7 +880,10 @@ function doReveal(row, col, fromSparkle = false) {
       if (nr>=0 && nr<cfg.rows && nc>=0 && nc<cfg.cols) {
         const nc_ = state.board[nr][nc];
         if (nc_.hidden && !nc_.marked && !nc_.hazard) {
-          doReveal(nr, nc, false);
+          nc_.hidden = false;
+          state.revealedCount++;
+          if (animate) addAnimClass(nr, nc, 'animate-reveal');
+          renderCell(nr, nc);
         }
       }
     }

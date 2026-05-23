@@ -318,34 +318,47 @@
     if (x.revealed || x.marked || x.hazard) return;
     x.revealed = true; q.push(x);
   }
-  function floodZeros(b, starts, q) {
+  function floodZeros(b, starts, q, limit = 22) {
     const queue = starts.filter(x => x.n === 0 && !x.hazard);
     const seen = new Set(queue.map(x => idx(b,x.r,x.c)));
-    while (queue.length) {
+    while (queue.length && q.length < limit) {
       const z = queue.shift();
-      around(b,z.r,z.c).forEach(n => {
-        if (n.marked || n.hazard) return;
+      for (const n of around(b,z.r,z.c)) {
+        if (q.length >= limit || n.marked || n.hazard) continue;
         if (!n.revealed) revealOne(b,n,q);
         const id = idx(b,n.r,n.c);
         if (n.n === 0 && !seen.has(id)) { seen.add(id); queue.push(n); }
-      });
+      }
+    }
+  }
+  function revealOpening(b, x, q) {
+    revealOne(b, x, q);
+    for (const n of around(b, x.r, x.c)) {
+      if (q.length >= 9) break;
+      if (!n.hazard && !n.marked) revealOne(b, n, q);
     }
   }
   function doReveal(r, c, fromChord=false) {
     const b = state.board; if (!b || b.over || b.won || !inBounds(b,r,c)) return;
     const x = cell(b,r,c);
-    if (!b.placed) placeHazards(b,r,c);
+    const opening = !b.placed;
+    if (opening) placeHazards(b,r,c);
     if (x.marked) return;
     if (x.revealed) { chord(x); return; }
     if (x.hazard) { gameOver(); return; }
     const changed = [];
-    revealOne(b,x,changed);
-    let zeros = [x];
-    if (x.sparkle) {
-      orthCells(b,r,c).forEach(n => { if (!n.hazard && !n.marked) revealOne(b,n,changed); });
-      zeros = changed.slice(); beep('sparkle');
-    } else beep('tap');
-    floodZeros(b, zeros, changed);
+    if (opening) {
+      revealOpening(b, x, changed);
+      beep('tap');
+    } else {
+      revealOne(b,x,changed);
+      let zeros = [x];
+      if (x.sparkle) {
+        orthCells(b,r,c).forEach(n => { if (!n.hazard && !n.marked) revealOne(b,n,changed); });
+        zeros = changed.slice(); beep('sparkle');
+      } else beep('tap');
+      floodZeros(b, zeros, changed, x.sparkle ? 14 : 22);
+    }
     renderBoardOnly(changed);
     checkWin();
   }

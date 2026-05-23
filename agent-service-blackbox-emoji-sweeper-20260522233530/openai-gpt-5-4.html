@@ -723,7 +723,8 @@
           cells,
           revealCount: 0,
           markedCount: 0,
-          sparkleCount: 0
+          sparkleCount: 0,
+          openingRevealDone: false
         };
       }
 
@@ -798,6 +799,38 @@
         board.generated = true;
       }
 
+      function getOpeningPocket(board, row, col) {
+        const cells = [];
+        for (let dr = -1; dr <= 1; dr += 1) {
+          for (let dc = -1; dc <= 1; dc += 1) {
+            const nr = row + dr;
+            const nc = col + dc;
+            if (nr < 0 || nr >= board.rows || nc < 0 || nc >= board.cols) continue;
+            cells.push(board.cells[nr][nc]);
+          }
+        }
+        return cells;
+      }
+
+      function getAutoRevealCap(level) {
+        if (level <= 1) return 10;
+        if (level <= 3) return 14;
+        if (level <= 5) return 18;
+        return 22;
+      }
+
+      function revealOpeningPocket(board, row, col) {
+        let revealedAny = false;
+        getOpeningPocket(board, row, col).forEach((cell) => {
+          if (cell.revealed || cell.marked || cell.hazard) return;
+          cell.revealed = true;
+          board.revealCount += 1;
+          revealedAny = true;
+        });
+        board.openingRevealDone = true;
+        return { exploded: false, revealedAny, revealedCount: revealedAny ? getOpeningPocket(board, row, col).filter((cell) => cell.revealed).length : 0 };
+      }
+
       function countAdjacentMarked(board, row, col) {
         let count = 0;
         forEachNeighbor(board, row, col, (neighbor) => {
@@ -808,9 +841,11 @@
 
       function revealCells(board, seeds, options = {}) {
         if (board.gameOver) return { exploded: false, revealedAny: false };
-        const queue = [...seeds];
+        const queue = seeds.map((seed) => ({ ...seed, source: seed.source || "seed" }));
         const seen = new Set();
         let revealedAny = false;
+        let autoReveals = 0;
+        const maxAutoReveals = options.maxAutoReveals ?? Number.POSITIVE_INFINITY;
 
         while (queue.length) {
           const next = queue.shift();
@@ -820,8 +855,10 @@
 
           if (next.row < 0 || next.row >= board.rows || next.col < 0 || next.col >= board.cols) continue;
           const cell = board.cells[next.row][next.col];
+          const isAutoReveal = next.source !== "seed";
 
           if (cell.revealed || cell.marked) continue;
+          if (isAutoReveal && autoReveals >= maxAutoReveals) continue;
           if (cell.hazard) {
             triggerGameOver(board, next.row, next.col);
             return { exploded: true, revealedAny };
@@ -830,12 +867,13 @@
           cell.revealed = true;
           board.revealCount += 1;
           revealedAny = true;
+          if (isAutoReveal) autoReveals += 1;
 
           if (cell.sparkle) {
             orthNeighbors(board, cell.row, cell.col).forEach(([nr, nc]) => {
               const neighbor = board.cells[nr][nc];
               if (!neighbor.hazard && !neighbor.marked && !neighbor.revealed) {
-                queue.push({ row: nr, col: nc });
+                queue.push({ row: nr, col: nc, source: "sparkle" });
               }
             });
           }
@@ -843,13 +881,13 @@
           if (cell.adjacent === 0) {
             forEachNeighbor(board, cell.row, cell.col, (neighbor) => {
               if (!neighbor.marked && !neighbor.revealed) {
-                queue.push({ row: neighbor.row, col: neighbor.col });
+                queue.push({ row: neighbor.row, col: neighbor.col, source: "zero" });
               }
             });
           }
         }
 
-        return { exploded: false, revealedAny };
+        return { exploded: false, revealedAny, autoReveals };
       }
 
       function triggerGameOver(board, row, col) {
@@ -891,8 +929,13 @@
         if (!board || board.gameOver) return;
         const cell = board.cells[row][col];
         if (cell.marked) return;
-        if (!board.generated) generateHazards(board, row, col);
-        const result = revealCells(board, [{ row, col }]);
+        let result;
+        if (!board.generated) {
+          generateHazards(board, row, col);
+          result = revealOpeningPocket(board, row, col);
+        } else {
+          result = revealCells(board, [{ row, col }], { maxAutoReveals: getAutoRevealCap(board.level) });
+        }
         if (!result.exploded && result.revealedAny) {
           playTone(cell.sparkle ? 620 : 420, 0.04, cell.sparkle ? "triangle" : "sine", 0.03);
           checkWin(board);
@@ -913,7 +956,7 @@
           }
         });
         if (!seeds.length) return;
-        const result = revealCells(board, seeds);
+        const result = revealCells(board, seeds, { maxAutoReveals: getAutoRevealCap(board.level) });
         if (!result.exploded && result.revealedAny) {
           playTone(480, 0.05, "triangle", 0.03);
           checkWin(board);
@@ -1332,7 +1375,10 @@
         goToMenu,
         render,
         getBoard: () => state.board,
-        countAdjacentMarked
+        countAdjacentMarked,
+        getOpeningPocket,
+        getAutoRevealCap,
+        revealOpeningPocket
       };
     })();
   </script>

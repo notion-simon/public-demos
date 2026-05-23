@@ -477,6 +477,74 @@
     return out;
   }
 
+  function computeNumbers() {
+    for (let r = 0; r < state.rows; r++) for (let c = 0; c < state.cols; c++) {
+      if (state.board[r][c].hazard) continue;
+      let count = 0;
+      neighbors(r,c).forEach(([rr,cc])=>{ if (state.board[rr][cc].hazard) count++; });
+      state.board[r][c].num = count;
+    }
+  }
+
+  function ensureNonZeroFirstClick(safeR, safeC) {
+    // The clicked cell is in the safe zone (no adjacent hazards).
+    // We want its number to be > 0 so the first click does not
+    // trigger a massive zero-region flood.  That means at least one
+    // hazard must sit at Chebyshev distance exactly 2.
+    if (state.board[safeR][safeC].num > 0) return;
+
+    // Cells at distance exactly 2 (the ring around the safe zone)
+    const ringCells = [];
+    for (let dr = -2; dr <= 2; dr++) {
+      for (let dc = -2; dc <= 2; dc++) {
+        if (Math.abs(dr) <= 1 && Math.abs(dc) <= 1) continue; // safe zone
+        const r = safeR + dr, c = safeC + dc;
+        if (inBounds(r, c) && !state.board[r][c].hazard) ringCells.push([r, c]);
+      }
+    }
+    if (ringCells.length === 0) return;
+
+    // Hazards far enough away that we can move one into the ring
+    // without breaking the safe-zone guarantee.
+    const farHazards = [];
+    for (let r = 0; r < state.rows; r++) for (let c = 0; c < state.cols; c++) {
+      if (state.board[r][c].hazard) {
+        const d = Math.max(Math.abs(r - safeR), Math.abs(c - safeC));
+        if (d >= 3) farHazards.push([r, c]);
+      }
+    }
+
+    if (farHazards.length > 0) {
+      const [hr, hc] = farHazards[Math.floor(Math.random() * farHazards.length)];
+      const [nr, nc] = ringCells[Math.floor(Math.random() * ringCells.length)];
+      state.board[hr][hc].hazard = false;
+      state.board[nr][nc].hazard = true;
+      return;
+    }
+
+    // No far hazards — swap a ring hazard with a distant non-hazard.
+    const ringHazards = [];
+    for (let r = 0; r < state.rows; r++) for (let c = 0; c < state.cols; c++) {
+      if (state.board[r][c].hazard) {
+        const d = Math.max(Math.abs(r - safeR), Math.abs(c - safeC));
+        if (d === 2) ringHazards.push([r, c]);
+      }
+    }
+    const farNonHazards = [];
+    for (let r = 0; r < state.rows; r++) for (let c = 0; c < state.cols; c++) {
+      if (!state.board[r][c].hazard) {
+        const d = Math.max(Math.abs(r - safeR), Math.abs(c - safeC));
+        if (d >= 3) farNonHazards.push([r, c]);
+      }
+    }
+    if (ringHazards.length > 0 && farNonHazards.length > 0) {
+      const [hr, hc] = ringHazards[Math.floor(Math.random() * ringHazards.length)];
+      const [nr, nc] = farNonHazards[Math.floor(Math.random() * farNonHazards.length)];
+      state.board[hr][hc].hazard = false;
+      state.board[nr][nc].hazard = true;
+    }
+  }
+
   function placeHazardsAndSparkles(safeR, safeC) {
     const safeSet = new Set();
     safeSet.add(`${safeR},${safeC}`);
@@ -494,12 +562,9 @@
     const haz = hazardCandidates.slice(0, state.hazards);
     haz.forEach(([r,c])=>{ state.board[r][c].hazard = true; });
 
-    for (let r = 0; r < state.rows; r++) for (let c = 0; c < state.cols; c++) {
-      if (state.board[r][c].hazard) continue;
-      let count = 0;
-      neighbors(r,c).forEach(([rr,cc])=>{ if (state.board[rr][cc].hazard) count++; });
-      state.board[r][c].num = count;
-    }
+    computeNumbers();
+    ensureNonZeroFirstClick(safeR, safeC);
+    computeNumbers();
 
     const sparkleCandidates = [];
     for (let r = 0; r < state.rows; r++) for (let c = 0; c < state.cols; c++) {
@@ -515,13 +580,15 @@
     sparks.forEach(([r,c])=>{ state.board[r][c].sparkle = true; });
   }
 
-  function revealCell(r, c) {
+  function revealCell(r, c, fromChord=false) {
     if (!inBounds(r,c)) return;
     const cell = state.board[r][c];
     if (cell.revealed || cell.marked) return;
 
+    let isFirstClick = false;
     if (state.firstReveal) {
       state.firstReveal = false;
+      isFirstClick = true;
       placeHazardsAndSparkles(r, c);
     }
 
@@ -547,11 +614,24 @@
       });
     }
 
+    // On first click, auto-reveal the guaranteed-safe starter zone
+    // (clicked cell + its 8 neighbors). This gives ~9 cells, enough
+    // to start deducing without solving the whole board.
+    if (isFirstClick) {
+      neighbors(r, c).forEach(([nr, nc]) => {
+        const n = state.board[nr][nc];
+        if (!n.revealed && !n.marked && !n.hazard) {
+          n.revealed = true;
+          renderCell(nr, nc, true);
+        }
+      });
+    }
+
     sfxReveal();
 
     seeds.forEach(([sr, sc]) => {
       const scell = state.board[sr][sc];
-      if (scell.num === 0 && !scell.hazard) floodZeros(sr, sc);
+      if (scell.num === 0 && !scell.hazard && !isFirstClick) floodZeros(sr, sc);
     });
 
     checkWin();

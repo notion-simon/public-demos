@@ -510,42 +510,117 @@ function sizeBoard() {
   document.documentElement.style.setProperty('--r',    sz > 32 ? '8px' : '5px');
 }
 
+/* ── Fisher-Yates shuffle (in-place) ────────────────────────── */
+function shuffle(arr) {
+  for (let i=arr.length-1;i>0;i--) {
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
 function placeHazards(fr, fc) {
-  /* Safe zone: first cell + 8 neighbours */
+  /* ── 1. Safe zone: clicked cell + 8 neighbours (spec-required) */
   const safe = new Set();
   for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) {
     const r=fr+dr, c=fc+dc;
     if (inB(r,c)) safe.add(k(r,c));
   }
-  /* Shuffle available positions */
-  const pool=[];
-  for (let r=0;r<G.rows;r++) for (let c=0;c<G.cols;c++)
-    if (!safe.has(k(r,c))) pool.push(k(r,c));
-  for (let i=pool.length-1;i>0;i--) {
-    const j=Math.floor(Math.random()*(i+1));
-    [pool[i],pool[j]]=[pool[j],pool[i]];
-  }
-  const n = Math.min(G.totalHaz, pool.length);
-  G.totalHaz = n;
-  for (let i=0;i<n;i++) {
-    G.cells[Math.floor(pool[i]/G.cols)][pool[i]%G.cols].haz = true;
-  }
-  /* Adjacency */
-  for (let r=0;r<G.rows;r++) for (let c=0;c<G.cols;c++)
-    if (!G.cells[r][c].haz) G.cells[r][c].adj = adjHaz(r,c);
 
-  /* Sparkles: non-hazard cells outside safe zone */
+  /* ── 2. Near ring: cells at Chebyshev distance exactly 2.
+     Every border cell (safe-zone edge) has ≥ 2 near-ring neighbours.
+     Placing hazards here gives border cells adj > 0, stopping the
+     flood-fill at the safe zone (≤ 9 cells revealed first click). */
+  const nearSet = new Set();
+  for (let dr=-2;dr<=2;dr++) for (let dc=-2;dc<=2;dc++) {
+    if (Math.abs(dr)<=1 && Math.abs(dc)<=1) continue;
+    const r=fr+dr, c=fc+dc;
+    if (inB(r,c)) nearSet.add(k(r,c));
+  }
+
+  /* ── 3. Border cells: the 8 safe-zone edge cells.
+     Each must end up with adj ≥ 1 so the flood-fill stops there. */
+  const border = [];
+  for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) {
+    if (!dr&&!dc) continue;
+    const r=fr+dr, c=fc+dc;
+    if (inB(r,c)) border.push(k(r,c));
+  }
+
+  /* ── 4. Randomised greedy set-cover ───────────────────────────
+     Walk the shuffled near ring and place a hazard whenever a
+     cell is adjacent to ≥ 1 still-uncovered border cell.  This
+     GUARANTEES every border cell gets adj ≥ 1, capping the first
+     reveal to ≤ 9 cells while keeping exact positions random.    */
+  const hazSet = new Set();
+  const covered = new Set();
+  for (const nk of shuffle([...nearSet])) {
+    if (covered.size >= border.length) break;   // all border cells covered
+    if (hazSet.size >= G.totalHaz) break;
+    const nr=Math.floor(nk/G.cols), nc=nk%G.cols;
+    let coversNew = false;
+    for (const bk of border) {
+      if (covered.has(bk)) continue;
+      const br=Math.floor(bk/G.cols), bc=bk%G.cols;
+      if (Math.abs(nr-br)<=1 && Math.abs(nc-bc)<=1) { coversNew=true; break; }
+    }
+    if (!coversNew) continue;
+    hazSet.add(nk);
+    G.cells[nr][nc].haz = true;
+    for (const bk of border) {
+      const br=Math.floor(bk/G.cols), bc=bk%G.cols;
+      if (Math.abs(nr-br)<=1 && Math.abs(nc-bc)<=1) covered.add(bk);
+    }
+  }
+
+  /* ── 5. Remaining hazards: randomly across the whole board ── */
+  const rest=[];
+  for (let r=0;r<G.rows;r++) for (let c=0;c<G.cols;c++) {
+    const key=k(r,c);
+    if (!safe.has(key) && !hazSet.has(key)) rest.push(key);
+  }
+  shuffle(rest);
+  for (let i=0; hazSet.size < G.totalHaz && i < rest.length; i++) {
+    hazSet.add(rest[i]);
+    G.cells[Math.floor(rest[i]/G.cols)][rest[i]%G.cols].haz = true;
+  }
+  G.totalHaz = hazSet.size;
+  recomputeAdj();
+
+  /* ── 6. Sparkles: random non-hazard cells outside safe zone ─ */
   const sp=[];
   for (let r=0;r<G.rows;r++) for (let c=0;c<G.cols;c++)
     if (!G.cells[r][c].haz && !safe.has(k(r,c))) sp.push(k(r,c));
-  for (let i=sp.length-1;i>0;i--) {
-    const j=Math.floor(Math.random()*(i+1));
-    [sp[i],sp[j]]=[sp[j],sp[i]];
-  }
+  shuffle(sp);
   const sc = sparkleN(G.lvl);
-  for (let i=0;i<Math.min(sc,sp.length);i++) {
+  for (let i=0;i<Math.min(sc,sp.length);i++)
     G.cells[Math.floor(sp[i]/G.cols)][sp[i]%G.cols].sparkle = true;
+}
+
+/* Recompute every cell's adj count from current hazard positions */
+function recomputeAdj() {
+  for (let r=0;r<G.rows;r++) for (let c=0;c<G.cols;c++)
+    G.cells[r][c].adj = G.cells[r][c].haz ? 0 : adjHaz(r,c);
+}
+
+/* Simulate how many cells a flood-fill reveal from (fr,fc) would expose */
+function simulateReveal(fr, fc) {
+  const seen = new Set([k(fr,fc)]);
+  const q = [[fr,fc]];
+  while (q.length) {
+    const [r,c] = q.shift();
+    if (G.cells[r][c].adj > 0) continue; // numbered cell: reveal but don't expand
+    for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) {
+      if (!dr&&!dc) continue;
+      const nr=r+dr, nc=c+dc;
+      if (!inB(nr,nc)) continue;
+      const nk=k(nr,nc);
+      if (seen.has(nk) || G.cells[nr][nc].haz) continue;
+      seen.add(nk);
+      q.push([nr,nc]);
+    }
   }
+  return seen.size;
 }
 
 function adjHaz(r,c) {

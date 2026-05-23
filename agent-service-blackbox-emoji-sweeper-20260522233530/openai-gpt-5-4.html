@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emoji Sweeper</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #120c1f;
+      --bg2: #1e1433;
+      --panel: rgba(38, 26, 63, 0.88);
+      --panel-strong: rgba(49, 33, 82, 0.96);
+      --tile-hidden: linear-gradient(180deg, #7a5ee7 0%, #5b3dd2 100%);
+      --tile-hidden-shadow: #41279f;
+      --tile-revealed: rgba(255, 255, 255, 0.14);
+      --tile-zero: rgba(255, 255, 255, 0.09);
+      --text: #f5f1ff;
+      --muted: #d6cbff;
+      --accent: #ffd166;
+      --accent-2: #7ee7ff;
+      --danger: #ff6b8b;
+      --success: #8effb7;
+      --outline: #ffffff;
+      --glass: rgba(255, 255, 255, 0.08);
+      --board-shadow: 0 28px 60px rgba(0, 0, 0, 0.34);
+      --cell-size: 42px;
+      --radius: 22px;
+      --motion-scale: 1;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: var(--font);
+      background:
+        radial-gradient(circle at top, rgba(147, 111, 255, 0.36), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(126, 231, 255, 0.18), transparent 32%),
+        linear-gradient(180deg, #170d29 0%, #0e0918 100%);
+      color: var(--text);
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-x: hidden;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+      border: 0;
+      background: none;
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    .cell:focus-visible,
+    .icon-button:focus-visible,
+    .primary-button:focus-visible,
+    .menu-icon:focus-visible {
+      outline: 2px solid var(--outline);
+      outline-offset: 2px;
+    }
+
+    .app {
+      width: min(100%, 860px);
+      min-height: min(95vh, 960px);
+      position: relative;
+      display: grid;
+      place-items: center;
+    }
+
+    .screen {
+      width: 100%;
+      max-width: 860px;
+      display: none;
+      animation: fade-in calc(200ms * var(--motion-scale)) ease;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: var(--board-shadow);
+      backdrop-filter: blur(18px);
+      border-radius: 32px;
+      padding: clamp(20px, 4vw, 32px);
+    }
+
+    .menu-screen .panel {
+      min-height: min(84vh, 760px);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .menu-screen .panel::before,
+    .game-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(255, 209, 102, 0.11), transparent 22%),
+        radial-gradient(circle at 85% 18%, rgba(126, 231, 255, 0.1), transparent 22%),
+        radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.06), transparent 32%);
+      pointer-events: none;
+    }
+
+    .top-bar,
+    .game-header,
+    .bottom-bar {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .corner-group,
+    .stat-badge,
+    .icon-cluster {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+      min-height: 54px;
+    }
+
+    .menu-icon,
+    .icon-button,
+    .confirm-button {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      font-size: 1.45rem;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.18);
+      transition: transform calc(160ms * var(--motion-scale)) ease, background calc(160ms * var(--motion-scale)) ease, box-shadow calc(160ms * var(--motion-scale)) ease;
+    }
+
+    .menu-icon:hover,
+    .icon-button:hover,
+    .confirm-button:hover,
+    .primary-button:hover,
+    .small-button:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.14);
+      box-shadow: 0 14px 24px rgba(0,0,0,0.2);
+    }
+
+    .value {
+      font-weight: 800;
+      font-size: 1.15rem;
+      letter-spacing: 0.02em;
+    }
+
+    .menu-main {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      gap: 28px;
+      align-content: center;
+      text-align: center;
+      padding: 10px 0;
+    }
+
+    .logo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 78px);
+      gap: 12px;
+      filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.22));
+    }
+
+    .logo-tile {
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.08));
+      border: 1px solid rgba(255,255,255,0.14);
+      font-size: 2rem;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,0.08), 0 14px 24px rgba(0,0,0,0.14);
+      transform: rotate(calc((var(--i) - 4) * 2deg));
+    }
+
+    .primary-button,
+    .small-button {
+      background: linear-gradient(180deg, #ffd166 0%, #ffb347 100%);
+      color: #271900;
+      font-weight: 900;
+      border-radius: 18px;
+      padding: 16px 26px;
+      min-height: 60px;
+      box-shadow: 0 16px 28px rgba(255, 179, 71, 0.32);
+      transition: transform calc(160ms * var(--motion-scale)) ease, box-shadow calc(160ms * var(--motion-scale)) ease, filter calc(160ms * var(--motion-scale)) ease;
+    }
+
+    .primary-button {
+      min-width: min(100%, 260px);
+      font-size: 1.05rem;
+    }
+
+    .game-panel {
+      position: relative;
+      min-height: min(94vh, 960px);
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
+
+    .game-header {
+      margin-bottom: 4px;
+    }
+
+    .stat-badge {
+      font-size: 1.18rem;
+      font-weight: 900;
+      min-width: 100px;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .board-shell {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      overflow: auto;
+      padding: 6px;
+    }
+
+    .board {
+      display: grid;
+      gap: 6px;
+      padding: 14px;
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 20px 36px rgba(0,0,0,0.22);
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .cell {
+      width: var(--cell-size);
+      height: var(--cell-size);
+      border-radius: 14px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      font-size: 1.02rem;
+      background: var(--tile-hidden);
+      box-shadow: inset 0 2px 0 rgba(255,255,255,0.18), inset 0 -3px 0 var(--tile-hidden-shadow), 0 8px 12px rgba(0,0,0,0.15);
+      transform: translateY(0) scale(1);
+      transition:
+        transform calc(140ms * var(--motion-scale)) ease,
+        background calc(180ms * var(--motion-scale)) ease,
+        box-shadow calc(180ms * var(--motion-scale)) ease,
+        filter calc(180ms * var(--motion-scale)) ease;
+      color: white;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .cell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,0.14), transparent 60%);
+      pointer-events: none;
+    }
+
+    .cell:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.04);
+    }
+
+    .cell.revealed {
+      background: var(--tile-revealed);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 rgba(0,0,0,0);
+      transform: translateY(0);
+    }
+
+    .cell.zero {
+      background: var(--tile-zero);
+    }
+
+    .cell.sparkle.revealed {
+      background: linear-gradient(180deg, rgba(255, 209, 102, 0.24), rgba(126, 231, 255, 0.16));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 18px rgba(255, 209, 102, 0.12);
+    }
+
+    .cell.game-over-hazard {
+      background: linear-gradient(180deg, rgba(255, 107, 139, 0.3), rgba(255, 107, 139, 0.18));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 18px rgba(255, 107, 139, 0.15);
+    }
+
+    .cell-content {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    .sparkle-stack {
+      display: grid;
+      place-items: center;
+      line-height: 1;
+      transform: translateY(-1px);
+    }
+
+    .sparkle-stack .icon {
+      font-size: 1rem;
+    }
+
+    .sparkle-stack .number {
+      font-size: 0.88rem;
+      margin-top: -2px;
+    }
+
+    .cell.cursor {
+      box-shadow: inset 0 2px 0 rgba(255,255,255,0.18), inset 0 -3px 0 var(--tile-hidden-shadow), 0 0 0 2px rgba(255,255,255,0.3), 0 12px 18px rgba(0,0,0,0.18);
+    }
+
+    .num-1 { color: #7ee7ff; }
+    .num-2 { color: #8effb7; }
+    .num-3 { color: #ffd166; }
+    .num-4 { color: #ffb4e1; }
+    .num-5 { color: #ff9aa2; }
+    .num-6 { color: #9fd3ff; }
+    .num-7 { color: #f4d4ff; }
+    .num-8 { color: #ffc37d; }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 7, 18, 0.58);
+      backdrop-filter: blur(8px);
+      border-radius: 32px;
+      z-index: 20;
+      padding: 24px;
+    }
+
+    .overlay.active {
+      display: flex;
+      animation: fade-in calc(180ms * var(--motion-scale)) ease;
+    }
+
+    .overlay-card,
+    .settings-card {
+      width: min(100%, 420px);
+      background: var(--panel-strong);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 28px;
+      box-shadow: 0 24px 50px rgba(0,0,0,0.28);
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+      text-align: center;
+    }
+
+    .overlay-title,
+    .settings-title,
+    .toast {
+      font-weight: 900;
+      letter-spacing: 0.02em;
+    }
+
+    .overlay-title,
+    .settings-title {
+      font-size: 1.6rem;
+    }
+
+    .overlay-actions,
+    .settings-actions,
+    .reset-row,
+    .settings-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .small-button {
+      min-width: 146px;
+    }
+
+    .secondary-button {
+      background: rgba(255,255,255,0.1);
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    .setting-pill,
+    .danger-pill {
+      min-width: 110px;
+      min-height: 92px;
+      border-radius: 24px;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      display: grid;
+      place-items: center;
+      gap: 6px;
+      font-size: 1.6rem;
+      font-weight: 900;
+    }
+
+    .setting-pill.active {
+      background: linear-gradient(180deg, rgba(126, 231, 255, 0.18), rgba(255,255,255,0.1));
+      box-shadow: 0 0 0 1px rgba(126, 231, 255, 0.18);
+    }
+
+    .pill-state {
+      font-size: 1rem;
+      opacity: 0.85;
+    }
+
+    .danger-pill {
+      background: rgba(255, 107, 139, 0.12);
+    }
+
+    .reset-confirm {
+      display: none;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .reset-confirm.active {
+      display: flex;
+    }
+
+    .confirm-button.confirm {
+      background: rgba(142, 255, 183, 0.18);
+    }
+
+    .confirm-button.cancel {
+      background: rgba(255,255,255,0.08);
+    }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      top: 18px;
+      transform: translate(-50%, 0);
+      z-index: 24;
+      padding: 12px 18px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255, 209, 102, 0.96), rgba(255, 179, 71, 0.96));
+      color: #271900;
+      box-shadow: 0 16px 30px rgba(255, 179, 71, 0.28);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity calc(180ms * var(--motion-scale)) ease, transform calc(180ms * var(--motion-scale)) ease;
+    }
+
+    .toast.active {
+      opacity: 1;
+      transform: translate(-50%, 4px);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 700px) {
+      body { padding: 12px; }
+      .menu-screen .panel,
+      .game-panel { border-radius: 28px; }
+      .logo-grid { grid-template-columns: repeat(3, minmax(62px, 1fr)); width: min(100%, 270px); }
+      .logo-tile { font-size: 1.7rem; }
+      .stat-badge,
+      .corner-group,
+      .icon-cluster { min-height: 50px; padding: 10px 12px; }
+      .menu-icon,
+      .icon-button,
+      .confirm-button { width: 50px; height: 50px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      :root { --motion-scale: 0; }
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+    <div class="toast" id="toast" aria-live="polite">New Best</div>
+
+    <section class="screen menu-screen active" id="menuScreen" aria-label="Menu screen">
+      <div class="panel">
+        <div class="top-bar">
+          <div class="corner-group" aria-label="Best level">
+            <span aria-hidden="true">🏆</span>
+            <span class="value" id="bestLevelMenu">1</span>
+          </div>
+          <button class="menu-icon" id="menuSettingsButton" aria-label="Settings">
+            <span aria-hidden="true">⚙️</span>
+          </button>
+        </div>
+
+        <div class="menu-main">
+          <div class="logo-grid" id="logoGrid" aria-hidden="true"></div>
+          <button class="primary-button" id="startButton">Start Game</button>
+        </div>
+
+        <div></div>
+      </div>
+    </section>
+
+    <section class="screen game-screen" id="gameScreen" aria-label="Game screen">
+      <div class="panel game-panel">
+        <div class="game-header">
+          <div class="stat-badge" id="hazardBadge" aria-live="polite"></div>
+          <div class="stat-badge" id="levelBadge" aria-live="polite"></div>
+        </div>
+
+        <div class="board-shell">
+          <div class="board" id="board" role="grid" aria-label="Emoji Sweeper board"></div>
+        </div>
+
+        <div class="bottom-bar">
+          <button class="icon-button" id="gameSettingsButton" aria-label="Settings">
+            <span aria-hidden="true">⚙️</span>
+          </button>
+          <button class="icon-button" id="homeButton" aria-label="Menu">
+            <span aria-hidden="true">🏠</span>
+          </button>
+        </div>
+
+        <div class="overlay" id="gameOverOverlay" aria-live="assertive" aria-modal="true" role="dialog" aria-labelledby="gameOverTitle">
+          <div class="overlay-card">
+            <div class="overlay-title" id="gameOverTitle">Game Over</div>
+            <div class="overlay-actions">
+              <button class="small-button" id="playAgainButton">Play Again</button>
+              <button class="small-button secondary-button" id="gameOverMenuButton">Menu</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="overlay" id="settingsOverlay" aria-modal="true" role="dialog" aria-labelledby="settingsTitle">
+      <div class="settings-card">
+        <div class="settings-title" id="settingsTitle">Menu</div>
+        <div class="settings-grid">
+          <button class="setting-pill" id="soundButton" aria-label="Sound"></button>
+          <button class="setting-pill" id="motionButton" aria-label="Motion"></button>
+          <button class="danger-pill" id="resetButton" aria-label="Reset best level">
+            <span aria-hidden="true">🗑️</span>
+            <span class="pill-state" aria-hidden="true">🏆</span>
+          </button>
+        </div>
+        <div class="reset-confirm" id="resetConfirm">
+          <button class="confirm-button confirm" id="confirmResetButton" aria-label="Confirm reset">
+            <span aria-hidden="true">✅</span>
+          </button>
+          <button class="confirm-button cancel" id="cancelResetButton" aria-label="Cancel reset">
+            <span aria-hidden="true">❌</span>
+          </button>
+        </div>
+        <div class="settings-actions">
+          <button class="small-button secondary-button" id="closeSettingsButton">Menu</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const THEMES = ["💣", "👻", "🔥", "💀", "🌵", "⚡", "🐞"];
+      const MARKER = "🚩";
+      const SPARKLE = "✨";
+      const STORAGE_KEYS = {
+        bestLevel: "emoji-sweeper-best-level",
+        sound: "emoji-sweeper-sound",
+        motion: "emoji-sweeper-motion"
+      };
+
+      const app = document.getElementById("app");
+      const menuScreen = document.getElementById("menuScreen");
+      const gameScreen = document.getElementById("gameScreen");
+      const bestLevelMenu = document.getElementById("bestLevelMenu");
+      const startButton = document.getElementById("startButton");
+      const logoGrid = document.getElementById("logoGrid");
+      const boardEl = document.getElementById("board");
+      const hazardBadge = document.getElementById("hazardBadge");
+      const levelBadge = document.getElementById("levelBadge");
+      const toastEl = document.getElementById("toast");
+      const gameOverOverlay = document.getElementById("gameOverOverlay");
+      const playAgainButton = document.getElementById("playAgainButton");
+      const gameOverMenuButton = document.getElementById("gameOverMenuButton");
+      const settingsOverlay = document.getElementById("settingsOverlay");
+      const soundButton = document.getElementById("soundButton");
+      const motionButton = document.getElementById("motionButton");
+      const resetButton = document.getElementById("resetButton");
+      const resetConfirm = document.getElementById("resetConfirm");
+      const confirmResetButton = document.getElementById("confirmResetButton");
+      const cancelResetButton = document.getElementById("cancelResetButton");
+      const closeSettingsButton = document.getElementById("closeSettingsButton");
+      const menuSettingsButton = document.getElementById("menuSettingsButton");
+      const gameSettingsButton = document.getElementById("gameSettingsButton");
+      const homeButton = document.getElementById("homeButton");
+
+      const state = {
+        screen: "menu",
+        bestLevel: readBestLevel(),
+        settings: {
+          sound: readBoolean(STORAGE_KEYS.sound, true),
+          motion: readBoolean(STORAGE_KEYS.motion, true)
+        },
+        board: null,
+        focusedCell: { row: 0, col: 0 },
+        longPress: null,
+        toastTimer: null,
+        audioContext: null,
+        settingsReturnFocus: null
+      };
+
+      function readBestLevel() {
+        const raw = Number(localStorage.getItem(STORAGE_KEYS.bestLevel));
+        return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1;
+      }
+
+      function readBoolean(key, fallback) {
+        const raw = localStorage.getItem(key);
+        if (raw === null) return fallback;
+        return raw === "true";
+      }
+
+      function saveBestLevel() {
+        localStorage.setItem(STORAGE_KEYS.bestLevel, String(state.bestLevel));
+      }
+
+      function saveSettings() {
+        localStorage.setItem(STORAGE_KEYS.sound, String(state.settings.sound));
+        localStorage.setItem(STORAGE_KEYS.motion, String(state.settings.motion));
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function getLevelConfig(level) {
+        if (level <= 1) return { rows: 8, cols: 8, hazards: 8 };
+        if (level === 2) return { rows: 9, cols: 9, hazards: 12 };
+        if (level === 3) return { rows: 10, cols: 10, hazards: 16 };
+        if (level === 4) return { rows: 12, cols: 12, hazards: 24 };
+        return { rows: 14, cols: 14, hazards: Math.min(55, 30 + 3 * (level - 5)) };
+      }
+
+      function themeForLevel(level) {
+        return THEMES[(level - 1) % THEMES.length];
+      }
+
+      function createBoard(level) {
+        const config = getLevelConfig(level);
+        const cells = Array.from({ length: config.rows }, (_, row) =>
+          Array.from({ length: config.cols }, (_, col) => ({
+            row,
+            col,
+            hazard: false,
+            sparkle: false,
+            marked: false,
+            revealed: false,
+            adjacent: 0,
+            exploded: false
+          }))
+        );
+        return {
+          level,
+          rows: config.rows,
+          cols: config.cols,
+          hazardTotal: config.hazards,
+          theme: themeForLevel(level),
+          generated: false,
+          gameOver: false,
+          cells,
+          revealCount: 0,
+          markedCount: 0,
+          sparkleCount: 0
+        };
+      }
+
+      function forEachNeighbor(board, row, col, callback) {
+        for (let dr = -1; dr <= 1; dr += 1) {
+          for (let dc = -1; dc <= 1; dc += 1) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = row + dr;
+            const nc = col + dc;
+            if (nr < 0 || nr >= board.rows || nc < 0 || nc >= board.cols) continue;
+            callback(board.cells[nr][nc], nr, nc, dr, dc);
+          }
+        }
+      }
+
+      function orthNeighbors(board, row, col) {
+        return [
+          [row - 1, col],
+          [row + 1, col],
+          [row, col - 1],
+          [row, col + 1]
+        ].filter(([r, c]) => r >= 0 && r < board.rows && c >= 0 && c < board.cols);
+      }
+
+      function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+      }
+
+      function generateHazards(board, safeRow, safeCol) {
+        const safeZone = new Set();
+        safeZone.add(`${safeRow},${safeCol}`);
+        forEachNeighbor(board, safeRow, safeCol, (_, nr, nc) => {
+          safeZone.add(`${nr},${nc}`);
+        });
+
+        const candidates = [];
+        for (let row = 0; row < board.rows; row += 1) {
+          for (let col = 0; col < board.cols; col += 1) {
+            if (!safeZone.has(`${row},${col}`)) candidates.push(board.cells[row][col]);
+          }
+        }
+
+        shuffle(candidates);
+        const hazards = candidates.slice(0, board.hazardTotal);
+        hazards.forEach((cell) => {
+          cell.hazard = true;
+        });
+
+        const sparkleCandidates = candidates.filter((cell) => !cell.hazard);
+        const sparkleCount = Math.min(5, 2 + Math.floor(board.level / 3));
+        shuffle(sparkleCandidates).slice(0, sparkleCount).forEach((cell) => {
+          cell.sparkle = true;
+        });
+        board.sparkleCount = sparkleCount;
+
+        for (let row = 0; row < board.rows; row += 1) {
+          for (let col = 0; col < board.cols; col += 1) {
+            const cell = board.cells[row][col];
+            if (cell.hazard) continue;
+            let count = 0;
+            forEachNeighbor(board, row, col, (neighbor) => {
+              if (neighbor.hazard) count += 1;
+            });
+            cell.adjacent = count;
+          }
+        }
+
+        board.generated = true;
+      }
+
+      function countAdjacentMarked(board, row, col) {
+        let count = 0;
+        forEachNeighbor(board, row, col, (neighbor) => {
+          if (neighbor.marked) count += 1;
+        });
+        return count;
+      }
+
+      function revealCells(board, seeds, options = {}) {
+        if (board.gameOver) return { exploded: false, revealedAny: false };
+        const queue = [...seeds];
+        const seen = new Set();
+        let revealedAny = false;
+
+        while (queue.length) {
+          const next = queue.shift();
+          const key = `${next.row},${next.col}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+
+          if (next.row < 0 || next.row >= board.rows || next.col < 0 || next.col >= board.cols) continue;
+          const cell = board.cells[next.row][next.col];
+
+          if (cell.revealed || cell.marked) continue;
+          if (cell.hazard) {
+            triggerGameOver(board, next.row, next.col);
+            return { exploded: true, revealedAny };
+          }
+
+          cell.revealed = true;
+          board.revealCount += 1;
+          revealedAny = true;
+
+          if (cell.sparkle) {
+            orthNeighbors(board, cell.row, cell.col).forEach(([nr, nc]) => {
+              const neighbor = board.cells[nr][nc];
+              if (!neighbor.hazard && !neighbor.marked && !neighbor.revealed) {
+                queue.push({ row: nr, col: nc });
+              }
+            });
+          }
+
+          if (cell.adjacent === 0) {
+            forEachNeighbor(board, cell.row, cell.col, (neighbor) => {
+              if (!neighbor.marked && !neighbor.revealed) {
+                queue.push({ row: neighbor.row, col: neighbor.col });
+              }
+            });
+          }
+        }
+
+        return { exploded: false, revealedAny };
+      }
+
+      function triggerGameOver(board, row, col) {
+        board.gameOver = true;
+        const explodedCell = board.cells[row][col];
+        explodedCell.exploded = true;
+        for (let r = 0; r < board.rows; r += 1) {
+          for (let c = 0; c < board.cols; c += 1) {
+            const cell = board.cells[r][c];
+            if (cell.hazard) cell.revealed = true;
+          }
+        }
+        render();
+        openGameOver();
+        playTone(160, 0.18, "sawtooth", 0.06);
+      }
+
+      function checkWin(board) {
+        const safeCells = board.rows * board.cols - board.hazardTotal;
+        if (!board.gameOver && board.revealCount >= safeCells) {
+          const nextLevel = board.level + 1;
+          const newBest = nextLevel > state.bestLevel;
+          if (newBest) {
+            state.bestLevel = nextLevel;
+            saveBestLevel();
+            showToast();
+          }
+          playTone(540, 0.08, "triangle", 0.03);
+          setTimeout(() => {
+            startLevel(nextLevel, true);
+          }, state.settings.motion ? 260 : 0);
+          return true;
+        }
+        return false;
+      }
+
+      function revealCell(row, col) {
+        const board = state.board;
+        if (!board || board.gameOver) return;
+        const cell = board.cells[row][col];
+        if (cell.marked) return;
+        if (!board.generated) generateHazards(board, row, col);
+        const result = revealCells(board, [{ row, col }]);
+        if (!result.exploded && result.revealedAny) {
+          playTone(cell.sparkle ? 620 : 420, 0.04, cell.sparkle ? "triangle" : "sine", 0.03);
+          checkWin(board);
+        }
+        render();
+      }
+
+      function chordReveal(row, col) {
+        const board = state.board;
+        if (!board || board.gameOver) return;
+        const cell = board.cells[row][col];
+        if (!cell.revealed || cell.adjacent < 1) return;
+        if (countAdjacentMarked(board, row, col) !== cell.adjacent) return;
+        const seeds = [];
+        forEachNeighbor(board, row, col, (neighbor) => {
+          if (!neighbor.revealed && !neighbor.marked) {
+            seeds.push({ row: neighbor.row, col: neighbor.col });
+          }
+        });
+        if (!seeds.length) return;
+        const result = revealCells(board, seeds);
+        if (!result.exploded && result.revealedAny) {
+          playTone(480, 0.05, "triangle", 0.03);
+          checkWin(board);
+        }
+        render();
+      }
+
+      function toggleMarker(row, col) {
+        const board = state.board;
+        if (!board || board.gameOver) return;
+        const cell = board.cells[row][col];
+        if (cell.revealed) return;
+        cell.marked = !cell.marked;
+        board.markedCount += cell.marked ? 1 : -1;
+        playTone(cell.marked ? 260 : 210, 0.03, "square", 0.02);
+        render();
+      }
+
+      function updateBestLevelView() {
+        bestLevelMenu.textContent = String(state.bestLevel);
+      }
+
+      function updateSettingsView() {
+        app.style.setProperty("--motion-scale", state.settings.motion ? "1" : "0");
+        soundButton.classList.toggle("active", state.settings.sound);
+        motionButton.classList.toggle("active", state.settings.motion);
+        soundButton.innerHTML = `<span aria-hidden="true">${state.settings.sound ? "🔊" : "🔇"}</span><span class="pill-state" aria-hidden="true">${state.settings.sound ? "✅" : "❌"}</span>`;
+        motionButton.innerHTML = `<span aria-hidden="true">${state.settings.motion ? "🌀" : "⏸️"}</span><span class="pill-state" aria-hidden="true">${state.settings.motion ? "✅" : "❌"}</span>`;
+      }
+
+      function renderLogo() {
+        const icons = [THEMES[0], SPARKLE, THEMES[1], MARKER, THEMES[2], SPARKLE, THEMES[3], THEMES[4], THEMES[5]];
+        logoGrid.innerHTML = icons.map((icon, index) => `<div class="logo-tile" style="--i:${index}" aria-hidden="true">${icon}</div>`).join("");
+      }
+
+      function showScreen(name) {
+        state.screen = name;
+        menuScreen.classList.toggle("active", name === "menu");
+        gameScreen.classList.toggle("active", name === "game");
+      }
+
+      function getCellAria(cell, board) {
+        const parts = [`Row ${cell.row + 1}`, `Column ${cell.col + 1}`];
+        if (board.gameOver && cell.hazard) {
+          parts.push("revealed hazard");
+        } else if (cell.marked) {
+          parts.push("marked");
+        } else if (!cell.revealed) {
+          parts.push("hidden");
+        } else if (cell.sparkle) {
+          parts.push(cell.adjacent > 0 ? `revealed sparkle ${cell.adjacent}` : "revealed sparkle 0");
+        } else if (cell.adjacent > 0) {
+          parts.push(`revealed ${cell.adjacent}`);
+        } else {
+          parts.push("revealed 0");
+        }
+        return parts.join(", ");
+      }
+
+      function cellContent(cell, board) {
+        if (board.gameOver && cell.hazard) {
+          return `<div class="cell-content" aria-hidden="true">${board.theme}</div>`;
+        }
+        if (cell.marked && !cell.revealed) {
+          return `<div class="cell-content" aria-hidden="true">${MARKER}</div>`;
+        }
+        if (!cell.revealed) {
+          return `<div class="cell-content" aria-hidden="true"></div>`;
+        }
+        if (cell.sparkle) {
+          if (cell.adjacent > 0) {
+            return `<div class="cell-content sparkle-stack" aria-hidden="true"><span class="icon">${SPARKLE}</span><span class="number num-${cell.adjacent}">${cell.adjacent}</span></div>`;
+          }
+          return `<div class="cell-content" aria-hidden="true">${SPARKLE}</div>`;
+        }
+        if (cell.adjacent > 0) {
+          return `<div class="cell-content num-${cell.adjacent}" aria-hidden="true">${cell.adjacent}</div>`;
+        }
+        return `<div class="cell-content" aria-hidden="true"></div>`;
+      }
+
+      function renderBoard() {
+        const board = state.board;
+        if (!board) return;
+        const maxBoardWidth = Math.min(window.innerWidth - 74, 760);
+        const maxBoardHeight = Math.min(window.innerHeight - 260, 760);
+        const size = clamp(Math.floor(Math.min(maxBoardWidth / board.cols, maxBoardHeight / board.rows)), 28, 52);
+        boardEl.style.setProperty("--cell-size", `${size}px`);
+        boardEl.style.gridTemplateColumns = `repeat(${board.cols}, var(--cell-size))`;
+        boardEl.setAttribute("aria-rowcount", String(board.rows));
+        boardEl.setAttribute("aria-colcount", String(board.cols));
+        boardEl.innerHTML = board.cells.flat().map((cell) => {
+          const isCursor = state.focusedCell.row === cell.row && state.focusedCell.col === cell.col;
+          const classes = ["cell"];
+          if (cell.revealed) classes.push("revealed");
+          if (cell.revealed && cell.adjacent === 0 && !cell.sparkle) classes.push("zero");
+          if (cell.sparkle) classes.push("sparkle");
+          if (board.gameOver && cell.hazard) classes.push("game-over-hazard");
+          if (isCursor) classes.push("cursor");
+          return `<button
+            class="${classes.join(" ")}"
+            role="gridcell"
+            data-row="${cell.row}"
+            data-col="${cell.col}"
+            tabindex="${isCursor ? "0" : "-1"}"
+            aria-label="${getCellAria(cell, board)}"
+            aria-pressed="${cell.marked ? "true" : "false"}"
+          >${cellContent(cell, board)}</button>`;
+        }).join("");
+      }
+
+      function renderHUD() {
+        const board = state.board;
+        hazardBadge.innerHTML = `<span aria-hidden="true">${board.theme}</span><span>${board.hazardTotal - board.markedCount}</span>`;
+        levelBadge.innerHTML = `<span aria-hidden="true">⭐</span><span>${board.level}</span>`;
+      }
+
+      function render() {
+        updateBestLevelView();
+        updateSettingsView();
+        if (!state.board) return;
+        renderHUD();
+        renderBoard();
+      }
+
+      function focusCurrentCell() {
+        if (state.screen !== "game") return;
+        const selector = `.cell[data-row="${state.focusedCell.row}"][data-col="${state.focusedCell.col}"]`;
+        const button = boardEl.querySelector(selector);
+        if (button) button.focus({ preventScroll: true });
+      }
+
+      function startLevel(level, preserveScreen = false) {
+        state.board = createBoard(level);
+        state.focusedCell = { row: 0, col: 0 };
+        gameOverOverlay.classList.remove("active");
+        showScreen("game");
+        render();
+        requestAnimationFrame(() => {
+          focusCurrentCell();
+        });
+        if (!preserveScreen) render();
+      }
+
+      function restartLevel() {
+        if (!state.board) return;
+        startLevel(state.board.level);
+      }
+
+      function showToast() {
+        clearTimeout(state.toastTimer);
+        toastEl.classList.add("active");
+        state.toastTimer = setTimeout(() => toastEl.classList.remove("active"), 1700);
+      }
+
+      function openSettings(returnFocusEl) {
+        state.settingsReturnFocus = returnFocusEl || document.activeElement;
+        resetConfirm.classList.remove("active");
+        settingsOverlay.classList.add("active");
+        closeSettingsButton.focus({ preventScroll: true });
+      }
+
+      function closeSettings() {
+        settingsOverlay.classList.remove("active");
+        resetConfirm.classList.remove("active");
+        const el = state.settingsReturnFocus;
+        if (el && typeof el.focus === "function") {
+          requestAnimationFrame(() => el.focus({ preventScroll: true }));
+        }
+      }
+
+      function openGameOver() {
+        gameOverOverlay.classList.add("active");
+        playAgainButton.focus({ preventScroll: true });
+      }
+
+      function goToMenu() {
+        showScreen("menu");
+        gameOverOverlay.classList.remove("active");
+        closeSettings();
+        startButton.focus({ preventScroll: true });
+      }
+
+      function moveCursor(dr, dc) {
+        if (!state.board) return;
+        state.focusedCell.row = clamp(state.focusedCell.row + dr, 0, state.board.rows - 1);
+        state.focusedCell.col = clamp(state.focusedCell.col + dc, 0, state.board.cols - 1);
+        renderBoard();
+        focusCurrentCell();
+      }
+
+      function handleBoardKeyDown(event) {
+        if (!state.board || state.board.gameOver) return;
+        const row = Number(event.currentTarget.dataset.row);
+        const col = Number(event.currentTarget.dataset.col);
+        state.focusedCell = { row, col };
+        switch (event.key) {
+          case "ArrowUp":
+            event.preventDefault();
+            moveCursor(-1, 0);
+            break;
+          case "ArrowDown":
+            event.preventDefault();
+            moveCursor(1, 0);
+            break;
+          case "ArrowLeft":
+            event.preventDefault();
+            moveCursor(0, -1);
+            break;
+          case "ArrowRight":
+            event.preventDefault();
+            moveCursor(0, 1);
+            break;
+          case "Enter":
+            event.preventDefault();
+            activateCell(row, col);
+            break;
+          case " ":
+          case "Spacebar":
+            event.preventDefault();
+            toggleMarker(row, col);
+            focusCurrentCell();
+            break;
+          default:
+            break;
+        }
+      }
+
+      function activateCell(row, col) {
+        const cell = state.board.cells[row][col];
+        if (cell.revealed) {
+          chordReveal(row, col);
+        } else {
+          revealCell(row, col);
+        }
+        focusCurrentCell();
+      }
+
+      function handleCellClick(event) {
+        if (!state.board || state.board.gameOver) return;
+        if (event.currentTarget.dataset.longPressTriggered === "true") {
+          event.currentTarget.dataset.longPressTriggered = "false";
+          return;
+        }
+        const row = Number(event.currentTarget.dataset.row);
+        const col = Number(event.currentTarget.dataset.col);
+        state.focusedCell = { row, col };
+        activateCell(row, col);
+      }
+
+      function handleCellContext(event) {
+        event.preventDefault();
+        if (!state.board || state.board.gameOver) return;
+        const row = Number(event.currentTarget.dataset.row);
+        const col = Number(event.currentTarget.dataset.col);
+        state.focusedCell = { row, col };
+        toggleMarker(row, col);
+        focusCurrentCell();
+      }
+
+      function clearLongPress() {
+        if (state.longPress?.timer) clearTimeout(state.longPress.timer);
+        state.longPress = null;
+      }
+
+      function handleTouchStart(event) {
+        if (!state.board || state.board.gameOver) return;
+        const target = event.currentTarget;
+        const row = Number(target.dataset.row);
+        const col = Number(target.dataset.col);
+        const cell = state.board.cells[row][col];
+        if (cell.revealed) return;
+        target.dataset.longPressTriggered = "false";
+        clearLongPress();
+        state.longPress = {
+          row,
+          col,
+          target,
+          timer: setTimeout(() => {
+            target.dataset.longPressTriggered = "true";
+            toggleMarker(row, col);
+            focusCurrentCell();
+          }, 450)
+        };
+      }
+
+      function handleTouchEnd() {
+        clearLongPress();
+      }
+
+      function attachBoardEvents() {
+        boardEl.querySelectorAll(".cell").forEach((button) => {
+          button.addEventListener("keydown", handleBoardKeyDown);
+          button.addEventListener("click", handleCellClick);
+          button.addEventListener("contextmenu", handleCellContext);
+          button.addEventListener("touchstart", handleTouchStart, { passive: true });
+          button.addEventListener("touchend", handleTouchEnd, { passive: true });
+          button.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+          button.addEventListener("focus", () => {
+            state.focusedCell = {
+              row: Number(button.dataset.row),
+              col: Number(button.dataset.col)
+            };
+            boardEl.querySelectorAll(".cell").forEach((cellBtn) => {
+              cellBtn.classList.toggle("cursor", cellBtn === button);
+              cellBtn.tabIndex = cellBtn === button ? 0 : -1;
+            });
+          });
+        });
+      }
+
+      function playTone(frequency, duration, type = "sine", gainValue = 0.04) {
+        if (!state.settings.sound) return;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!state.audioContext) state.audioContext = new AudioCtx();
+        const ctx = state.audioContext;
+        if (ctx.state === "suspended") ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = frequency;
+        gain.gain.value = gainValue;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const now = ctx.currentTime;
+        gain.gain.setValueAtTime(gainValue, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        osc.start(now);
+        osc.stop(now + duration);
+      }
+
+      boardEl.addEventListener("focusin", () => {
+        const active = document.activeElement;
+        if (active?.classList.contains("cell")) {
+          state.focusedCell = {
+            row: Number(active.dataset.row),
+            col: Number(active.dataset.col)
+          };
+        }
+      });
+
+      const observer = new MutationObserver(() => {
+        if (state.screen === "game") attachBoardEvents();
+      });
+      observer.observe(boardEl, { childList: true });
+
+      startButton.addEventListener("click", () => startLevel(1));
+      playAgainButton.addEventListener("click", restartLevel);
+      gameOverMenuButton.addEventListener("click", goToMenu);
+      menuSettingsButton.addEventListener("click", () => openSettings(menuSettingsButton));
+      gameSettingsButton.addEventListener("click", () => openSettings(gameSettingsButton));
+      homeButton.addEventListener("click", goToMenu);
+      closeSettingsButton.addEventListener("click", closeSettings);
+      settingsOverlay.addEventListener("click", (event) => {
+        if (event.target === settingsOverlay) closeSettings();
+      });
+      gameOverOverlay.addEventListener("click", (event) => {
+        if (event.target === gameOverOverlay) {
+          gameOverMenuButton.focus({ preventScroll: true });
+        }
+      });
+      soundButton.addEventListener("click", () => {
+        state.settings.sound = !state.settings.sound;
+        saveSettings();
+        updateSettingsView();
+        if (state.settings.sound) playTone(440, 0.04, "triangle", 0.03);
+      });
+      motionButton.addEventListener("click", () => {
+        state.settings.motion = !state.settings.motion;
+        saveSettings();
+        updateSettingsView();
+      });
+      resetButton.addEventListener("click", () => {
+        resetConfirm.classList.toggle("active");
+      });
+      confirmResetButton.addEventListener("click", () => {
+        state.bestLevel = 1;
+        saveBestLevel();
+        updateBestLevelView();
+        resetConfirm.classList.remove("active");
+      });
+      cancelResetButton.addEventListener("click", () => {
+        resetConfirm.classList.remove("active");
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          if (settingsOverlay.classList.contains("active")) {
+            closeSettings();
+          } else if (gameOverOverlay.classList.contains("active")) {
+            goToMenu();
+          }
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        if (state.board && state.screen === "game") render();
+      });
+
+      renderLogo();
+      updateBestLevelView();
+      updateSettingsView();
+      startButton.focus({ preventScroll: true });
+
+      window.__emojiSweeper = {
+        state,
+        createBoard,
+        generateHazards,
+        revealCell,
+        chordReveal,
+        toggleMarker,
+        getLevelConfig,
+        themeForLevel,
+        startLevel,
+        goToMenu,
+        render,
+        getBoard: () => state.board,
+        countAdjacentMarked
+      };
+    })();
+  </script>
+</body>
+</html>

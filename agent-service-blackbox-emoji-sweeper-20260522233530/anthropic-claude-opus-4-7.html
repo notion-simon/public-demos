@@ -1,0 +1,1112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>✨</title>
+<style>
+  :root {
+    --bg-1: #1a1530;
+    --bg-2: #2b1f4a;
+    --bg-3: #3a2a66;
+    --tile-hidden-1: #8a78d9;
+    --tile-hidden-2: #6b5bbf;
+    --tile-hidden-edge: #4a3d8f;
+    --tile-revealed: #e8e3ff;
+    --tile-revealed-edge: #c5bdf0;
+    --tile-zero: #d8d2f5;
+    --text: #ffffff;
+    --accent: #ffd84d;
+    --danger: #ff5577;
+    --good: #6dffb0;
+    --shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+    --c1: #1e88ff;
+    --c2: #2ecf6b;
+    --c3: #ff4d6d;
+    --c4: #7a3cff;
+    --c5: #ff8a1f;
+    --c6: #16c5c2;
+    --c7: #444444;
+    --c8: #8a8a8a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: radial-gradient(ellipse at top, var(--bg-3), var(--bg-1));
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: inherit;
+    padding: 0;
+  }
+  button:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    gap: 16px;
+  }
+  .screen.hidden { display: none; }
+
+  /* ---------- Top bar (menu screen) ---------- */
+  .topbar {
+    position: absolute;
+    top: 16px; left: 16px; right: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 32px;
+  }
+  .icon-btn {
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.08);
+    box-shadow: var(--shadow);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    transition: transform 0.1s ease, background 0.15s;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.15); }
+  .icon-btn:active { transform: translateY(2px); box-shadow: none; }
+  .icon-btn .best-num {
+    position: absolute;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    transform: translate(18px, 16px);
+    text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+    pointer-events: none;
+  }
+
+  /* ---------- Menu screen ---------- */
+  .logo-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    width: 220px;
+    height: 220px;
+    padding: 12px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 24px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+  .logo-grid .lcell {
+    background: linear-gradient(180deg, var(--tile-hidden-1), var(--tile-hidden-2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    box-shadow: inset 0 -3px 0 var(--tile-hidden-edge), inset 0 2px 0 rgba(255,255,255,0.2);
+  }
+  .logo-grid .lcell.revealed {
+    background: var(--tile-revealed);
+    box-shadow: inset 0 0 0 1px var(--tile-revealed-edge);
+    color: #333;
+    font-weight: 800;
+  }
+  .logo-grid .lcell.hazard {
+    background: linear-gradient(180deg, #ff7090, #d63d65);
+    box-shadow: inset 0 -3px 0 #8c1a3b, inset 0 2px 0 rgba(255,255,255,0.2);
+  }
+  .primary-btn {
+    font-size: 22px;
+    font-weight: 800;
+    padding: 16px 36px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffd84d, #f0a92b);
+    color: #3a2200;
+    box-shadow: 0 4px 0 #a86e10, 0 8px 24px rgba(0,0,0,0.3);
+    letter-spacing: 0.5px;
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .primary-btn:hover { filter: brightness(1.05); }
+  .primary-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #a86e10; }
+
+  /* ---------- Game screen ---------- */
+  .game-screen {
+    justify-content: flex-start;
+    padding-top: 24px;
+  }
+  .game-hud {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 6px;
+    font-size: 24px;
+    font-weight: 800;
+  }
+  .hud-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,0,0,0.35);
+    padding: 8px 14px;
+    border-radius: 14px;
+    min-width: 90px;
+    justify-content: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+  .hud-cell .num { font-variant-numeric: tabular-nums; min-width: 28px; text-align: center; }
+  .board-wrap {
+    margin-top: 14px;
+    background: rgba(0,0,0,0.25);
+    padding: 8px;
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+  .board {
+    display: grid;
+    gap: 3px;
+    touch-action: none;
+  }
+  .cell {
+    background: linear-gradient(180deg, var(--tile-hidden-1), var(--tile-hidden-2));
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    color: var(--text);
+    box-shadow: inset 0 -3px 0 var(--tile-hidden-edge), inset 0 2px 0 rgba(255,255,255,0.18);
+    transition: transform 0.06s ease;
+    position: relative;
+    line-height: 1;
+  }
+  .cell.cursor {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    z-index: 2;
+  }
+  .cell.revealed {
+    background: var(--tile-revealed);
+    box-shadow: inset 0 0 0 1px var(--tile-revealed-edge);
+    color: #333;
+  }
+  .cell.revealed.zero { background: var(--tile-zero); color: transparent; }
+  .cell.revealed.hazard {
+    background: linear-gradient(180deg, #ff7090, #d63d65);
+    box-shadow: inset 0 -3px 0 #8c1a3b;
+  }
+  .cell.revealed.sparkle { background: linear-gradient(180deg, #fff4ad, #ffd84d); }
+  .cell.marked {
+    background: linear-gradient(180deg, var(--tile-hidden-1), var(--tile-hidden-2));
+  }
+  .cell.anim {
+    animation: pop 0.18s ease;
+  }
+  @keyframes pop {
+    0% { transform: scale(0.85); opacity: 0.2; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .cell.boom {
+    animation: shake 0.35s ease;
+  }
+  @keyframes shake {
+    0%,100% { transform: translate(0,0); }
+    20% { transform: translate(-2px,1px); }
+    40% { transform: translate(2px,-1px); }
+    60% { transform: translate(-1px,2px); }
+    80% { transform: translate(1px,-2px); }
+  }
+  .cell .num { pointer-events: none; }
+  .n1 { color: var(--c1); }
+  .n2 { color: var(--c2); }
+  .n3 { color: var(--c3); }
+  .n4 { color: var(--c4); }
+  .n5 { color: var(--c5); }
+  .n6 { color: var(--c6); }
+  .n7 { color: var(--c7); }
+  .n8 { color: var(--c8); }
+
+  .game-footer {
+    margin-top: 14px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .icon-btn.active {
+    background: linear-gradient(180deg, #ffd84d, #f0a92b);
+    color: #3a2200;
+    box-shadow: 0 2px 0 #a86e10, 0 0 0 2px rgba(255,216,77,0.4);
+  }
+  .icon-btn.mark-btn { position: relative; }
+  .icon-btn.mark-btn::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 18px;
+    border: 2px dashed transparent;
+    transition: border-color 0.2s ease;
+    pointer-events: none;
+  }
+  .icon-btn.mark-btn.active::after { border-color: rgba(255,216,77,0.6); }
+  /* When mark mode is on, hint at it on the board */
+  .board.markmode .cell:not(.revealed) {
+    cursor: pointer;
+  }
+  .board.markmode {
+    box-shadow: 0 0 0 2px rgba(255,216,77,0.35);
+    border-radius: 12px;
+  }
+
+  /* ---------- Modal screens ---------- */
+  .overlay {
+    position: absolute; inset: 0;
+    background: rgba(8,4,24,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .overlay.hidden { display: none; }
+  .modal {
+    background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+    padding: 28px 32px;
+    border-radius: 22px;
+    box-shadow: 0 16px 50px rgba(0,0,0,0.6);
+    text-align: center;
+    min-width: 280px;
+    max-width: calc(100% - 32px);
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .modal h1 {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+  .modal .row { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .setting-row {
+    width: 100%;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 4px;
+    font-size: 24px;
+  }
+  .toggle-btn {
+    width: 64px; height: 36px; border-radius: 18px;
+    background: rgba(255,255,255,0.1);
+    position: relative;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+  }
+  .toggle-btn::after {
+    content: "";
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: #aaa;
+    transition: left 0.15s ease, background 0.15s ease;
+  }
+  .toggle-btn.on { background: rgba(109,255,176,0.25); }
+  .toggle-btn.on::after { left: 31px; background: var(--good); }
+
+  .new-best {
+    color: var(--accent);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    animation: shine 1.2s ease infinite alternate;
+  }
+  @keyframes shine {
+    from { text-shadow: 0 0 0px rgba(255,216,77,0); }
+    to   { text-shadow: 0 0 12px rgba(255,216,77,0.9); }
+  }
+
+  .big-emoji { font-size: 64px; line-height: 1; }
+
+  @media (max-width: 480px) {
+    .game-hud { font-size: 20px; }
+    .icon-btn { width: 48px; height: 48px; font-size: 26px; }
+    .modal h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================= MENU SCREEN ============================= -->
+<div id="menu-screen" class="screen">
+  <div class="topbar">
+    <button class="icon-btn" id="btn-trophy" aria-label="Best level">
+      🏆<span class="best-num" id="best-num-top"></span>
+    </button>
+    <button class="icon-btn" id="btn-settings-menu" aria-label="Settings">⚙️</button>
+  </div>
+
+  <div class="logo-grid" id="logo-grid" aria-hidden="true"></div>
+
+  <button class="primary-btn" id="btn-start">Start Game</button>
+</div>
+
+<!-- ============================= GAME SCREEN ============================= -->
+<div id="game-screen" class="screen game-screen hidden">
+  <div class="game-hud">
+    <div class="hud-cell"><span id="hazard-icon-hud">💣</span><span class="num" id="hazard-count">0</span></div>
+    <div class="hud-cell">⭐<span class="num" id="level-num">1</span></div>
+  </div>
+  <div class="board-wrap">
+    <div class="board" id="board" role="grid" aria-label="game board"></div>
+  </div>
+  <div class="game-footer">
+    <button class="icon-btn" id="btn-settings-game" aria-label="Settings">⚙️</button>
+    <button class="icon-btn mark-btn" id="btn-mark-mode" aria-label="Marker mode" aria-pressed="false">🚩</button>
+    <button class="icon-btn" id="btn-home" aria-label="Menu">🏠</button>
+  </div>
+</div>
+
+<!-- ============================= GAME OVER OVERLAY ============================= -->
+<div id="gameover-overlay" class="overlay hidden">
+  <div class="modal">
+    <div class="big-emoji" id="gameover-emoji">💥</div>
+    <h1>Game Over</h1>
+    <div class="row">
+      <button class="primary-btn" id="btn-playagain">Play Again</button>
+      <button class="icon-btn" id="btn-menu-go" aria-label="Menu">🏠</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= WIN OVERLAY ============================= -->
+<div id="win-overlay" class="overlay hidden">
+  <div class="modal">
+    <div class="big-emoji">✨</div>
+    <div id="win-newbest" class="new-best hidden">New Best</div>
+    <div class="row">
+      <div class="hud-cell">⭐<span class="num" id="win-level">1</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= SETTINGS OVERLAY ============================= -->
+<div id="settings-overlay" class="overlay hidden">
+  <div class="modal">
+    <div class="setting-row">
+      <span id="sound-icon">🔊</span>
+      <button class="toggle-btn" id="toggle-sound" aria-label="Sound"></button>
+    </div>
+    <div class="setting-row">
+      <span>🏃</span>
+      <button class="toggle-btn" id="toggle-motion" aria-label="Motion"></button>
+    </div>
+    <div class="setting-row">
+      <span id="reset-section">🗑️</span>
+      <div id="reset-controls" class="row"></div>
+    </div>
+    <button class="icon-btn" id="btn-close-settings" aria-label="Close">✖️</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ============================================================
+//  Storage
+// ============================================================
+const STORAGE_KEY = "emoji-sweeper-v1";
+const defaultState = { best: 0, sound: true, motion: true };
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { ...defaultState };
+    return { ...defaultState, ...JSON.parse(raw) };
+  } catch (_) { return { ...defaultState }; }
+}
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
+}
+const state = loadState();
+
+// ============================================================
+//  Themes / icons
+// ============================================================
+const THEMES = [
+  { hazard: "💣" },
+  { hazard: "👻" },
+  { hazard: "🔥" },
+  { hazard: "💀" },
+  { hazard: "🌵" },
+  { hazard: "⚡" },
+  { hazard: "🐛" },
+];
+function themeFor(level) { return THEMES[(level - 1) % THEMES.length]; }
+const MARKER_ICON = "🚩";
+const SPARKLE_ICON = "✨";
+
+// ============================================================
+//  Level config
+// ============================================================
+function levelConfig(level) {
+  if (level === 1) return { rows: 8, cols: 8, hazards: 8 };
+  if (level === 2) return { rows: 9, cols: 9, hazards: 12 };
+  if (level === 3) return { rows: 10, cols: 10, hazards: 16 };
+  if (level === 4) return { rows: 12, cols: 12, hazards: 24 };
+  const hazards = Math.min(55, 30 + 3 * (level - 5));
+  return { rows: 14, cols: 14, hazards };
+}
+function sparkleCount(level) { return Math.min(5, 2 + Math.floor(level / 3)); }
+
+// ============================================================
+//  Audio (simple beeps)
+// ============================================================
+let audioCtx = null;
+function beep(freq, dur = 0.06, type = "sine", gain = 0.05) {
+  if (!state.sound) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.value = gain;
+    o.connect(g); g.connect(audioCtx.destination);
+    const t = audioCtx.currentTime;
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur);
+  } catch (_) {}
+}
+function sfxReveal() { beep(520, 0.04, "triangle", 0.04); }
+function sfxMark()   { beep(380, 0.05, "square",  0.04); }
+function sfxSparkle(){ beep(880, 0.08, "triangle", 0.06); setTimeout(()=>beep(1320,0.08,"triangle",0.05), 60); }
+function sfxBoom()   { beep(120, 0.5, "sawtooth", 0.1); }
+function sfxWin()    {
+  beep(660, 0.1, "triangle", 0.06);
+  setTimeout(()=>beep(880, 0.1, "triangle", 0.06), 110);
+  setTimeout(()=>beep(1175, 0.18, "triangle", 0.06), 220);
+}
+
+// ============================================================
+//  Game state
+// ============================================================
+let game = null;
+let markMode = false;
+/*
+game = {
+  rows, cols, hazardCount, level,
+  cells: 2D array of { hazard, sparkle, adj, revealed, marked, el },
+  firstReveal: bool,
+  over: bool,
+  won: bool,
+  markedCount: int,
+  cursor: {r,c},
+};
+*/
+
+function makeBoard(level) {
+  const cfg = levelConfig(level);
+  const cells = [];
+  for (let r = 0; r < cfg.rows; r++) {
+    const row = [];
+    for (let c = 0; c < cfg.cols; c++) {
+      row.push({ hazard: false, sparkle: false, adj: 0, revealed: false, marked: false, el: null });
+    }
+    cells.push(row);
+  }
+  game = {
+    rows: cfg.rows, cols: cfg.cols, hazardCount: cfg.hazards, level,
+    cells, firstReveal: true, over: false, won: false, markedCount: 0,
+    cursor: { r: 0, c: 0 },
+  };
+}
+
+function inBounds(r, c) { return r >= 0 && c >= 0 && r < game.rows && c < game.cols; }
+function neighbors8(r, c) {
+  const out = [];
+  for (let dr = -1; dr <= 1; dr++)
+    for (let dc = -1; dc <= 1; dc++) {
+      if (!dr && !dc) continue;
+      if (inBounds(r+dr, c+dc)) out.push([r+dr, c+dc]);
+    }
+  return out;
+}
+function neighbors4(r, c) {
+  const out = [];
+  const ds = [[-1,0],[1,0],[0,-1],[0,1]];
+  for (const [dr,dc] of ds) if (inBounds(r+dr,c+dc)) out.push([r+dr,c+dc]);
+  return out;
+}
+
+function placeHazards(safeR, safeC) {
+  const safeZone = new Set();
+  safeZone.add(safeR + "," + safeC);
+  for (const [r, c] of neighbors8(safeR, safeC)) safeZone.add(r + "," + c);
+  const candidates = [];
+  for (let r = 0; r < game.rows; r++)
+    for (let c = 0; c < game.cols; c++)
+      if (!safeZone.has(r + "," + c)) candidates.push([r, c]);
+
+  // shuffle
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+  const hazardCount = Math.min(game.hazardCount, candidates.length);
+  for (let i = 0; i < hazardCount; i++) {
+    const [r, c] = candidates[i];
+    game.cells[r][c].hazard = true;
+  }
+  // Sparkles among remaining non-hazard cells outside safe zone
+  const sparkleCandidates = candidates.slice(hazardCount);
+  const sc = Math.min(sparkleCount(game.level), sparkleCandidates.length);
+  for (let i = 0; i < sc; i++) {
+    const [r, c] = sparkleCandidates[i];
+    game.cells[r][c].sparkle = true;
+  }
+  // adj counts
+  for (let r = 0; r < game.rows; r++) {
+    for (let c = 0; c < game.cols; c++) {
+      if (game.cells[r][c].hazard) continue;
+      let n = 0;
+      for (const [nr, nc] of neighbors8(r, c)) if (game.cells[nr][nc].hazard) n++;
+      game.cells[r][c].adj = n;
+    }
+  }
+}
+
+// ============================================================
+//  Rendering
+// ============================================================
+const boardEl = document.getElementById("board");
+const levelNumEl = document.getElementById("level-num");
+const hazardCountEl = document.getElementById("hazard-count");
+const hazardIconHudEl = document.getElementById("hazard-icon-hud");
+
+function renderBoard() {
+  boardEl.innerHTML = "";
+  boardEl.style.gridTemplateColumns = `repeat(${game.cols}, 1fr)`;
+  boardEl.style.gridTemplateRows = `repeat(${game.rows}, 1fr)`;
+  // Compute cell size based on viewport
+  const maxBoardW = Math.min(window.innerWidth - 40, 640);
+  const maxBoardH = window.innerHeight - 260; // leave room for HUD + footer
+  const cellSize = Math.max(20, Math.floor(Math.min(maxBoardW / game.cols, maxBoardH / game.rows)));
+  boardEl.style.width = (cellSize * game.cols + (game.cols - 1) * 3) + "px";
+  for (let r = 0; r < game.rows; r++) {
+    for (let c = 0; c < game.cols; c++) {
+      const cell = game.cells[r][c];
+      const el = document.createElement("div");
+      el.className = "cell";
+      el.style.width = cellSize + "px";
+      el.style.height = cellSize + "px";
+      el.style.fontSize = Math.floor(cellSize * 0.62) + "px";
+      el.dataset.r = r;
+      el.dataset.c = c;
+      el.setAttribute("role", "gridcell");
+      el.setAttribute("aria-rowindex", r + 1);
+      el.setAttribute("aria-colindex", c + 1);
+      el.setAttribute("tabindex", "-1");
+      cell.el = el;
+      attachCellHandlers(el, r, c);
+      boardEl.appendChild(el);
+      updateCellVisual(r, c);
+    }
+  }
+  updateHUD();
+  setCursor(game.cursor.r, game.cursor.c, false);
+}
+
+function updateCellVisual(r, c) {
+  const cell = game.cells[r][c];
+  const el = cell.el;
+  if (!el) return;
+  el.classList.toggle("revealed", cell.revealed);
+  el.classList.toggle("marked", !cell.revealed && cell.marked);
+  el.classList.toggle("zero", cell.revealed && !cell.hazard && !cell.sparkle && cell.adj === 0);
+  el.classList.toggle("sparkle", cell.revealed && cell.sparkle && !cell.hazard);
+  el.classList.toggle("hazard", cell.revealed && cell.hazard);
+
+  // aria
+  let aria = `row ${r+1} column ${c+1} `;
+  if (cell.revealed) {
+    if (cell.hazard) aria += "hazard";
+    else if (cell.sparkle) aria += `sparkle ${cell.adj}`;
+    else aria += cell.adj === 0 ? "empty" : `${cell.adj}`;
+  } else if (cell.marked) {
+    aria += "marked";
+  } else {
+    aria += "hidden";
+  }
+  el.setAttribute("aria-label", aria);
+
+  // content
+  let content = "";
+  if (cell.revealed) {
+    if (cell.hazard) {
+      content = themeFor(game.level).hazard;
+    } else if (cell.sparkle) {
+      const numStr = cell.adj > 0 ? `<span class="num n${cell.adj}" style="font-size:0.55em;position:absolute;bottom:6%;right:8%;">${cell.adj}</span>` : "";
+      content = `<span class="num">${SPARKLE_ICON}</span>${numStr}`;
+    } else if (cell.adj > 0) {
+      content = `<span class="num n${cell.adj}">${cell.adj}</span>`;
+    } else {
+      content = "";
+    }
+  } else if (cell.marked) {
+    content = `<span class="num">${MARKER_ICON}</span>`;
+  } else {
+    content = "";
+  }
+  el.innerHTML = content;
+}
+
+function updateHUD() {
+  levelNumEl.textContent = String(game.level);
+  hazardCountEl.textContent = String(game.hazardCount - game.markedCount);
+  hazardIconHudEl.textContent = themeFor(game.level).hazard;
+}
+
+// ============================================================
+//  Reveal logic
+// ============================================================
+function revealCell(r, c, opts = {}) {
+  if (game.over || game.won) return;
+  const cell = game.cells[r][c];
+  if (cell.revealed) return;
+  if (cell.marked && !opts.fromChord && !opts.fromFlood) return;
+
+  if (game.firstReveal) {
+    game.firstReveal = false;
+    placeHazards(r, c);
+  }
+
+  if (cell.hazard) {
+    revealAllHazards();
+    cell.el && cell.el.classList.add("boom");
+    sfxBoom();
+    game.over = true;
+    setTimeout(showGameOver, 700);
+    return;
+  }
+
+  // perform reveal
+  doRevealSingle(r, c);
+
+  if (cell.sparkle) {
+    sfxSparkle();
+    // Reveal orthogonally adjacent hidden unmarked safe cells
+    for (const [nr, nc] of neighbors4(r, c)) {
+      const nb = game.cells[nr][nc];
+      if (!nb.revealed && !nb.marked && !nb.hazard) {
+        // This will cascade further via zero rule if number is 0
+        if (nb.adj === 0) {
+          floodZero(nr, nc);
+        } else {
+          doRevealSingle(nr, nc);
+        }
+      }
+    }
+  } else if (cell.adj === 0) {
+    floodZero(r, c);
+  } else {
+    sfxReveal();
+  }
+
+  checkWin();
+}
+
+function doRevealSingle(r, c) {
+  const cell = game.cells[r][c];
+  if (cell.revealed) return;
+  cell.revealed = true;
+  cell.marked = false; // safety: reveal removes any marker
+  updateCellVisual(r, c);
+  if (state.motion && cell.el) {
+    cell.el.classList.remove("anim");
+    // force reflow
+    void cell.el.offsetWidth;
+    cell.el.classList.add("anim");
+  }
+}
+
+function floodZero(r, c) {
+  // BFS for connected zero region + border numbers
+  const stack = [[r, c]];
+  const seen = new Set();
+  while (stack.length) {
+    const [cr, cc] = stack.pop();
+    const k = cr + "," + cc;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const cell = game.cells[cr][cc];
+    if (cell.hazard) continue;
+    if (cell.marked) continue;
+    if (!cell.revealed) doRevealSingle(cr, cc);
+    if (cell.adj === 0 && !cell.sparkle) {
+      for (const [nr, nc] of neighbors8(cr, cc)) {
+        const nb = game.cells[nr][nc];
+        if (!nb.revealed && !nb.hazard && !nb.marked) stack.push([nr, nc]);
+      }
+    }
+  }
+  sfxReveal();
+}
+
+function revealAllHazards() {
+  for (let r = 0; r < game.rows; r++) {
+    for (let c = 0; c < game.cols; c++) {
+      const cell = game.cells[r][c];
+      if (cell.hazard) {
+        cell.revealed = true;
+        updateCellVisual(r, c);
+      }
+    }
+  }
+}
+
+function toggleMark(r, c) {
+  if (game.over || game.won) return;
+  const cell = game.cells[r][c];
+  if (cell.revealed) return;
+  cell.marked = !cell.marked;
+  game.markedCount += cell.marked ? 1 : -1;
+  updateCellVisual(r, c);
+  updateHUD();
+  sfxMark();
+}
+
+function chordReveal(r, c) {
+  const cell = game.cells[r][c];
+  if (!cell.revealed || cell.hazard || cell.adj === 0) return;
+  let marks = 0;
+  for (const [nr, nc] of neighbors8(r, c)) if (game.cells[nr][nc].marked) marks++;
+  if (marks !== cell.adj) return;
+  for (const [nr, nc] of neighbors8(r, c)) {
+    const nb = game.cells[nr][nc];
+    if (!nb.revealed && !nb.marked) revealCell(nr, nc, { fromChord: true });
+  }
+}
+
+function checkWin() {
+  if (game.over) return;
+  for (let r = 0; r < game.rows; r++) {
+    for (let c = 0; c < game.cols; c++) {
+      const cell = game.cells[r][c];
+      if (!cell.hazard && !cell.revealed) return;
+    }
+  }
+  game.won = true;
+  const prevBest = state.best;
+  if (game.level > state.best) {
+    state.best = game.level;
+    saveState();
+    updateBestUI();
+  }
+  game.level += 1;
+  sfxWin();
+  showWin(game.level - 1, game.level - 1 > prevBest);
+}
+
+// ============================================================
+//  Input handlers
+// ============================================================
+function attachCellHandlers(el, r, c) {
+  let longPressTimer = null;
+  let longPressFired = false;
+  let touchMoved = false;
+  let startX = 0, startY = 0;
+
+  el.addEventListener("mousedown", (e) => {
+    if (e.button === 2) {
+      e.preventDefault();
+      toggleMark(r, c);
+    }
+  });
+
+  el.addEventListener("contextmenu", (e) => { e.preventDefault(); });
+
+  el.addEventListener("click", (e) => {
+    if (longPressFired) { longPressFired = false; return; }
+    setCursor(r, c, false);
+    const cell = game.cells[r][c];
+    if (markMode && !cell.revealed) { toggleMark(r, c); return; }
+    if (cell.revealed && cell.adj > 0) chordReveal(r, c);
+    else if (!cell.revealed && !cell.marked) revealCell(r, c);
+  });
+
+  el.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) return;
+    touchMoved = false;
+    longPressFired = false;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    longPressTimer = setTimeout(() => {
+      if (!touchMoved) {
+        longPressFired = true;
+        toggleMark(r, c);
+      }
+    }, 450);
+  }, { passive: true });
+
+  el.addEventListener("touchmove", (e) => {
+    if (e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (Math.hypot(dx, dy) > 8) {
+      touchMoved = true;
+      clearTimeout(longPressTimer);
+    }
+  }, { passive: true });
+
+  el.addEventListener("touchend", (e) => {
+    clearTimeout(longPressTimer);
+    if (longPressFired) {
+      e.preventDefault();
+      return;
+    }
+    if (touchMoved) return;
+    // Treat as tap
+    e.preventDefault();
+    setCursor(r, c, false);
+    const cell = game.cells[r][c];
+    if (markMode && !cell.revealed) { toggleMark(r, c); return; }
+    if (cell.revealed && cell.adj > 0) chordReveal(r, c);
+    else if (!cell.revealed && !cell.marked) revealCell(r, c);
+  });
+
+  el.addEventListener("touchcancel", () => {
+    clearTimeout(longPressTimer);
+  });
+}
+
+// Keyboard
+function setCursor(r, c, focus = true) {
+  if (!game) return;
+  if (game.cells[game.cursor.r] && game.cells[game.cursor.r][game.cursor.c] && game.cells[game.cursor.r][game.cursor.c].el) {
+    game.cells[game.cursor.r][game.cursor.c].el.classList.remove("cursor");
+  }
+  game.cursor = { r, c };
+  const el = game.cells[r][c].el;
+  if (el) {
+    el.classList.add("cursor");
+    if (focus) el.focus();
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  // Don't trap when overlays are open and a button is focused
+  const gameVisible = !document.getElementById("game-screen").classList.contains("hidden");
+  const anyOverlayOpen = ["gameover-overlay", "win-overlay", "settings-overlay"]
+    .some(id => !document.getElementById(id).classList.contains("hidden"));
+  if (!gameVisible || anyOverlayOpen) return;
+  if (!game || game.over) return;
+
+  let handled = true;
+  let { r, c } = game.cursor;
+  switch (e.key) {
+    case "ArrowUp": r = Math.max(0, r - 1); setCursor(r, c); break;
+    case "ArrowDown": r = Math.min(game.rows - 1, r + 1); setCursor(r, c); break;
+    case "ArrowLeft": c = Math.max(0, c - 1); setCursor(r, c); break;
+    case "ArrowRight": c = Math.min(game.cols - 1, c + 1); setCursor(r, c); break;
+    case "Enter": {
+      const cell = game.cells[r][c];
+      if (markMode && !cell.revealed) { toggleMark(r, c); break; }
+      if (cell.revealed && cell.adj > 0) chordReveal(r, c);
+      else if (!cell.revealed && !cell.marked) revealCell(r, c);
+      break;
+    }
+    case "f":
+    case "F":
+      setMarkMode(!markMode);
+      break;
+    case " ":
+    case "Spacebar":
+      toggleMark(r, c);
+      break;
+    default:
+      handled = false;
+  }
+  if (handled) e.preventDefault();
+});
+
+// ============================================================
+//  Screens and overlays
+// ============================================================
+function show(id) { document.getElementById(id).classList.remove("hidden"); }
+function hide(id) { document.getElementById(id).classList.add("hidden"); }
+
+function startLevel(level) {
+  hide("menu-screen");
+  hide("gameover-overlay");
+  hide("win-overlay");
+  show("game-screen");
+  makeBoard(level);
+  renderBoard();
+  setMarkMode(false);
+}
+
+function showGameOver() {
+  show("gameover-overlay");
+}
+
+function showWin(completedLevel, isNewBest) {
+  document.getElementById("win-level").textContent = String(completedLevel);
+  document.getElementById("win-newbest").classList.toggle("hidden", !isNewBest);
+  show("win-overlay");
+  // auto advance after a brief celebration
+  setTimeout(() => {
+    hide("win-overlay");
+    startLevel(game.level); // already incremented
+  }, 1500);
+}
+
+function goToMenu() {
+  hide("game-screen");
+  hide("gameover-overlay");
+  hide("win-overlay");
+  hide("settings-overlay");
+  show("menu-screen");
+  updateBestUI();
+}
+
+function updateBestUI() {
+  const top = document.getElementById("best-num-top");
+  top.textContent = state.best > 0 ? String(state.best) : "";
+}
+
+// ============================================================
+//  Logo grid
+// ============================================================
+function buildLogo() {
+  const grid = document.getElementById("logo-grid");
+  grid.innerHTML = "";
+  // 4x4 pattern: a few revealed numbers, a hazard, the rest hidden
+  const pattern = [
+    [{r:1},{r:2},{h:true},{}],
+    [{r:1},{r:3},{r:2},{}],
+    [{},{r:2},{r:1},{r:1}],
+    [{},{},{},{r:"✨", sparkle:true}],
+  ];
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      const p = pattern[r][c];
+      const el = document.createElement("div");
+      el.className = "lcell";
+      if (p.h) {
+        el.classList.add("hazard");
+        el.textContent = "💣";
+      } else if (p.r !== undefined) {
+        el.classList.add("revealed");
+        if (p.sparkle) { el.textContent = "✨"; }
+        else {
+          el.innerHTML = `<span class="n${p.r}" style="color:var(--c${p.r})">${p.r}</span>`;
+        }
+      } else {
+        el.textContent = "";
+      }
+      grid.appendChild(el);
+    }
+  }
+}
+
+// ============================================================
+//  Settings
+// ============================================================
+const soundToggle = document.getElementById("toggle-sound");
+const motionToggle = document.getElementById("toggle-motion");
+const resetControls = document.getElementById("reset-controls");
+
+function syncToggles() {
+  soundToggle.classList.toggle("on", !!state.sound);
+  motionToggle.classList.toggle("on", !!state.motion);
+  document.getElementById("sound-icon").textContent = state.sound ? "🔊" : "🔇";
+}
+soundToggle.addEventListener("click", () => { state.sound = !state.sound; saveState(); syncToggles(); });
+motionToggle.addEventListener("click", () => { state.motion = !state.motion; saveState(); syncToggles(); });
+
+let resetPending = false;
+function renderResetControls() {
+  resetControls.innerHTML = "";
+  if (!resetPending) {
+    const btn = document.createElement("button");
+    btn.className = "icon-btn";
+    btn.setAttribute("aria-label", "Reset best");
+    btn.textContent = "🗑️";
+    btn.addEventListener("click", () => { resetPending = true; renderResetControls(); });
+    resetControls.appendChild(btn);
+  } else {
+    const yes = document.createElement("button");
+    yes.className = "icon-btn";
+    yes.setAttribute("aria-label", "Confirm reset");
+    yes.textContent = "✅";
+    yes.addEventListener("click", () => {
+      state.best = 0; saveState(); updateBestUI();
+      resetPending = false; renderResetControls();
+    });
+    const no = document.createElement("button");
+    no.className = "icon-btn";
+    no.setAttribute("aria-label", "Cancel reset");
+    no.textContent = "❌";
+    no.addEventListener("click", () => { resetPending = false; renderResetControls(); });
+    resetControls.appendChild(yes);
+    resetControls.appendChild(no);
+  }
+}
+
+function openSettings() {
+  syncToggles();
+  resetPending = false;
+  renderResetControls();
+  show("settings-overlay");
+}
+function closeSettings() { hide("settings-overlay"); }
+
+// ============================================================
+//  Wire up
+// ============================================================
+function setMarkMode(on) {
+  markMode = !!on;
+  const btn = document.getElementById("btn-mark-mode");
+  btn.classList.toggle("active", markMode);
+  btn.setAttribute("aria-pressed", markMode ? "true" : "false");
+  const board = document.getElementById("board");
+  board.classList.toggle("markmode", markMode);
+}
+document.getElementById("btn-mark-mode").addEventListener("click", () => setMarkMode(!markMode));
+document.getElementById("btn-start").addEventListener("click", () => startLevel(1));
+document.getElementById("btn-playagain").addEventListener("click", () => {
+  hide("gameover-overlay");
+  startLevel(1);
+});
+document.getElementById("btn-menu-go").addEventListener("click", goToMenu);
+document.getElementById("btn-home").addEventListener("click", goToMenu);
+document.getElementById("btn-trophy").addEventListener("click", openSettings);
+document.getElementById("btn-settings-menu").addEventListener("click", openSettings);
+document.getElementById("btn-settings-game").addEventListener("click", openSettings);
+document.getElementById("btn-close-settings").addEventListener("click", closeSettings);
+
+window.addEventListener("resize", () => {
+  if (game && !document.getElementById("game-screen").classList.contains("hidden")) {
+    renderBoard();
+  }
+});
+
+// init
+buildLogo();
+updateBestUI();
+syncToggles();
+
+// expose for debugging/tests
+window.__game = () => game;
+window.__state = () => state;
+window.__startLevel = startLevel;
+</script>
+</body>
+</html>

@@ -1,0 +1,1264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Emoji Sweeper</title>
+    <style>
+:root {
+  --bg0: #0b1020;
+  --bg1: #101a33;
+  --tileHidden0: #263256;
+  --tileHidden1: #2d3a63;
+  --tileRevealed: #121a33;
+  --tileBorder: rgba(255, 255, 255, 0.12);
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.65);
+  --shadow: rgba(0, 0, 0, 0.35);
+  --accent: #8cf7ff;
+  --danger: #ff6b8b;
+  --outline: rgba(255, 255, 255, 0.95);
+  --radius: 16px;
+  --tileRadius: 10px;
+  --gap: 8px;
+  --cell: 40px;
+}
+
+@media (max-width: 420px) {
+  :root {
+    --cell: 34px;
+    --gap: 7px;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+    Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: radial-gradient(1200px 800px at 50% -10%, #1c2b57, var(--bg0));
+  color: var(--text);
+}
+
+main#app {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.card {
+  width: min(560px, 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 60px var(--shadow);
+  backdrop-filter: blur(8px);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 14px 6px;
+}
+
+.iconBtn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.14);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 10px 12px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22);
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.iconBtn:active {
+  transform: translateY(1px);
+}
+
+.iconBtn:focus-visible {
+  outline: 2px solid var(--outline);
+  outline-offset: 2px;
+}
+
+.iconWithNumber {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.center {
+  display: grid;
+  place-items: center;
+  padding: 12px 16px 18px;
+}
+
+.introIcons {
+  margin-top: 12px;
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  letter-spacing: 0.3px;
+  user-select: none;
+}
+
+.introIcons .chip {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.introIcons .chip span {
+  font-size: 18px;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+}
+
+.logo {
+  display: grid;
+  grid-template-columns: repeat(3, 20px);
+  grid-template-rows: repeat(3, 20px);
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.logo span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--tileHidden1), var(--tileHidden0));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 14px;
+}
+
+.primaryBtn {
+  margin-top: 14px;
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: linear-gradient(180deg, rgba(140, 247, 255, 0.22), rgba(140, 247, 255, 0.10));
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 800;
+  padding: 12px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.24);
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+
+.primaryBtn:active {
+  transform: translateY(1px);
+}
+
+.primaryBtn:focus-visible {
+  outline: 2px solid var(--outline);
+  outline-offset: 2px;
+}
+
+.hud {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hud .left,
+.hud .right {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.boardWrap {
+  padding: 14px;
+  display: grid;
+  place-items: center;
+}
+
+.board {
+  display: grid;
+  gap: var(--gap);
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.cell {
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: var(--tileRadius);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, var(--tileHidden1), var(--tileHidden0));
+  color: var(--text);
+  font-weight: 900;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.20);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  line-height: 1;
+  position: relative;
+  overflow: hidden;
+  transition: transform 140ms ease, filter 140ms ease, background 140ms ease;
+}
+
+.cell.revealed {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  cursor: default;
+}
+
+.cell.hidden:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--outline);
+  outline-offset: 2px;
+}
+
+.cell .spark {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+}
+
+.cell .num {
+  font-size: 16px;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+}
+
+.cell .num.num1 { color: #7be3ff; }
+.cell .num.num2 { color: #8dffb0; }
+.cell .num.num3 { color: #ffc97b; }
+.cell .num.num4 { color: #ff8dd6; }
+.cell .num.num5 { color: #ff7b7b; }
+.cell .num.num6 { color: #b9a8ff; }
+.cell .num.num7 { color: #e8e8ff; }
+.cell .num.num8 { color: #ffffff; }
+
+.cell .marker,
+.cell .hazard {
+  font-size: 18px;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+}
+
+.cell.hazardRevealed {
+  background: linear-gradient(180deg, rgba(255, 107, 139, 0.22), rgba(255, 107, 139, 0.08));
+  border-color: rgba(255, 107, 139, 0.28);
+}
+
+.bottombar {
+  padding: 12px 14px 14px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(3, 6, 14, 0.62);
+  backdrop-filter: blur(8px);
+  padding: 18px;
+}
+
+.modal {
+  width: min(420px, 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.45);
+  padding: 14px;
+}
+
+.modalRow {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.modalRow .iconBtn {
+  padding: 14px 16px;
+  font-size: 18px;
+}
+
+.modalRow .iconWithNumber {
+  padding: 0 6px;
+}
+
+.gameoverText {
+  font-weight: 950;
+  font-size: 30px;
+  letter-spacing: 0.5px;
+  margin: 4px 0 10px;
+  text-align: center;
+}
+
+.badge {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(140, 247, 255, 0.16);
+  border: 1px solid rgba(140, 247, 255, 0.28);
+  font-weight: 900;
+  margin: 0 auto 12px;
+}
+
+.noMotion * {
+  transition: none !important;
+  animation: none !important;
+}
+
+</style>
+  </head>
+  <body>
+    <main id="app"></main>
+    <script>
+/**
+ * Emoji Sweeper engine (UI-agnostic).
+ * Visible text rules are enforced by the UI; this file contains only logic.
+ */
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function levelSpec(level) {
+  if (level <= 1) return { size: 8, hazards: 8 };
+  if (level === 2) return { size: 9, hazards: 12 };
+  if (level === 3) return { size: 10, hazards: 16 };
+  if (level === 4) return { size: 12, hazards: 24 };
+  // 5+
+  const size = 14;
+  const hazards = clamp(30 + 3 * (level - 5), 0, 55);
+  return { size, hazards };
+}
+
+function sparkleCountForLevel(level) {
+  return Math.min(5, 2 + Math.floor(level / 3));
+}
+
+const HAZARD_ICONS = ["💣", "👻", "🔥", "💀", "🌵", "⚡", "🐞"];
+
+function hazardIconForLevel(level) {
+  return HAZARD_ICONS[(level - 1) % HAZARD_ICONS.length];
+}
+
+function makeSeededRng(seed = 1) {
+  // Mulberry32
+  let a = (seed >>> 0) || 1;
+  return function rng() {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function createGame(level, { bestLevel = 0 } = {}) {
+  const { size, hazards } = levelSpec(level);
+  const sparkleCount = sparkleCountForLevel(level);
+
+  const board = Array.from({ length: size }, (_, r) =>
+    Array.from({ length: size }, (_, c) => ({
+      r,
+      c,
+      hazard: false,
+      sparkle: false,
+      adj: 0,
+      revealed: false,
+      marked: false
+    }))
+  );
+
+  return {
+    level,
+    bestLevel,
+    size,
+    hazardsTotal: hazards,
+    sparklesTotal: sparkleCount,
+    hazardIcon: hazardIconForLevel(level),
+    hazardsPlaced: false,
+    gameOver: false,
+    won: false,
+    board
+  };
+}
+
+function inBounds(game, r, c) {
+  return r >= 0 && c >= 0 && r < game.size && c < game.size;
+}
+
+function neighbors8(game, r, c) {
+  const out = [];
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const rr = r + dr;
+      const cc = c + dc;
+      if (inBounds(game, rr, cc)) out.push([rr, cc]);
+    }
+  }
+  return out;
+}
+
+function neighbors4(game, r, c) {
+  const deltas = [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1]
+  ];
+  const out = [];
+  for (const [dr, dc] of deltas) {
+    const rr = r + dr;
+    const cc = c + dc;
+    if (inBounds(game, rr, cc)) out.push([rr, cc]);
+  }
+  return out;
+}
+
+function safeZoneSet(game, r, c) {
+  // first cell + adjacent 8 cells
+  const set = new Set();
+  set.add(`${r},${c}`);
+  for (const [rr, cc] of neighbors8(game, r, c)) set.add(`${rr},${cc}`);
+  return set;
+}
+
+function shuffledPositions(game, rng) {
+  const positions = [];
+  for (let r = 0; r < game.size; r++) {
+    for (let c = 0; c < game.size; c++) positions.push([r, c]);
+  }
+  // Fisher-Yates
+  for (let i = positions.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [positions[i], positions[j]] = [positions[j], positions[i]];
+  }
+  return positions;
+}
+
+function placeHazardsAndSparkles(game, firstR, firstC, rng = Math.random) {
+  if (game.hazardsPlaced) return;
+
+  const safe = safeZoneSet(game, firstR, firstC);
+  const positions = shuffledPositions(game, rng);
+
+  let hazardsToPlace = game.hazardsTotal;
+  for (const [r, c] of positions) {
+    if (hazardsToPlace <= 0) break;
+    if (safe.has(`${r},${c}`)) continue;
+    const cell = game.board[r][c];
+    cell.hazard = true;
+    hazardsToPlace--;
+  }
+
+  if (hazardsToPlace !== 0) {
+    throw new Error("Failed to place all hazards (safe zone too large?)");
+  }
+
+  // Compute adjacency numbers (hazards only)
+  recomputeAdjacency(game);
+
+  // Place sparkles outside safe zone, on non-hazards.
+  const sparkleCount = game.sparklesTotal;
+  let sparklesToPlace = sparkleCount;
+  for (const [r, c] of positions) {
+    if (sparklesToPlace <= 0) break;
+    if (safe.has(`${r},${c}`)) continue;
+    const cell = game.board[r][c];
+    if (cell.hazard || cell.sparkle) continue;
+    cell.sparkle = true;
+    sparklesToPlace--;
+  }
+
+  game.hazardsPlaced = true;
+}
+
+function recomputeAdjacency(game) {
+  for (let r = 0; r < game.size; r++) {
+    for (let c = 0; c < game.size; c++) {
+      const cell = game.board[r][c];
+      if (cell.hazard) {
+        cell.adj = 0;
+        continue;
+      }
+      let n = 0;
+      for (const [rr, cc] of neighbors8(game, r, c)) {
+        if (game.board[rr][cc].hazard) n++;
+      }
+      cell.adj = n;
+    }
+  }
+}
+
+function toggleMark(game, r, c) {
+  if (game.gameOver || game.won) return;
+  const cell = game.board[r][c];
+  if (cell.revealed) return;
+  cell.marked = !cell.marked;
+}
+
+function markedCount(game) {
+  let m = 0;
+  for (let r = 0; r < game.size; r++) {
+    for (let c = 0; c < game.size; c++) if (game.board[r][c].marked) m++;
+  }
+  return m;
+}
+
+function remainingHazards(game) {
+  // "Remaining hazard count number"
+  return Math.max(0, game.hazardsTotal - markedCount(game));
+}
+
+function checkWin(game) {
+  let safeTotal = 0;
+  let safeRevealed = 0;
+  for (let r = 0; r < game.size; r++) {
+    for (let c = 0; c < game.size; c++) {
+      const cell = game.board[r][c];
+      if (!cell.hazard) {
+        safeTotal++;
+        if (cell.revealed) safeRevealed++;
+      }
+    }
+  }
+  return safeRevealed === safeTotal;
+}
+
+function revealAllHazards(game) {
+  for (let r = 0; r < game.size; r++) {
+    for (let c = 0; c < game.size; c++) {
+      const cell = game.board[r][c];
+      if (cell.hazard) cell.revealed = true;
+    }
+  }
+}
+
+/**
+ * Reveal logic:
+ * - Hazards placed on first reveal (first revealed cell + neighbors are safe).
+ * - Sparkles reveal orthogonal adjacent safe cells (and can cascade).
+ * - Zeros expand to connected zero region and border number cells.
+ */
+function reveal(game, r, c, rng = Math.random) {
+  if (game.gameOver || game.won) return { status: "blocked", changed: [] };
+  const start = game.board[r][c];
+  if (start.marked) return { status: "blocked", changed: [] };
+
+  if (!game.hazardsPlaced) {
+    placeHazardsAndSparkles(game, r, c, rng);
+  }
+
+  const changed = [];
+  const queue = [[r, c]];
+  const seen = new Set();
+
+  const enqueue = (rr, cc) => {
+    const key = `${rr},${cc}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    queue.push([rr, cc]);
+  };
+
+  // Seed already has [r,c], but add to seen so it won't be re-enqueued.
+  seen.add(`${r},${c}`);
+
+  while (queue.length) {
+    const [rr, cc] = queue.shift();
+    const cell = game.board[rr][cc];
+    if (cell.revealed) continue;
+    if (cell.marked) continue;
+
+    if (cell.hazard) {
+      // Hazard rules: revealing a hazard ends the game.
+      game.gameOver = true;
+      revealAllHazards(game);
+      return { status: "gameover", changed };
+    }
+
+    cell.revealed = true;
+    changed.push(cell);
+
+    // Sparkle effect: reveal orthogonal adjacent hidden unmarked safe cells.
+    if (cell.sparkle) {
+      for (const [ar, ac] of neighbors4(game, rr, cc)) {
+        const adjCell = game.board[ar][ac];
+        if (!adjCell.hazard && !adjCell.revealed && !adjCell.marked) enqueue(ar, ac);
+      }
+    }
+
+    // Zero expansion: connected zero region + border numbers.
+    if (cell.adj === 0) {
+      for (const [nr, nc] of neighbors8(game, rr, cc)) {
+        const ncell = game.board[nr][nc];
+        if (!ncell.hazard && !ncell.revealed && !ncell.marked) enqueue(nr, nc);
+      }
+    }
+  }
+
+  if (checkWin(game)) {
+    game.won = true;
+    return { status: "win", changed };
+  }
+
+  return { status: "ok", changed };
+}
+
+function chordReveal(game, r, c, rng = Math.random) {
+  if (game.gameOver || game.won) return { status: "blocked", changed: [] };
+  const cell = game.board[r][c];
+  if (!cell.revealed) return { status: "blocked", changed: [] };
+  if (cell.adj <= 0) return { status: "blocked", changed: [] };
+
+  let markers = 0;
+  for (const [rr, cc] of neighbors8(game, r, c)) {
+    if (game.board[rr][cc].marked) markers++;
+  }
+  if (markers !== cell.adj) return { status: "blocked", changed: [] };
+
+  // Reveal adjacent hidden unmarked cells. Hazards can be hit if markers were wrong.
+  const changed = [];
+  for (const [rr, cc] of neighbors8(game, r, c)) {
+    const ncell = game.board[rr][cc];
+    if (ncell.revealed || ncell.marked) continue;
+    const res = reveal(game, rr, cc, rng);
+    changed.push(...res.changed);
+    if (res.status === "gameover") return { status: "gameover", changed };
+    if (res.status === "win") return { status: "win", changed };
+  }
+  return { status: game.won ? "win" : "ok", changed };
+}
+
+
+const STORAGE = {
+  best: "emoji_sweeper_best_level",
+  sound: "emoji_sweeper_sound_on",
+  motion: "emoji_sweeper_motion_on"
+};
+
+function loadInt(key, fallback) {
+  const raw = localStorage.getItem(key);
+  const n = raw == null ? NaN : Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function loadBool(key, fallback) {
+  const raw = localStorage.getItem(key);
+  if (raw == null) return fallback;
+  return raw === "1";
+}
+
+function saveInt(key, n) {
+  localStorage.setItem(key, String(n));
+}
+
+function saveBool(key, b) {
+  localStorage.setItem(key, b ? "1" : "0");
+}
+
+function el(tag, props = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") node.className = v;
+    else if (k === "text") node.textContent = v;
+    else if (k.startsWith("on") && typeof v === "function") {
+      node.addEventListener(k.slice(2).toLowerCase(), v);
+    } else if (v === false || v == null) {
+      // skip
+    } else {
+      node.setAttribute(k, String(v));
+    }
+  }
+  for (const ch of children) node.append(ch);
+  return node;
+}
+
+function iconButton(icon, { onClick, ariaLabel } = {}) {
+  return el(
+    "button",
+    { class: "iconBtn", type: "button", onClick, "aria-label": ariaLabel || "" },
+    [document.createTextNode(icon)]
+  );
+}
+
+function playTone(type, settings) {
+  if (!settings.soundOn) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.type = "sine";
+
+    const now = ctx.currentTime;
+    const seq =
+      type === "reveal"
+        ? [
+            [520, 0.05],
+            [760, 0.05]
+          ]
+        : type === "mark"
+          ? [[330, 0.06]]
+          : type === "win"
+            ? [
+                [660, 0.06],
+                [880, 0.08],
+                [990, 0.10]
+              ]
+            : [
+                [220, 0.08],
+                [180, 0.10]
+              ];
+
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.12, now + 0.02);
+    let t = now;
+    for (const [freq, dur] of seq) {
+      o.frequency.setValueAtTime(freq, t);
+      t += dur;
+    }
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+    o.start(now);
+    o.stop(t + 0.04);
+    o.onended = () => ctx.close();
+  } catch {
+    // ignore
+  }
+}
+
+const state = {
+  screen: "menu", // menu | game
+  settingsOpen: false,
+  confirmResetOpen: false,
+  bestLevel: loadInt(STORAGE.best, 0),
+  settings: {
+    soundOn: loadBool(STORAGE.sound, true),
+    motionOn: loadBool(STORAGE.motion, true)
+  },
+  game: null,
+  newBestFlash: false
+};
+
+const app = document.getElementById("app");
+
+function setMotionClass() {
+  document.documentElement.classList.toggle("noMotion", !state.settings.motionOn);
+}
+
+setMotionClass();
+
+function openSettings() {
+  state.settingsOpen = true;
+  state.confirmResetOpen = false;
+  render();
+}
+
+function closeSettings() {
+  state.settingsOpen = false;
+  state.confirmResetOpen = false;
+  render();
+}
+
+function startGame() {
+  state.newBestFlash = false;
+  state.game = createGame(1, { bestLevel: state.bestLevel });
+  state.screen = "game";
+  render();
+  // Put focus on the top-left cell for keyboard play.
+  queueMicrotask(() => focusCell(0, 0));
+}
+
+function restartLevel() {
+  if (!state.game) return;
+  const lvl = state.game.level;
+  state.newBestFlash = false;
+  state.game = createGame(lvl, { bestLevel: state.bestLevel });
+  state.screen = "game";
+  render();
+  queueMicrotask(() => focusCell(0, 0));
+}
+
+function nextLevel() {
+  if (!state.game) return;
+  const lvl = state.game.level + 1;
+  state.game = createGame(lvl, { bestLevel: state.bestLevel });
+  state.screen = "game";
+  render();
+  queueMicrotask(() => focusCell(0, 0));
+}
+
+function goMenu() {
+  state.screen = "menu";
+  state.game = null;
+  state.newBestFlash = false;
+  render();
+}
+
+function updateBestLevelIfNeeded(levelJustCompleted) {
+  if (levelJustCompleted > state.bestLevel) {
+    state.bestLevel = levelJustCompleted;
+    saveInt(STORAGE.best, state.bestLevel);
+    state.newBestFlash = true;
+    return true;
+  }
+  state.newBestFlash = false;
+  return false;
+}
+
+function cellAriaLabel(game, cell) {
+  const row = cell.r + 1;
+  const col = cell.c + 1;
+
+  if (!cell.revealed) {
+    return cell.marked
+      ? `Row ${row} Column ${col}. Marked. Hidden.`
+      : `Row ${row} Column ${col}. Hidden.`;
+  }
+
+  if (game.gameOver && cell.hazard) {
+    return `Row ${row} Column ${col}. Revealed. Hazard.`;
+  }
+
+  if (cell.sparkle) {
+    if (cell.adj > 0) return `Row ${row} Column ${col}. Revealed. Sparkle. ${cell.adj}.`;
+    return `Row ${row} Column ${col}. Revealed. Sparkle.`;
+  }
+
+  if (cell.adj > 0) return `Row ${row} Column ${col}. Revealed. ${cell.adj}.`;
+  return `Row ${row} Column ${col}. Revealed.`;
+}
+
+function focusCell(r, c) {
+  const btn = app.querySelector(`button.cell[data-r="${r}"][data-c="${c}"]`);
+  if (btn) btn.focus();
+}
+
+function currentCellFromEventTarget(target) {
+  const btn = target?.closest?.("button.cell");
+  if (!btn) return null;
+  const r = Number(btn.dataset.r);
+  const c = Number(btn.dataset.c);
+  if (!Number.isFinite(r) || !Number.isFinite(c)) return null;
+  return { btn, r, c };
+}
+
+const longPress = {
+  timer: null,
+  fired: false,
+  pointerId: null
+};
+
+function attachCellInputHandlers(btn) {
+  btn.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    const info = currentCellFromEventTarget(e.target);
+    if (!info) return;
+    onToggleMark(info.r, info.c);
+  });
+
+  btn.addEventListener("pointerdown", (e) => {
+    const info = currentCellFromEventTarget(e.target);
+    if (!info) return;
+    if (e.pointerType !== "touch") return;
+
+    // Long press to toggle marker on hidden cells only.
+    if (!state.game) return;
+    const cell = state.game.board[info.r][info.c];
+    if (cell.revealed) return;
+
+    longPress.fired = false;
+    longPress.pointerId = e.pointerId;
+    clearTimeout(longPress.timer);
+    longPress.timer = setTimeout(() => {
+      longPress.fired = true;
+      onToggleMark(info.r, info.c);
+    }, 450);
+  });
+
+  const clearLongPress = (e) => {
+    if (e.pointerType !== "touch") return;
+    if (longPress.pointerId !== e.pointerId) return;
+    clearTimeout(longPress.timer);
+  };
+  btn.addEventListener("pointerup", clearLongPress);
+  btn.addEventListener("pointercancel", clearLongPress);
+  btn.addEventListener("pointermove", (e) => {
+    // Any move cancels (simple + reliable).
+    clearLongPress(e);
+  });
+
+  btn.addEventListener("click", (e) => {
+    const info = currentCellFromEventTarget(e.target);
+    if (!info) return;
+
+    // Ignore the click that follows a long-press marker.
+    if (longPress.fired) {
+      longPress.fired = false;
+      return;
+    }
+
+    onRevealOrChord(info.r, info.c);
+  });
+
+  btn.addEventListener("keydown", (e) => {
+    const info = currentCellFromEventTarget(e.target);
+    if (!info) return;
+    if (!state.game) return;
+
+    const { size } = state.game;
+    const move = (dr, dc) => {
+      e.preventDefault();
+      const rr = Math.max(0, Math.min(size - 1, info.r + dr));
+      const cc = Math.max(0, Math.min(size - 1, info.c + dc));
+      focusCell(rr, cc);
+    };
+
+    if (e.key === "ArrowUp") return move(-1, 0);
+    if (e.key === "ArrowDown") return move(1, 0);
+    if (e.key === "ArrowLeft") return move(0, -1);
+    if (e.key === "ArrowRight") return move(0, 1);
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      onRevealOrChord(info.r, info.c);
+      return;
+    }
+    if (e.key === " ") {
+      e.preventDefault();
+      onToggleMark(info.r, info.c);
+    }
+  });
+}
+
+function onToggleMark(r, c) {
+  if (!state.game) return;
+  toggleMark(state.game, r, c);
+  playTone("mark", state.settings);
+  render();
+}
+
+function onRevealOrChord(r, c) {
+  if (!state.game) return;
+  const cell = state.game.board[r][c];
+  let res;
+  if (cell.revealed && cell.adj > 0) {
+    res = chordReveal(state.game, r, c);
+  } else {
+    res = reveal(state.game, r, c);
+  }
+
+  if (res.status === "gameover") playTone("lose", state.settings);
+  else if (res.status === "win") playTone("win", state.settings);
+  else if (res.status === "ok") playTone("reveal", state.settings);
+
+  render();
+
+  if (res.status === "win" && state.game) {
+    // Win path: increase level + update best + create next board.
+    const completed = state.game.level;
+    updateBestLevelIfNeeded(completed);
+    // Small delay to let the win feel land (no text required).
+    setTimeout(() => nextLevel(), 450);
+  }
+}
+
+function renderMenu() {
+  const card = el("section", { class: "card" });
+  const top = el("div", { class: "topbar" }, [
+    el("div", { class: "iconWithNumber", "aria-label": "Best level" }, [
+      document.createTextNode("🏆"),
+      el("span", { text: String(state.bestLevel) })
+    ]),
+    iconButton("⚙️", { onClick: openSettings, ariaLabel: "Settings" })
+  ]);
+
+  // Hazard-grid logo (icon-only).
+  const logo = el("div", { class: "logo", "aria-hidden": "true" }, []);
+  // A 3x3 hazard-grid with a subtle center hazard.
+  const icons = ["", "", "", "", hazardIconForLevel(Math.max(1, state.bestLevel || 1)), "", "", "", ""];
+  for (let i = 0; i < 9; i++) {
+    logo.append(el("span", {}, [document.createTextNode(icons[i])]));
+  }
+
+  // Concise icon-only intro row (no extra words; just establishes the theme).
+  const intro = el(
+    "div",
+    { class: "introIcons", "aria-label": "Emoji Sweeper" },
+    [
+      el("div", { class: "chip", "aria-hidden": "true" }, [el("span", { text: "🧹" })]),
+      el("div", { class: "chip", "aria-hidden": "true" }, [el("span", { text: "✨" })]),
+      el("div", { class: "chip", "aria-hidden": "true" }, [el("span", { text: "🚩" })]),
+      el("div", { class: "chip", "aria-hidden": "true" }, [
+        el("span", { text: hazardIconForLevel(Math.max(1, state.bestLevel || 1)) })
+      ])
+    ]
+  );
+
+  const center = el("div", { class: "center" }, [
+    logo,
+    intro,
+    el("button", { class: "primaryBtn", type: "button", onClick: startGame }, [
+      document.createTextNode("Start Game")
+    ])
+  ]);
+
+  card.append(top, center);
+  return card;
+}
+
+function renderGame() {
+  const game = state.game;
+  const card = el("section", { class: "card" });
+
+  const hud = el("div", { class: "hud" }, [
+    el("div", { class: "left", "aria-label": "Remaining hazards" }, [
+      el("span", { text: String(remainingHazards(game)) })
+    ]),
+    el("div", { class: "right", "aria-label": "Level" }, [
+      document.createTextNode("⭐"),
+      el("span", { text: String(game.level) })
+    ])
+  ]);
+
+  const board = el("div", {
+    class: "board",
+    role: "grid",
+    "aria-rowcount": String(game.size),
+    "aria-colcount": String(game.size),
+    style: `grid-template-columns: repeat(${game.size}, var(--cell));`
+  });
+
+  for (let r = 0; r < game.size; r++) {
+    for (let c = 0; c < game.size; c++) {
+      const cell = game.board[r][c];
+      const classes = ["cell", cell.revealed ? "revealed" : "hidden"];
+      if (game.gameOver && cell.hazard) classes.push("hazardRevealed");
+
+      const btn = el("button", {
+        class: classes.join(" "),
+        type: "button",
+        "data-r": String(r),
+        "data-c": String(c),
+        role: "gridcell",
+        tabindex: r === 0 && c === 0 ? "0" : "-1",
+        "aria-label": cellAriaLabel(game, cell)
+      });
+
+      // Content rules.
+      if (!cell.revealed) {
+        if (cell.marked) btn.append(el("span", { class: "marker", "aria-hidden": "true", text: "🚩" }));
+      } else if (game.gameOver && cell.hazard) {
+        btn.append(el("span", { class: "hazard", "aria-hidden": "true", text: game.hazardIcon }));
+      } else if (cell.sparkle) {
+        btn.append(el("span", { class: "spark", "aria-hidden": "true", text: "✨" }));
+        if (cell.adj > 0) {
+          btn.append(
+            el("span", { class: `num num${cell.adj}`, "aria-hidden": "true", text: String(cell.adj) })
+          );
+        }
+      } else if (cell.adj > 0) {
+        btn.append(el("span", { class: `num num${cell.adj}`, "aria-hidden": "true", text: String(cell.adj) }));
+      } else {
+        // zero: empty
+      }
+
+      attachCellInputHandlers(btn);
+      board.append(btn);
+    }
+  }
+
+  // Roving tabindex: keep focusable on currently focused cell.
+  board.addEventListener("focusin", (e) => {
+    const info = currentCellFromEventTarget(e.target);
+    if (!info) return;
+    for (const btn of board.querySelectorAll("button.cell")) btn.tabIndex = -1;
+    info.btn.tabIndex = 0;
+  });
+
+  const bottom = el("div", { class: "bottombar" }, [
+    iconButton("⚙️", { onClick: openSettings, ariaLabel: "Settings" }),
+    iconButton("🏠", { onClick: goMenu, ariaLabel: "Menu" })
+  ]);
+
+  const wrap = el("div", { class: "boardWrap" }, [board]);
+
+  card.append(hud, wrap, bottom);
+
+  // Game Over overlay.
+  if (game.gameOver) {
+    const overlay = el("div", { class: "overlay", role: "dialog", "aria-modal": "true" }, [
+      el("div", { class: "modal" }, [
+        el("div", { class: "gameoverText", text: "Game Over" }),
+        el("div", { class: "modalRow" }, [
+          el("button", { class: "primaryBtn", type: "button", onClick: restartLevel }, [
+            document.createTextNode("Play Again")
+          ])
+        ])
+      ])
+    ]);
+    return el("div", {}, [card, overlay]);
+  }
+
+  // "New Best" badge when it happens. (Flash on first next level render.)
+  if (state.newBestFlash) {
+    const overlay = el("div", { class: "overlay", role: "dialog", "aria-modal": "true" }, [
+      el("div", { class: "modal" }, [
+        el("div", { class: "badge", text: "New Best" })
+      ])
+    ]);
+    setTimeout(() => {
+      state.newBestFlash = false;
+      render();
+    }, 700);
+    return el("div", {}, [card, overlay]);
+  }
+
+  return card;
+}
+
+function renderSettingsOverlay() {
+  const speaker = state.settings.soundOn ? "🔊" : "🔇";
+  const motion = state.settings.motionOn ? "🌀" : "🧊";
+
+  const overlay = el("div", { class: "overlay", role: "dialog", "aria-modal": "true" }, [
+    el("div", { class: "modal" }, [
+      el("div", { class: "modalRow" }, [
+        iconButton(speaker, {
+          ariaLabel: "Toggle sound",
+          onClick: () => {
+            state.settings.soundOn = !state.settings.soundOn;
+            saveBool(STORAGE.sound, state.settings.soundOn);
+            playTone("mark", state.settings);
+            render();
+          }
+        }),
+        iconButton(motion, {
+          ariaLabel: "Toggle motion",
+          onClick: () => {
+            state.settings.motionOn = !state.settings.motionOn;
+            saveBool(STORAGE.motion, state.settings.motionOn);
+            setMotionClass();
+            render();
+          }
+        }),
+        iconButton("🗑️", {
+          ariaLabel: "Reset best level",
+          onClick: () => {
+            state.confirmResetOpen = true;
+            render();
+          }
+        })
+      ]),
+      el("div", { class: "modalRow" }, [
+        el("div", { class: "iconWithNumber", "aria-label": "Best level" }, [
+          document.createTextNode("🏆"),
+          el("span", { text: String(state.bestLevel) })
+        ])
+      ]),
+      el("div", { class: "modalRow" }, [
+        iconButton("❌", { ariaLabel: "Close", onClick: closeSettings })
+      ])
+    ])
+  ]);
+
+  if (!state.confirmResetOpen) return overlay;
+
+  const confirm = el("div", { class: "overlay", role: "dialog", "aria-modal": "true" }, [
+    el("div", { class: "modal" }, [
+      el("div", { class: "modalRow" }, [
+        iconButton("✅", {
+          ariaLabel: "Confirm reset",
+          onClick: () => {
+            state.bestLevel = 0;
+            saveInt(STORAGE.best, 0);
+            state.confirmResetOpen = false;
+            state.newBestFlash = false;
+            render();
+          }
+        }),
+        iconButton("❌", {
+          ariaLabel: "Cancel reset",
+          onClick: () => {
+            state.confirmResetOpen = false;
+            render();
+          }
+        })
+      ])
+    ])
+  ]);
+
+  return el("div", {}, [overlay, confirm]);
+}
+
+function render() {
+  app.replaceChildren();
+  const node = state.screen === "menu" ? renderMenu() : renderGame();
+  app.append(node);
+  if (state.settingsOpen) app.append(renderSettingsOverlay());
+}
+
+render();
+
+// Basic: ESC closes settings if open.
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (state.settingsOpen) {
+    e.preventDefault();
+    closeSettings();
+  }
+});
+
+</script>
+  </body>
+</html>

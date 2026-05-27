@@ -1,0 +1,1782 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pinball Grid</title>
+    <style>
+:root {
+  color-scheme: dark;
+  --bg: radial-gradient(circle at top, #1f355f, #09111f 58%, #050814 100%);
+  --panel: rgba(8, 15, 31, 0.82);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --text: #f4f7ff;
+  --muted: rgba(244, 247, 255, 0.72);
+  --accent: #7ddcff;
+  --accent-strong: #9a7bff;
+  --accent-soft: rgba(125, 220, 255, 0.18);
+  --gold: #ffd76f;
+  --danger: #ff7d96;
+  --success: #67f3b0;
+  --shadow: 0 22px 55px rgba(0, 0, 0, 0.42);
+  --cell: min(9vw, 58px);
+  --board-gap: 0.45rem;
+  --outline: rgba(255, 255, 255, 0.18);
+  --path: rgba(125, 220, 255, 0.35);
+  --path-strong: rgba(154, 123, 255, 0.58);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #050814;
+  color: var(--text);
+}
+
+body {
+  min-height: 100vh;
+  background-image: var(--bg);
+}
+
+button {
+  font: inherit;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.shell {
+  width: min(100%, 820px);
+  position: relative;
+}
+
+.panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 32px;
+  padding: 1.25rem;
+  background: linear-gradient(180deg, rgba(15, 24, 43, 0.94), rgba(8, 12, 24, 0.88));
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.panel::before,
+.panel::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.panel::before {
+  width: 240px;
+  height: 240px;
+  top: -120px;
+  right: -80px;
+  background: radial-gradient(circle, rgba(125, 220, 255, 0.32), transparent 70%);
+}
+
+.panel::after {
+  width: 240px;
+  height: 240px;
+  bottom: -140px;
+  left: -120px;
+  background: radial-gradient(circle, rgba(154, 123, 255, 0.25), transparent 70%);
+}
+
+.menu-screen,
+.game-screen {
+  position: relative;
+  z-index: 1;
+}
+
+.top-strip,
+.game-strip,
+.bottom-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.top-strip {
+  margin-bottom: 1.5rem;
+}
+
+.icon-button,
+.chip,
+.launch-button,
+.start-button {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 24px rgba(0, 0, 0, 0.24);
+}
+
+.icon-button {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible,
+.launch-button:hover,
+.launch-button:focus-visible,
+.start-button:hover,
+.start-button:focus-visible,
+.cell:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
+  border-color: rgba(125, 220, 255, 0.5);
+  background: rgba(125, 220, 255, 0.12);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.badge .icon {
+  font-size: 1.1rem;
+}
+
+.badge .value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.logo-wrap {
+  display: grid;
+  place-items: center;
+  gap: 1.5rem;
+  min-height: 68vh;
+}
+
+.logo-mark {
+  width: min(74vw, 300px);
+  aspect-ratio: 1;
+  border-radius: 36px;
+  position: relative;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 22px 44px rgba(0, 0, 0, 0.3);
+}
+
+.logo-grid {
+  position: absolute;
+  inset: 18%;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.logo-grid span {
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.logo-grid span:nth-child(3n)::before,
+.logo-grid span:nth-child(4n)::before {
+  content: "";
+  position: absolute;
+  inset: 18%;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(125, 220, 255, 0.32), rgba(154, 123, 255, 0.22));
+}
+
+.logo-ball {
+  position: absolute;
+  width: 22%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  left: 18%;
+  top: 14%;
+  background: radial-gradient(circle at 32% 32%, white, #d0f4ff 32%, #69d4ff 55%, #3266ff 100%);
+  box-shadow: 0 0 24px rgba(125, 220, 255, 0.75);
+}
+
+.logo-trail {
+  position: absolute;
+  width: 58%;
+  height: 58%;
+  left: 21%;
+  top: 21%;
+  border-left: 4px solid rgba(125, 220, 255, 0.7);
+  border-bottom: 4px solid rgba(125, 220, 255, 0.7);
+  border-radius: 0 0 28px 28px;
+  transform: rotate(-18deg);
+  filter: drop-shadow(0 0 18px rgba(125, 220, 255, 0.4));
+}
+
+.start-button,
+.launch-button {
+  min-width: 180px;
+  min-height: 58px;
+  padding: 0.95rem 1.5rem;
+  border-radius: 20px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.start-button,
+.launch-button {
+  background: linear-gradient(180deg, rgba(125, 220, 255, 0.28), rgba(154, 123, 255, 0.22));
+}
+
+.game-screen {
+  display: grid;
+  gap: 1rem;
+}
+
+.metrics {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.metrics-right {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.chip {
+  min-width: 68px;
+  padding: 0.7rem 0.85rem;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.chip .value {
+  font-weight: 800;
+}
+
+.chip-moves {
+  background: linear-gradient(180deg, rgba(125, 220, 255, 0.18), rgba(255, 255, 255, 0.05));
+  border-color: rgba(125, 220, 255, 0.28);
+}
+
+.chip-level {
+  background: linear-gradient(180deg, rgba(255, 215, 111, 0.18), rgba(255, 255, 255, 0.05));
+  border-color: rgba(255, 215, 111, 0.28);
+}
+
+.chip-stars {
+  background: linear-gradient(180deg, rgba(154, 123, 255, 0.2), rgba(255, 255, 255, 0.05));
+  border-color: rgba(154, 123, 255, 0.32);
+}
+
+.board-wrap {
+  position: relative;
+  padding: 0.85rem;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.board {
+  position: relative;
+  display: grid;
+  gap: var(--board-gap);
+  justify-content: center;
+}
+
+.cell {
+  width: var(--cell);
+  height: var(--cell);
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid var(--outline);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  overflow: hidden;
+}
+
+.cell::before,
+.cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cell-empty {
+  cursor: default;
+}
+
+.cell-entry {
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 255, 255, 0.36), transparent 28%),
+    linear-gradient(180deg, rgba(103, 243, 176, 0.34), rgba(103, 243, 176, 0.1) 44%, rgba(255, 255, 255, 0.03));
+  border-color: rgba(103, 243, 176, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(103, 243, 176, 0.14), 0 0 22px rgba(103, 243, 176, 0.08);
+}
+
+.cell-entry::after {
+  inset: 14% 20% 12% 20%;
+  clip-path: polygon(50% 0%, 92% 42%, 68% 42%, 68% 100%, 32% 100%, 32% 42%, 8% 42%);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(103, 243, 176, 0.92) 34%, rgba(36, 163, 111, 0.92) 100%);
+  filter: drop-shadow(0 0 10px rgba(103, 243, 176, 0.4));
+}
+
+.cell-exit {
+  background:
+    radial-gradient(circle at 50% 74%, rgba(255, 215, 111, 0.22), transparent 26%),
+    linear-gradient(180deg, rgba(255, 215, 111, 0.18), rgba(255, 255, 255, 0.03));
+  border-color: rgba(255, 215, 111, 0.48);
+  box-shadow: inset 0 0 0 1px rgba(255, 215, 111, 0.12), 0 0 22px rgba(255, 215, 111, 0.08);
+}
+
+.cell-exit::after {
+  inset: 18%;
+  border-radius: 22px 22px 16px 16px;
+  background:
+    radial-gradient(circle at 50% 68%, rgba(12, 18, 36, 0.92) 0 23%, transparent 24%),
+    radial-gradient(circle at 50% 68%, transparent 0 34%, rgba(255, 215, 111, 0.96) 35% 41%, transparent 42%),
+    radial-gradient(circle at 50% 68%, transparent 0 49%, rgba(255, 244, 186, 0.88) 50% 54%, transparent 55%);
+  filter: drop-shadow(0 0 10px rgba(255, 215, 111, 0.36));
+}
+
+.cell-star::after,
+.star-dot {
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 56%, 79% 92%, 50% 70%, 21% 92%, 32% 56%, 2% 35%, 39% 35%);
+  background: linear-gradient(180deg, #fff3a6, #ffcf53 58%, #ff9c39);
+  filter: drop-shadow(0 0 12px rgba(255, 215, 111, 0.45));
+}
+
+.cell-star::after {
+  inset: 24%;
+}
+
+.cell-star.collected::after {
+  opacity: 0.28;
+  filter: saturate(0.2);
+}
+
+.cell-blocker::after {
+  inset: 16%;
+  border-radius: 16px;
+  background:
+    linear-gradient(45deg, transparent 44%, rgba(255, 125, 150, 0.9) 44%, rgba(255, 125, 150, 0.9) 56%, transparent 56%),
+    linear-gradient(-45deg, transparent 44%, rgba(255, 125, 150, 0.9) 44%, rgba(255, 125, 150, 0.9) 56%, transparent 56%),
+    linear-gradient(180deg, rgba(255, 125, 150, 0.08), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 125, 150, 0.25);
+}
+
+.cell-bumper {
+  background: linear-gradient(180deg, rgba(154, 123, 255, 0.12), rgba(255, 255, 255, 0.03));
+}
+
+.cell-bumper::after {
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  filter: drop-shadow(0 0 8px rgba(125, 220, 255, 0.28));
+}
+
+.cell-bumper[data-orientation="/"]::after {
+  background-image:
+    radial-gradient(circle at 73% 28%, rgba(255, 255, 255, 0.9) 0 8%, transparent 10%),
+    radial-gradient(circle at 28% 73%, rgba(255, 255, 255, 0.82) 0 8%, transparent 10%),
+    linear-gradient(180deg, transparent 0 100%),
+    linear-gradient(135deg, transparent 39%, rgba(125, 220, 255, 0.18) 39% 44%, rgba(125, 220, 255, 1) 44% 56%, rgba(125, 220, 255, 0.18) 56% 61%, transparent 61%);
+  background-color: rgba(80, 176, 255, 0.08);
+}
+
+.cell-bumper[data-orientation="\\"]::after {
+  background-image:
+    radial-gradient(circle at 28% 28%, rgba(255, 255, 255, 0.9) 0 8%, transparent 10%),
+    radial-gradient(circle at 73% 73%, rgba(255, 255, 255, 0.82) 0 8%, transparent 10%),
+    linear-gradient(180deg, transparent 0 100%),
+    linear-gradient(45deg, transparent 39%, rgba(154, 123, 255, 0.18) 39% 44%, rgba(154, 123, 255, 1) 44% 56%, rgba(154, 123, 255, 0.18) 56% 61%, transparent 61%);
+  background-color: rgba(154, 123, 255, 0.1);
+}
+
+.cell-bumper[data-role="decoy"] {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+}
+
+.cell.path::before {
+  inset: 6px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--path), var(--path-strong));
+  opacity: 0.95;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 0 0 1px rgba(125, 220, 255, 0.16);
+}
+
+.cell.path.cell-bumper::before,
+.cell.path.cell-entry::before,
+.cell.path.cell-exit::before,
+.cell.path.cell-star::before,
+.cell.path.cell-blocker::before {
+  opacity: 0.5;
+}
+
+.cell.path {
+  border-color: rgba(125, 220, 255, 0.4);
+}
+
+.cell.cursor {
+  border-color: rgba(125, 220, 255, 0.95);
+  box-shadow: 0 0 0 2px rgba(125, 220, 255, 0.2), inset 0 0 0 1px rgba(125, 220, 255, 0.28);
+}
+
+.ball-layer {
+  position: absolute;
+  inset: 0.85rem;
+  pointer-events: none;
+}
+
+.ball {
+  position: absolute;
+  width: calc(var(--cell) * 0.34);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 32%, white, #d0f4ff 36%, #6cdcfc 58%, #3b8cff 100%);
+  box-shadow: 0 0 18px rgba(125, 220, 255, 0.75);
+  transform: translate(-999px, -999px);
+  opacity: 0;
+}
+
+.bottom-strip {
+  justify-content: center;
+  gap: 0.85rem;
+  padding-top: 0.3rem;
+}
+
+.toast {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  background: rgba(103, 243, 176, 0.16);
+  border: 1px solid rgba(103, 243, 176, 0.35);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+  font-weight: 800;
+  z-index: 4;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 8, 18, 0.7);
+  backdrop-filter: blur(12px);
+  border-radius: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+
+.modal {
+  width: min(92%, 360px);
+  padding: 1rem;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(16, 23, 42, 0.98), rgba(8, 12, 24, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 0.9rem;
+}
+
+.modal-row,
+.modal-actions,
+.confirm-row {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.modal .icon-button {
+  width: 64px;
+  height: 64px;
+  border-radius: 22px;
+}
+
+.modal .icon-button.active {
+  background: rgba(125, 220, 255, 0.18);
+  border-color: rgba(125, 220, 255, 0.5);
+}
+
+.modal .icon-button.warning {
+  border-color: rgba(255, 125, 150, 0.28);
+}
+
+.modal .icon-button.confirm {
+  border-color: rgba(103, 243, 176, 0.35);
+}
+
+.high-contrast {
+  --outline: rgba(255, 255, 255, 0.55);
+  --path: rgba(255, 244, 128, 0.45);
+  --path-strong: rgba(125, 220, 255, 0.82);
+}
+
+.high-contrast .cell-bumper::after,
+.high-contrast .cell-entry::after,
+.high-contrast .cell-exit::after,
+.high-contrast .cell-star::after,
+.high-contrast .cell-blocker::after {
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.38));
+}
+
+.celebrate {
+  animation: pulse 700ms ease;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --cell: min(10.2vw, 50px);
+  }
+
+  .panel {
+    padding: 1rem;
+    border-radius: 28px;
+  }
+
+  .logo-wrap {
+    min-height: 62vh;
+  }
+
+  .start-button,
+  .launch-button {
+    width: 100%;
+  }
+}
+
+</style>
+  </head>
+  <body>
+    <main class="app" id="app"></main>
+    <script type="module">
+const DIRECTIONS = {
+  up: { x: 0, y: -1 },
+  right: { x: 1, y: 0 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+};
+
+const OPPOSITE = {
+  up: 'down',
+  down: 'up',
+  left: 'right',
+  right: 'left',
+};
+
+const SLASH_REFLECTION = {
+  up: 'right',
+  right: 'up',
+  down: 'left',
+  left: 'down',
+};
+
+const BACKSLASH_REFLECTION = {
+  up: 'left',
+  left: 'up',
+  down: 'right',
+  right: 'down',
+};
+
+export function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+export function createRng(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state += 0x6d2b79f5;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle(array, rng) {
+  const copy = [...array];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(rng() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
+
+function coordKey(x, y) {
+  return `${x},${y}`;
+}
+
+function stateKey(x, y, direction) {
+  return `${x},${y},${direction}`;
+}
+
+function reflect(direction, orientation) {
+  return orientation === '/' ? SLASH_REFLECTION[direction] : BACKSLASH_REFLECTION[direction];
+}
+
+export function computeLevelFormulas(levelNumber) {
+  return {
+    gridSize: Math.min(10, 6 + Math.floor((levelNumber - 1) / 3)),
+    starCount: Math.min(5, 1 + Math.floor((levelNumber - 1) / 4)),
+    bumperCount: Math.min(14, 4 + levelNumber),
+    blockerCount: Math.min(10, Math.floor(levelNumber / 2)),
+  };
+}
+
+function buildRows(size, pairCount, rng) {
+  const rows = [];
+  let lastRow = 0;
+  for (let index = 0; index < pairCount; index += 1) {
+    const remainingPairs = pairCount - index - 1;
+    const minRow = lastRow + 1;
+    const ideal = Math.round(((index + 1) * (size - 2)) / (pairCount + 1));
+    const maxRow = size - 2 - remainingPairs;
+    let row = clamp(ideal + Math.floor(rng() * 3) - 1, minRow, maxRow);
+    if (index === 0) {
+      row = clamp(row, 1, maxRow);
+    }
+    rows.push(row);
+    lastRow = row;
+  }
+  return rows;
+}
+
+function chooseEntryColumn(size, rng) {
+  const center = (size - 1) / 2;
+  const columns = Array.from({ length: size }, (_, column) => column).sort(
+    (left, right) => Math.abs(left - center) - Math.abs(right - center),
+  );
+  const weighted = [];
+  for (const column of columns) {
+    weighted.push(column);
+    if (column > 0 && column < size - 1) {
+      weighted.push(column);
+    }
+  }
+  return shuffle(weighted, rng)[0];
+}
+
+function chooseSideColumn(size, direction, currentX, visitCount) {
+  const primary = direction === 'right' ? [size - 2, size - 1, size - 3] : [1, 0, 2];
+  const secondary = direction === 'right' ? [size - 3, size - 2, size - 1] : [2, 1, 0];
+  const pool = visitCount === 0 ? primary : secondary.concat(primary);
+  for (const candidate of pool) {
+    if (candidate >= 0 && candidate < size && candidate !== currentX && Math.abs(candidate - currentX) >= 1) {
+      return candidate;
+    }
+  }
+  return direction === 'right' ? size - 1 : 0;
+}
+
+function addPathSegment(path, occupied, from, to) {
+  const stepX = Math.sign(to.x - from.x);
+  const stepY = Math.sign(to.y - from.y);
+  let x = from.x;
+  let y = from.y;
+  while (x !== to.x || y !== to.y) {
+    x += stepX;
+    y += stepY;
+    const key = coordKey(x, y);
+    if (occupied.has(key)) {
+      return false;
+    }
+    occupied.add(key);
+    path.push({ x, y });
+  }
+  return true;
+}
+
+function pickStarCells(path, starCount, turnSet, rng) {
+  const candidates = path.filter(({ x, y }, index) => index > 0 && index < path.length - 1 && !turnSet.has(coordKey(x, y)));
+  const selected = [];
+  if (candidates.length === 0) {
+    return selected;
+  }
+  const stride = Math.max(1, Math.floor(candidates.length / starCount));
+  for (let index = 0; index < starCount; index += 1) {
+    const start = clamp(index * stride + Math.floor(rng() * stride), 0, candidates.length - 1);
+    let pick = candidates[start];
+    let offset = 0;
+    while (
+      selected.some((cell) => cell.x === pick.x && cell.y === pick.y) &&
+      offset < candidates.length
+    ) {
+      pick = candidates[(start + offset) % candidates.length];
+      offset += 1;
+    }
+    selected.push(pick);
+  }
+  return selected;
+}
+
+function cellTypeFor(x, y, metadata) {
+  const key = coordKey(x, y);
+  if (key === coordKey(metadata.entry.x, metadata.entry.y)) {
+    return { type: 'entry' };
+  }
+  if (key === coordKey(metadata.exit.x, metadata.exit.y)) {
+    return { type: 'exit' };
+  }
+  if (metadata.bumpers.has(key)) {
+    const bumper = metadata.bumpers.get(key);
+    return { type: 'bumper', id: bumper.id, orientation: bumper.orientation, role: bumper.role };
+  }
+  if (metadata.stars.has(key)) {
+    return { type: 'star', id: metadata.stars.get(key).id };
+  }
+  if (metadata.blockers.has(key)) {
+    return { type: 'blocker' };
+  }
+  return { type: 'empty' };
+}
+
+export function simulateLaunch(levelData, orientationMap, collectedStarIds = new Set()) {
+  const cellMap = levelData.cellMap;
+  const path = [{ x: levelData.entry.x, y: levelData.entry.y, type: 'entry', direction: 'down' }];
+  const visitedStates = new Set();
+  const visitedPathCells = new Set([coordKey(levelData.entry.x, levelData.entry.y)]);
+  const collected = new Set(collectedStarIds);
+  const newlyCollected = [];
+  let current = { x: levelData.entry.x, y: levelData.entry.y };
+  let direction = 'down';
+  let steps = 0;
+  let outcome = 'reset';
+  let exitReached = false;
+  let looped = false;
+  let blockerHit = false;
+
+  while (true) {
+    const visitKey = stateKey(current.x, current.y, direction);
+    if (visitedStates.has(visitKey)) {
+      looped = true;
+      outcome = 'loop';
+      break;
+    }
+    visitedStates.add(visitKey);
+
+    const vector = DIRECTIONS[direction];
+    const next = { x: current.x + vector.x, y: current.y + vector.y };
+    if (
+      next.x < 0 ||
+      next.y < 0 ||
+      next.x >= levelData.size ||
+      next.y >= levelData.size
+    ) {
+      outcome = 'reset';
+      break;
+    }
+
+    const nextCell = cellMap.get(coordKey(next.x, next.y));
+    steps += 1;
+    current = next;
+    let type = nextCell.type;
+
+    if (type === 'star' && !collected.has(nextCell.id)) {
+      collected.add(nextCell.id);
+      newlyCollected.push(nextCell.id);
+    }
+
+    if (type === 'bumper') {
+      const orientation = orientationMap.get(nextCell.id) ?? nextCell.orientation;
+      direction = reflect(direction, orientation);
+    }
+
+    path.push({
+      x: current.x,
+      y: current.y,
+      type,
+      direction,
+    });
+    visitedPathCells.add(coordKey(current.x, current.y));
+
+    if (type === 'blocker') {
+      blockerHit = true;
+      outcome = 'blocked';
+      break;
+    }
+
+    if (type === 'exit') {
+      exitReached = true;
+      if (collected.size === levelData.starCount) {
+        outcome = 'solved';
+        break;
+      }
+    }
+  }
+
+  return {
+    steps,
+    outcome,
+    solved: outcome === 'solved',
+    looped,
+    blockerHit,
+    exitReached,
+    path,
+    pathCells: visitedPathCells,
+    collectedStarIds: collected,
+    newlyCollected,
+  };
+}
+
+function bruteForceSolve(levelData) {
+  const bumpers = levelData.bumpers;
+  const totalStates = 1 << bumpers.length;
+  for (let mask = 0; mask < totalStates; mask += 1) {
+    const orientations = new Map();
+    for (let index = 0; index < bumpers.length; index += 1) {
+      const bumper = bumpers[index];
+      const useFlipped = (mask & (1 << index)) !== 0;
+      orientations.set(bumper.id, useFlipped ? toggleOrientation(bumper.orientation) : bumper.orientation);
+    }
+    const simulation = simulateLaunch(levelData, orientations, new Set());
+    if (simulation.solved) {
+      return { mask, orientations, simulation };
+    }
+  }
+  return null;
+}
+
+export function toggleOrientation(orientation) {
+  return orientation === '/' ? '\\' : '/';
+}
+
+function makeBaseLevel(levelNumber, attempt) {
+  const formulas = computeLevelFormulas(levelNumber);
+  const { gridSize: size, starCount, bumperCount, blockerCount } = formulas;
+  const rng = createRng(levelNumber * 1103 + attempt * 7919);
+  const entryX = chooseEntryColumn(size, rng);
+  const maxPairs = Math.max(2, Math.min(4, size - 3));
+  const targetPairs = clamp(2 + Math.floor((levelNumber - 1) / 5), 2, maxPairs);
+  const pairCount = clamp(targetPairs + (attempt % 2), 2, maxPairs);
+  const rows = buildRows(size, pairCount, rng);
+  const startRight = rng() > 0.5;
+  const path = [{ x: entryX, y: 0 }];
+  const occupied = new Set([coordKey(entryX, 0)]);
+  const turnBumpers = [];
+  let current = { x: entryX, y: 0 };
+  let rightVisits = 0;
+  let leftVisits = 0;
+
+  for (let index = 0; index < pairCount; index += 1) {
+    const row = rows[index];
+    const direction = (index % 2 === 0) === startRight ? 'right' : 'left';
+    const targetX = chooseSideColumn(size, direction, current.x, direction === 'right' ? rightVisits : leftVisits);
+    if (direction === 'right') {
+      rightVisits += 1;
+    } else {
+      leftVisits += 1;
+    }
+
+    const firstTurn = { x: current.x, y: row };
+    if (!addPathSegment(path, occupied, current, firstTurn)) {
+      return null;
+    }
+
+    const secondTurn = { x: targetX, y: row };
+    if (!addPathSegment(path, occupied, firstTurn, secondTurn)) {
+      return null;
+    }
+
+    turnBumpers.push({
+      x: firstTurn.x,
+      y: firstTurn.y,
+      solutionOrientation: direction === 'right' ? '\\' : '/',
+      incoming: 'down',
+      role: 'solution',
+    });
+    turnBumpers.push({
+      x: secondTurn.x,
+      y: secondTurn.y,
+      solutionOrientation: direction === 'right' ? '\\' : '/',
+      incoming: direction,
+      role: 'solution',
+    });
+
+    current = secondTurn;
+  }
+
+  const exit = { x: current.x, y: size - 1 };
+  if (!addPathSegment(path, occupied, current, exit)) {
+    return null;
+  }
+
+  const entry = { x: entryX, y: 0 };
+  const pathSteps = path.length - 1;
+  if (pathSteps < 8 || pathSteps > 40) {
+    return null;
+  }
+
+  const turnSet = new Set(turnBumpers.map(({ x, y }) => coordKey(x, y)));
+  const stars = pickStarCells(path, starCount, turnSet, rng).map((cell, index) => ({ ...cell, id: `star-${index}` }));
+  if (stars.length !== starCount) {
+    return null;
+  }
+
+  const bumpers = [];
+  const bumperMap = new Map();
+  turnBumpers.forEach((bumper, index) => {
+    const key = coordKey(bumper.x, bumper.y);
+    const initialOrientation = index < 2 ? toggleOrientation(bumper.solutionOrientation) : bumper.solutionOrientation;
+    const record = {
+      id: `bumper-${index}`,
+      x: bumper.x,
+      y: bumper.y,
+      orientation: initialOrientation,
+      solutionOrientation: bumper.solutionOrientation,
+      role: bumper.role,
+      incoming: bumper.incoming,
+    };
+    bumpers.push(record);
+    bumperMap.set(key, record);
+  });
+
+  const pathSet = new Set(path.map(({ x, y }) => coordKey(x, y)));
+  const starMap = new Map(stars.map((star) => [coordKey(star.x, star.y), star]));
+  const blockers = new Map();
+
+  function findDeadEndCell(source, wrongDirection) {
+    const vector = DIRECTIONS[wrongDirection];
+    let x = source.x;
+    let y = source.y;
+    let candidate = null;
+    for (let distance = 1; distance <= size; distance += 1) {
+      x += vector.x;
+      y += vector.y;
+      if (x < 0 || y < 0 || x >= size || y >= size) {
+        break;
+      }
+      const key = coordKey(x, y);
+      if (pathSet.has(key) || starMap.has(key) || bumperMap.has(key) || blockers.has(key)) {
+        break;
+      }
+      candidate = { x, y };
+      if (distance >= 2) {
+        break;
+      }
+    }
+    return candidate;
+  }
+
+  if (blockerCount > 0) {
+    for (let index = 0; index < Math.min(2, turnBumpers.length); index += 1) {
+      const bumper = bumpers[index];
+      const wrongDirection = reflect(bumper.incoming, toggleOrientation(bumper.solutionOrientation));
+      const deadEnd = findDeadEndCell(bumper, wrongDirection);
+      if (deadEnd) {
+        blockers.set(coordKey(deadEnd.x, deadEnd.y), deadEnd);
+      }
+    }
+  }
+
+  const unusedCells = [];
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const key = coordKey(x, y);
+      if (
+        key === coordKey(entry.x, entry.y) ||
+        key === coordKey(exit.x, exit.y) ||
+        pathSet.has(key) ||
+        starMap.has(key) ||
+        bumperMap.has(key) ||
+        blockers.has(key)
+      ) {
+        continue;
+      }
+      if (y === 0 && x === entry.x) {
+        continue;
+      }
+      unusedCells.push({ x, y });
+    }
+  }
+
+  const shuffledUnused = shuffle(unusedCells, rng);
+  while (bumpers.length < bumperCount && shuffledUnused.length > 0) {
+    const cell = shuffledUnused.shift();
+    const key = coordKey(cell.x, cell.y);
+    const record = {
+      id: `bumper-${bumpers.length}`,
+      x: cell.x,
+      y: cell.y,
+      orientation: rng() > 0.5 ? '/' : '\\',
+      solutionOrientation: null,
+      role: 'decoy',
+      incoming: null,
+    };
+    bumpers.push(record);
+    bumperMap.set(key, record);
+  }
+
+  while (blockers.size < blockerCount && shuffledUnused.length > 0) {
+    const cell = shuffledUnused.shift();
+    const key = coordKey(cell.x, cell.y);
+    if (bumperMap.has(key) || starMap.has(key)) {
+      continue;
+    }
+    if (cell.y <= 1 && cell.x === entry.x) {
+      continue;
+    }
+    blockers.set(key, cell);
+  }
+
+  if (bumpers.length !== bumperCount || blockers.size !== blockerCount) {
+    return null;
+  }
+
+  const metadata = {
+    entry,
+    exit,
+    stars: starMap,
+    bumpers: bumperMap,
+    blockers,
+  };
+
+  const cells = [];
+  const cellMap = new Map();
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const cell = { x, y, ...cellTypeFor(x, y, metadata) };
+      cells.push(cell);
+      cellMap.set(coordKey(x, y), cell);
+    }
+  }
+
+  const levelData = {
+    levelNumber,
+    size,
+    entry,
+    exit,
+    starCount,
+    blockerCount,
+    bumperCount,
+    cells,
+    cellMap,
+    bumpers,
+    stars,
+    blockers: [...blockers.values()],
+  };
+
+  const solvedOrientations = new Map();
+  for (const bumper of bumpers) {
+    solvedOrientations.set(bumper.id, bumper.solutionOrientation ?? bumper.orientation);
+  }
+  const solvedLaunch = simulateLaunch(levelData, solvedOrientations, new Set());
+  if (!solvedLaunch.solved || solvedLaunch.steps < 8 || solvedLaunch.steps > 40) {
+    return null;
+  }
+
+  const usefulBumpers = bumpers.filter(
+    (bumper) => bumper.solutionOrientation && bumper.orientation !== bumper.solutionOrientation,
+  );
+  const decoyBumpers = bumpers.filter((bumper) => bumper.role === 'decoy');
+  if (usefulBumpers.length < 2 || decoyBumpers.length < 1) {
+    return null;
+  }
+
+  if (levelNumber === 1 && (blockerCount !== 0 || bumperCount > 5 || starCount !== 1)) {
+    return null;
+  }
+
+  return {
+    ...levelData,
+    solvedOrientations,
+    solvedPath: solvedLaunch.path,
+    solvedSteps: solvedLaunch.steps,
+    usefulBumperIds: usefulBumpers.map((bumper) => bumper.id),
+    decoyBumperIds: decoyBumpers.map((bumper) => bumper.id),
+  };
+}
+
+export function generateLevel(levelNumber) {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const level = makeBaseLevel(levelNumber, attempt);
+    if (!level) {
+      continue;
+    }
+    const bruteForce = bruteForceSolve(level);
+    if (!bruteForce) {
+      continue;
+    }
+    return {
+      ...level,
+      bruteForceSolution: {
+        mask: bruteForce.mask,
+        orientations: Object.fromEntries(bruteForce.orientations.entries()),
+      },
+    };
+  }
+  throw new Error(`Unable to generate level ${levelNumber}`);
+}
+
+export function describeCell(levelData, x, y, orientationMap, collectedStars, pathCells) {
+  const cell = levelData.cellMap.get(coordKey(x, y));
+  const row = y + 1;
+  const column = x + 1;
+  if (!cell) {
+    return '';
+  }
+  const details = [`row ${row}`, `column ${column}`, `tile ${cell.type}`];
+  if (cell.type === 'bumper') {
+    const orientation = orientationMap.get(cell.id) ?? cell.orientation;
+    details.push(`orientation ${orientation === '/' ? 'slash' : 'backslash'}`);
+  }
+  if (cell.type === 'star') {
+    details.push(`star ${collectedStars.has(cell.id) ? 'collected' : 'available'}`);
+  }
+  details.push(`path ${pathCells?.has(coordKey(x, y)) ? 'present' : 'absent'}`);
+  return details.join(', ');
+}
+
+export function analyzeLevel(levelData) {
+  return {
+    size: levelData.size,
+    starCount: levelData.starCount,
+    bumperCount: levelData.bumpers.length,
+    blockerCount: levelData.blockers.length,
+    solvedSteps: levelData.solvedSteps,
+    usefulRotations: levelData.usefulBumperIds.length,
+    decoyBumpers: levelData.decoyBumperIds.length,
+  };
+}
+
+export const reflections = {
+  slash: SLASH_REFLECTION,
+  backslash: BACKSLASH_REFLECTION,
+  reflect,
+  opposite: OPPOSITE,
+};
+
+
+const STORAGE_KEYS = {
+  best: 'pinball-grid-best-level',
+  settings: 'pinball-grid-settings',
+};
+
+const defaultSettings = {
+  sound: true,
+  motion: true,
+  contrast: false,
+};
+
+const state = {
+  screen: 'menu',
+  levelNumber: 1,
+  levelData: null,
+  orientationMap: new Map(),
+  collectedStars: new Set(),
+  moveCount: 0,
+  lastLaunch: null,
+  lastPathCells: new Set(),
+  focusCell: { x: 0, y: 0 },
+  settingsOpen: false,
+  confirmReset: false,
+  settings: loadSettings(),
+  bestLevel: loadBestLevel(),
+  showNewBest: false,
+  celebrateKeys: new Set(),
+  isAnimating: false,
+};
+
+const app = document.querySelector('#app');
+const audioContext = { current: null };
+
+function loadBestLevel() {
+  const raw = Number.parseInt(localStorage.getItem(STORAGE_KEYS.best) || '0', 10);
+  return Number.isFinite(raw) ? raw : 0;
+}
+
+function saveBestLevel() {
+  localStorage.setItem(STORAGE_KEYS.best, String(state.bestLevel));
+}
+
+function loadSettings() {
+  try {
+    return { ...defaultSettings, ...JSON.parse(localStorage.getItem(STORAGE_KEYS.settings) || '{}') };
+  } catch {
+    return { ...defaultSettings };
+  }
+}
+
+function saveSettings() {
+  localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(state.settings));
+}
+
+function playTone(frequency, duration = 0.1, type = 'sine', gainValue = 0.03) {
+  if (!state.settings.sound) {
+    return;
+  }
+  const context = audioContext.current || new AudioContext();
+  audioContext.current = context;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = type;
+  oscillator.frequency.value = frequency;
+  gain.gain.value = gainValue;
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  const now = context.currentTime;
+  gain.gain.setValueAtTime(gainValue, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  oscillator.start(now);
+  oscillator.stop(now + duration);
+}
+
+function playLaunchSound() {
+  playTone(320, 0.09, 'triangle', 0.028);
+  setTimeout(() => playTone(480, 0.1, 'triangle', 0.02), 45);
+}
+
+function playToggleSound() {
+  playTone(560, 0.05, 'square', 0.015);
+}
+
+function playSuccessSound() {
+  playTone(480, 0.12, 'triangle', 0.025);
+  setTimeout(() => playTone(620, 0.12, 'triangle', 0.025), 100);
+  setTimeout(() => playTone(760, 0.18, 'triangle', 0.024), 220);
+}
+
+function cellKey(x, y) {
+  return `${x},${y}`;
+}
+
+function startGame() {
+  state.screen = 'game';
+  state.settingsOpen = false;
+  state.confirmReset = false;
+  loadLevel(1);
+}
+
+function loadLevel(levelNumber) {
+  state.levelNumber = levelNumber;
+  state.levelData = generateLevel(levelNumber);
+  state.orientationMap = new Map(
+    state.levelData.bumpers.map((bumper) => [bumper.id, bumper.orientation]),
+  );
+  state.collectedStars = new Set();
+  state.moveCount = 0;
+  state.lastLaunch = null;
+  state.lastPathCells = new Set();
+  state.celebrateKeys = new Set();
+  state.isAnimating = false;
+  const firstBumper = state.levelData.bumpers[0] || state.levelData.entry;
+  state.focusCell = { x: firstBumper.x, y: firstBumper.y };
+  render();
+  focusCurrentCell();
+}
+
+function goMenu() {
+  state.screen = 'menu';
+  state.settingsOpen = false;
+  state.confirmReset = false;
+  state.isAnimating = false;
+  render();
+}
+
+function toggleBumper(x, y) {
+  if (!state.levelData || state.isAnimating) {
+    return;
+  }
+  const cell = state.levelData.cellMap.get(cellKey(x, y));
+  if (!cell || cell.type !== 'bumper') {
+    state.focusCell = { x, y };
+    render();
+    focusCurrentCell();
+    return;
+  }
+  const nextOrientation = toggleOrientation(state.orientationMap.get(cell.id) || cell.orientation);
+  state.orientationMap.set(cell.id, nextOrientation);
+  state.moveCount += 1;
+  state.lastLaunch = null;
+  state.lastPathCells = new Set();
+  state.celebrateKeys = new Set();
+  state.focusCell = { x, y };
+  playToggleSound();
+  render();
+  focusCurrentCell();
+}
+
+function moveCursor(deltaX, deltaY) {
+  if (!state.levelData) {
+    return;
+  }
+  state.focusCell = {
+    x: Math.max(0, Math.min(state.levelData.size - 1, state.focusCell.x + deltaX)),
+    y: Math.max(0, Math.min(state.levelData.size - 1, state.focusCell.y + deltaY)),
+  };
+  render();
+  focusCurrentCell();
+}
+
+function focusCurrentCell() {
+    const selector = `[data-x="${state.focusCell.x}"][data-y="${state.focusCell.y}"]`;
+  const element = document.querySelector(selector);
+  element?.focus();
+}
+
+function setShowNewBest() {
+  state.showNewBest = true;
+  render();
+  setTimeout(() => {
+    state.showNewBest = false;
+    render();
+  }, 1600);
+}
+
+async function animateBall(path) {
+  const ball = document.querySelector('.ball');
+  const board = document.querySelector('.board');
+  if (!ball || !board || !state.settings.motion) {
+    return;
+  }
+  const boardRect = board.getBoundingClientRect();
+  ball.style.opacity = '1';
+  for (const step of path) {
+    const cell = document.querySelector(`.cell[data-x="${step.x}"][data-y="${step.y}"]`);
+    if (!cell) {
+      continue;
+    }
+    const rect = cell.getBoundingClientRect();
+    const x = rect.left - boardRect.left + rect.width / 2 - ball.offsetWidth / 2;
+    const y = rect.top - boardRect.top + rect.height / 2 - ball.offsetHeight / 2;
+    ball.style.transform = `translate(${x}px, ${y}px)`;
+    await wait(step.y === 0 ? 80 : 95);
+  }
+  await wait(140);
+  ball.style.opacity = '0';
+}
+
+function markCelebration(simulation) {
+    const celebrateKeys = new Set(simulation.newlyCollected.map((starId) => {
+    const star = state.levelData.stars.find((entry) => entry.id === starId);
+    return star ? cellKey(star.x, star.y) : null;
+  }).filter(Boolean));
+  if (simulation.solved) {
+    celebrateKeys.add(cellKey(state.levelData.exit.x, state.levelData.exit.y));
+  }
+  state.celebrateKeys = celebrateKeys;
+}
+
+async function launchBall() {
+  if (!state.levelData || state.isAnimating) {
+    return;
+  }
+  state.isAnimating = true;
+  const simulation = simulateLaunch(state.levelData, state.orientationMap, state.collectedStars);
+  state.lastLaunch = simulation;
+  state.lastPathCells = simulation.pathCells;
+  state.collectedStars = simulation.collectedStarIds;
+  markCelebration(simulation);
+  playLaunchSound();
+  render();
+  await animateBall(simulation.path);
+
+  if (simulation.solved) {
+    playSuccessSound();
+    const nextLevel = state.levelNumber + 1;
+    if (nextLevel > state.bestLevel) {
+      state.bestLevel = nextLevel;
+      saveBestLevel();
+      setShowNewBest();
+    }
+    await wait(900);
+    loadLevel(nextLevel);
+  } else {
+    state.isAnimating = false;
+    render();
+  }
+}
+
+function wait(duration) {
+  return new Promise((resolve) => setTimeout(resolve, duration));
+}
+
+function toggleSetting(name) {
+  state.settings[name] = !state.settings[name];
+  saveSettings();
+  render();
+}
+
+function resetBestLevel() {
+  state.bestLevel = 0;
+  saveBestLevel();
+  state.confirmReset = false;
+  render();
+}
+
+function serializeState() {
+  if (!state.levelData) {
+    return {
+      screen: state.screen,
+      bestLevel: state.bestLevel,
+      settings: { ...state.settings },
+    };
+  }
+  return {
+    screen: state.screen,
+    levelNumber: state.levelNumber,
+    bestLevel: state.bestLevel,
+    moveCount: state.moveCount,
+    collectedStars: [...state.collectedStars],
+    settings: { ...state.settings },
+    focusCell: { ...state.focusCell },
+    bumpers: state.levelData.bumpers.map((bumper) => ({
+      id: bumper.id,
+      x: bumper.x,
+      y: bumper.y,
+      orientation: state.orientationMap.get(bumper.id),
+      role: bumper.role,
+      solutionOrientation: bumper.solutionOrientation,
+    })),
+    stars: state.levelData.stars.map((star) => ({
+      id: star.id,
+      x: star.x,
+      y: star.y,
+      collected: state.collectedStars.has(star.id),
+    })),
+    blockers: state.levelData.blockers,
+    entry: state.levelData.entry,
+    exit: state.levelData.exit,
+    bruteForceSolution: state.levelData.bruteForceSolution,
+    solvedSteps: state.levelData.solvedSteps,
+  };
+}
+
+window.__pinballGridGame = {
+  getState: serializeState,
+  launchBall,
+};
+
+function renderMenu() {
+  return `
+    <section class="menu-screen" aria-label="main menu">
+      <div class="top-strip">
+        <div class="badge" aria-label="best level ${state.bestLevel}">
+          <span class="icon" aria-hidden="true">🏆</span>
+          <span class="value">${state.bestLevel}</span>
+        </div>
+        <button class="icon-button" type="button" data-action="open-settings" aria-label="settings">
+          <span aria-hidden="true">⚙️</span>
+        </button>
+      </div>
+      <div class="logo-wrap">
+        <div class="logo-mark" aria-hidden="true">
+          <div class="logo-grid">
+            ${Array.from({ length: 16 }, () => '<span></span>').join('')}
+          </div>
+          <div class="logo-trail"></div>
+          <div class="logo-ball"></div>
+        </div>
+        <button class="start-button" type="button" data-action="start">Start Game</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderGame() {
+  const level = state.levelData;
+  const boardStyle = `grid-template-columns: repeat(${level.size}, var(--cell));`;
+  const collectedCount = state.collectedStars.size;
+
+  const cells = level.cells.map((cell) => {
+    const key = cellKey(cell.x, cell.y);
+    const isPath = state.lastPathCells.has(key);
+    const isCursor = state.focusCell.x === cell.x && state.focusCell.y === cell.y;
+    const isCelebrating = state.celebrateKeys.has(key);
+    const orientation = cell.type === 'bumper' ? state.orientationMap.get(cell.id) : null;
+    const classes = [
+      'cell',
+      `cell-${cell.type}`,
+      cell.type === 'empty' ? 'cell-empty' : '',
+      cell.type === 'star' && state.collectedStars.has(cell.id) ? 'collected' : '',
+      isPath ? 'path' : '',
+      isCursor ? 'cursor' : '',
+      isCelebrating ? 'celebrate' : '',
+    ].filter(Boolean).join(' ');
+    const pressed = cell.type === 'bumper' ? `aria-pressed="${orientation === '\\' ? 'true' : 'false'}"` : '';
+    return `
+      <button
+        class="${classes}"
+        type="button"
+        role="gridcell"
+        data-action="cell"
+        data-x="${cell.x}"
+        data-y="${cell.y}"
+        data-type="${cell.type}"
+        ${cell.type === 'bumper' ? `data-id="${cell.id}" data-orientation="${orientation}" data-role="${cell.role}"` : ''}
+        tabindex="${isCursor ? '0' : '-1'}"
+        aria-label="${describeCell(level, cell.x, cell.y, state.orientationMap, state.collectedStars, state.lastPathCells)}"
+        ${pressed}
+      ></button>
+    `;
+  }).join('');
+
+  return `
+    <section class="game-screen" aria-label="game screen">
+      <div class="metrics">
+        <div class="chip chip-moves" aria-label="move count ${state.moveCount}">
+          <span aria-hidden="true">↻</span>
+          <span class="value">${state.moveCount}</span>
+        </div>
+        <div class="metrics-right">
+          <div class="chip chip-level" aria-label="level ${state.levelNumber}">
+            <span aria-hidden="true">⭐</span>
+            <span class="value">${state.levelNumber}</span>
+          </div>
+          <div class="chip chip-stars" aria-label="collected stars ${collectedCount}">
+            <span aria-hidden="true">✦</span>
+            <span class="value">${collectedCount}</span>
+          </div>
+        </div>
+      </div>
+      <div class="board-wrap">
+        <div class="board" role="grid" aria-label="pinball board" style="${boardStyle}">
+          ${cells}
+        </div>
+        <div class="ball-layer"><div class="ball"></div></div>
+      </div>
+      <div class="bottom-strip">
+        <button class="launch-button" type="button" data-action="launch">Launch</button>
+        <button class="icon-button" type="button" data-action="open-settings" aria-label="settings">
+          <span aria-hidden="true">⚙️</span>
+        </button>
+        <button class="icon-button" type="button" data-action="menu" aria-label="menu">
+          <span aria-hidden="true">🏠</span>
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+function renderModal() {
+  if (!state.settingsOpen) {
+    return '';
+  }
+  return `
+    <div class="modal-backdrop" aria-modal="true" role="dialog" aria-label="settings panel">
+      <div class="modal">
+        <div class="modal-row">
+          <button class="icon-button ${state.settings.sound ? 'active' : ''}" type="button" data-action="toggle-setting" data-setting="sound" aria-label="sound ${state.settings.sound ? 'on' : 'off'}">
+            <span aria-hidden="true">${state.settings.sound ? '🔊' : '🔇'}</span>
+          </button>
+          <button class="icon-button ${state.settings.motion ? 'active' : ''}" type="button" data-action="toggle-setting" data-setting="motion" aria-label="motion ${state.settings.motion ? 'on' : 'off'}">
+            <span aria-hidden="true">${state.settings.motion ? '✨' : '💫'}</span>
+          </button>
+          <button class="icon-button ${state.settings.contrast ? 'active' : ''}" type="button" data-action="toggle-setting" data-setting="contrast" aria-label="high contrast ${state.settings.contrast ? 'on' : 'off'}">
+            <span aria-hidden="true">◐</span>
+          </button>
+        </div>
+        <div class="modal-actions">
+          <button class="icon-button warning" type="button" data-action="confirm-reset" aria-label="reset best level">
+            <span aria-hidden="true">🗑️</span>
+          </button>
+          <button class="icon-button" type="button" data-action="close-settings" aria-label="close settings">
+            <span aria-hidden="true">✕</span>
+          </button>
+        </div>
+        ${state.confirmReset ? `
+          <div class="confirm-row">
+            <button class="icon-button confirm" type="button" data-action="reset-best" aria-label="confirm reset best level">
+              <span aria-hidden="true">✔</span>
+            </button>
+            <button class="icon-button" type="button" data-action="cancel-reset" aria-label="cancel reset">
+              <span aria-hidden="true">✕</span>
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function render() {
+  document.body.classList.toggle('high-contrast', state.settings.contrast);
+  app.innerHTML = `
+    <div class="shell">
+      <div class="panel">
+        ${state.screen === 'menu' ? renderMenu() : renderGame()}
+        ${state.showNewBest ? '<div class="toast">New Best</div>' : ''}
+        ${renderModal()}
+      </div>
+    </div>
+  `;
+}
+
+app.addEventListener('click', async (event) => {
+  const target = event.target.closest('[data-action]');
+  if (!target) {
+    return;
+  }
+  const { action } = target.dataset;
+  if (action === 'start') {
+    startGame();
+    return;
+  }
+  if (action === 'launch') {
+    await launchBall();
+    return;
+  }
+  if (action === 'open-settings') {
+    state.settingsOpen = true;
+    render();
+    return;
+  }
+  if (action === 'close-settings') {
+    state.settingsOpen = false;
+    state.confirmReset = false;
+    render();
+    return;
+  }
+  if (action === 'toggle-setting') {
+    toggleSetting(target.dataset.setting);
+    return;
+  }
+  if (action === 'confirm-reset') {
+    state.confirmReset = true;
+    render();
+    return;
+  }
+  if (action === 'cancel-reset') {
+    state.confirmReset = false;
+    render();
+    return;
+  }
+  if (action === 'reset-best') {
+    resetBestLevel();
+    return;
+  }
+  if (action === 'menu') {
+    goMenu();
+    return;
+  }
+  if (action === 'cell') {
+    const x = Number.parseInt(target.dataset.x, 10);
+    const y = Number.parseInt(target.dataset.y, 10);
+    toggleBumper(x, y);
+  }
+});
+
+app.addEventListener('focusin', (event) => {
+  const cell = event.target.closest('.cell');
+  if (!cell) {
+    return;
+  }
+  state.focusCell = {
+    x: Number.parseInt(cell.dataset.x, 10),
+    y: Number.parseInt(cell.dataset.y, 10),
+  };
+  document.querySelectorAll('.cell.cursor').forEach((element) => element.classList.remove('cursor'));
+  cell.classList.add('cursor');
+  document.querySelectorAll('.cell').forEach((element) => {
+    element.tabIndex =
+      element.dataset.x === String(state.focusCell.x) && element.dataset.y === String(state.focusCell.y) ? 0 : -1;
+  });
+});
+
+window.addEventListener('keydown', async (event) => {
+  if (state.screen !== 'game' || state.settingsOpen) {
+    if (event.key === 'Escape' && state.settingsOpen) {
+      state.settingsOpen = false;
+      state.confirmReset = false;
+      render();
+    }
+    return;
+  }
+
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    moveCursor(0, -1);
+    return;
+  }
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    moveCursor(0, 1);
+    return;
+  }
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    moveCursor(-1, 0);
+    return;
+  }
+  if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    moveCursor(1, 0);
+    return;
+  }
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    toggleBumper(state.focusCell.x, state.focusCell.y);
+    return;
+  }
+  if (event.key.toLowerCase() === 'l') {
+    event.preventDefault();
+    await launchBall();
+  }
+});
+
+render();
+
+</script>
+  </body>
+</html>

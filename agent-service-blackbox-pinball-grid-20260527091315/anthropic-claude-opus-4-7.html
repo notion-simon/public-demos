@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pinball Grid</title>
+<style>
+  :root{
+    --bg:#0b0f1a;
+    --bg2:#121829;
+    --panel:#161d33;
+    --line:#222b48;
+    --line2:#2c3760;
+    --ink:#e9edff;
+    --ink-dim:#8c95bf;
+    --accent:#7c9bff;
+    --accent2:#62e1c2;
+    --star:#ffd66b;
+    --exit:#62e1c2;
+    --entry:#7c9bff;
+    --blocker:#3a2540;
+    --blocker-ink:#ff7088;
+    --path:#7c9bff;
+    --bumper:#e9edff;
+    --shadow: 0 10px 40px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:radial-gradient(1200px 800px at 50% -10%, #1a2244 0%, var(--bg) 60%) fixed;color:var(--ink);font-family:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;height:100%;-webkit-tap-highlight-color:transparent;overflow:hidden}
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;user-select:none}
+  .app{width:min(560px,100vw);max-height:900px;height:100vh;display:flex;flex-direction:column;padding:14px 14px 22px;gap:10px;position:relative}
+  @media (min-height:760px){ .app{height:760px} }
+  .topbar{display:flex;justify-content:space-between;align-items:center;height:44px}
+  .icon-btn{width:44px;height:44px;border-radius:14px;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;cursor:pointer;color:var(--ink);transition:transform .12s ease, background .15s ease, border-color .15s ease}
+  .icon-btn:hover{background:#1c2542;border-color:var(--line2)}
+  .icon-btn:active{transform:scale(.96)}
+  .icon-btn svg{width:22px;height:22px}
+  .screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+  .logo{width:170px;height:170px;display:grid;place-items:center;filter:drop-shadow(0 18px 30px rgba(124,155,255,.25))}
+  .btn{background:linear-gradient(180deg,#8aa6ff 0%, #5d7dff 100%);color:#0b0f1a;border:none;border-radius:18px;padding:16px 26px;font-size:18px;font-weight:700;letter-spacing:.2px;cursor:pointer;box-shadow:var(--shadow);transition:transform .1s ease, filter .15s ease}
+  .btn:hover{filter:brightness(1.06)}
+  .btn:active{transform:translateY(1px) scale(.99)}
+  .btn.secondary{background:var(--panel);color:var(--ink);border:1px solid var(--line2);box-shadow:none}
+  .hud{display:flex;justify-content:space-between;align-items:center;padding:0 4px}
+  .hud .pill{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);padding:8px 14px;border-radius:14px;font-weight:700;font-size:18px;min-width:72px;justify-content:center}
+  .hud .pill svg{width:18px;height:18px}
+  .hud .pill .pill-ico{display:inline-grid;place-items:center;color:#a8b3e0}
+  .hud .pill .pill-ico.flag{color:#62e1c2}
+  .board-wrap{position:relative;flex:0 0 auto;display:grid;place-items:center}
+  .board{
+    --cell:48px;
+    --gap:6px;
+    display:grid;
+    gap:var(--gap);
+    padding:var(--gap);
+    background:linear-gradient(180deg,#141a30,#0e1426);
+    border:1px solid var(--line2);
+    border-radius:18px;
+    box-shadow:var(--shadow), inset 0 0 0 1px rgba(255,255,255,.02);
+    position:relative;
+  }
+  .cell{
+    width:var(--cell);height:var(--cell);
+    background:#10173a;
+    border-radius:10px;
+    border:1px solid #2a3566;
+    position:relative;
+    display:grid;place-items:center;
+    color:var(--ink-dim);
+  }
+  .cell.empty{background:#10173a}
+  .cell.entry{background:linear-gradient(180deg,#1b2a55,#13204a);border-color:#314a99;color:var(--entry)}
+  .cell.exit{background:linear-gradient(180deg,#143a31,#0e2c25);border-color:#2e8a76;color:var(--exit)}
+  .cell.blocker{background:linear-gradient(180deg,#3a1f2d,#26121b);border-color:#7a324a;color:var(--blocker-ink)}
+  .cell.bumper{background:linear-gradient(180deg,#1a2347,#121a36);border-color:#384781;cursor:pointer;transition:transform .1s ease, border-color .15s ease, box-shadow .15s ease}
+  .cell.bumper:hover{border-color:#5a72c8}
+  .cell.bumper:active{transform:scale(.94)}
+  .cell.bumper.focus{box-shadow:0 0 0 2px var(--accent), 0 0 0 4px rgba(124,155,255,.25);border-color:var(--accent)}
+  .cell.focus{box-shadow:0 0 0 2px var(--accent)}
+  .cell .glyph{width:100%;height:100%;position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+  .cell .glyph svg{width:70%;height:70%}
+  .cell.star .star-svg{filter:drop-shadow(0 2px 6px rgba(255,214,107,.5))}
+  .cell.star.collected .star-svg{opacity:.18;filter:none}
+  .path-layer{position:absolute;inset:0;pointer-events:none}
+  .controls{display:flex;gap:10px;justify-content:center;align-items:center;padding:6px 4px 0}
+  .launch{flex:1;max-width:240px}
+  .modal{position:fixed;inset:0;background:rgba(7,10,22,.6);backdrop-filter: blur(8px);display:grid;place-items:center;z-index:20;animation:fade .2s ease}
+  .modal .card{background:var(--bg2);border:1px solid var(--line2);border-radius:22px;padding:22px;width:min(420px,92vw);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:16px}
+  .modal h2{margin:0;font-size:22px;letter-spacing:.2px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:14px;background:var(--panel);border:1px solid var(--line)}
+  .row .label{display:flex;align-items:center;gap:10px;color:var(--ink)}
+  .toggle{width:44px;height:26px;border-radius:99px;background:#2a335b;border:1px solid var(--line2);position:relative;cursor:pointer;transition:background .15s ease}
+  .toggle::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#e9edff;transition:left .15s ease}
+  .toggle.on{background:#5d7dff}
+  .toggle.on::after{left:20px}
+  .confirm{display:flex;gap:8px}
+  .iconbtn-sm{width:36px;height:36px;border-radius:10px;background:#2a335b;border:1px solid var(--line2);display:grid;place-items:center;cursor:pointer;color:var(--ink)}
+  .iconbtn-sm.danger{background:#3a1f2d;border-color:#7a324a;color:#ff7088}
+  .iconbtn-sm.ok{background:#143a31;border-color:#2e8a76;color:var(--exit)}
+  .iconbtn-sm.cancel{background:transparent;border-color:#4a557d;color:#8c95bf}
+  .iconbtn-sm.cancel:hover{border-color:#6975a8;color:var(--ink)}
+  .best-pill{display:inline-flex;align-items:center;gap:6px;color:#ffd66b;font-weight:800;font-size:15px;padding:2px 4px}
+  .best-pill svg{width:22px;height:22px}
+  .best-num{font-variant-numeric:tabular-nums}
+  .high-contrast .cell{border-color:#fff !important}
+  .high-contrast .cell.bumper{box-shadow:inset 0 0 0 1px #fff}
+  .toast{position:absolute;top:-30px;left:50%;transform:translateX(-50%) translateY(8px) scale(.9);background:linear-gradient(180deg,#ffe48a,#f6b73c);color:#3a2a05;font-weight:800;font-size:15px;padding:10px 18px;border-radius:14px;letter-spacing:.4px;opacity:0;transition:opacity .25s ease, transform .35s cubic-bezier(.2,.9,.3,1.4);pointer-events:none;box-shadow:0 12px 30px rgba(246,183,60,.35), 0 2px 0 rgba(0,0,0,.15);z-index:5;white-space:nowrap}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.5)}100%{transform:scale(0)}}
+  @keyframes exitPulse{0%{transform:scale(1)}50%{transform:scale(1.25);filter:brightness(1.4)}100%{transform:scale(1)}}
+  @keyframes bumperFlip{0%{transform:scale(1)}40%{transform:scale(1.18);box-shadow:0 0 0 3px rgba(124,155,255,.45)}100%{transform:scale(1)}}
+  .cell.star.animating .star-svg{animation:pop .6s ease forwards}
+  .cell.exit.animating{animation:exitPulse .6s ease}
+  .cell.bumper.just-flipped{animation:bumperFlip .25s ease}
+  .ball{position:absolute;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 30% 30%, #fff 0, #cdd6ff 50%, #7c9bff 100%);box-shadow:0 0 14px rgba(124,155,255,.8);pointer-events:none;transition:left .08s linear, top .08s linear}
+  .footer{display:flex;justify-content:center;gap:14px;padding-top:6px}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+"use strict";
+
+// ---------- ICONS ----------
+const ICON = {
+  trophy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M17 4h3v2a3 3 0 0 1-3 3M7 4H4v2a3 3 0 0 0 3 3"/></svg>`,
+  gear: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`,
+  star: `<svg class="star-svg" viewBox="0 0 24 24" fill="#ffd66b" stroke="#b07c1a" stroke-width="1.2" stroke-linejoin="round"><polygon points="12,2 14.9,8.6 22,9.3 16.6,14 18.2,21 12,17.3 5.8,21 7.4,14 2,9.3 9.1,8.6"/></svg>`,
+  house: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>`,
+  speaker: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19 8c1.5 1.5 2 2.5 2 4s-.5 2.5-2 4"/><path d="M16 10c.8.8 1 1.3 1 2s-.2 1.2-1 2"/></svg>`,
+  motion: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l3-8 4 16 3-8h5"/></svg>`,
+  contrast: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>`,
+  trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`,
+  check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  x: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>`,
+  moves: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h12"/><path d="M13 5l3 3-3 3"/><path d="M20 16H8"/><path d="M11 13l-3 3 3 3"/></svg>`,
+  flag: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg>`,
+  logo: `<svg viewBox="0 0 200 200" fill="none">
+    <defs>
+      <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#8aa6ff"/><stop offset="1" stop-color="#5d7dff"/>
+      </linearGradient>
+    </defs>
+    <rect x="20" y="20" width="160" height="160" rx="36" fill="#141a30" stroke="#384781" stroke-width="2"/>
+    <line x1="40" y1="60" x2="80" y2="100" stroke="#e9edff" stroke-width="8" stroke-linecap="round"/>
+    <line x1="160" y1="60" x2="120" y2="100" stroke="#e9edff" stroke-width="8" stroke-linecap="round"/>
+    <line x1="40" y1="160" x2="80" y2="120" stroke="#e9edff" stroke-width="8" stroke-linecap="round"/>
+    <line x1="160" y1="160" x2="120" y2="120" stroke="#e9edff" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="100" cy="100" r="22" fill="url(#lg)" stroke="#cdd6ff" stroke-width="2"/>
+    <circle cx="93" cy="93" r="6" fill="#fff" opacity=".8"/>
+  </svg>`,
+  launch:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/></svg>`,
+};
+
+// ---------- TILE / DIR CONSTANTS ----------
+const T = { EMPTY:0, ENTRY:1, EXIT:2, STAR:3, BLOCKER:4, SLASH:5, BACKSLASH:6 };
+// directions: 0=up, 1=right, 2=down, 3=left
+const D = { UP:0, RIGHT:1, DOWN:2, LEFT:3 };
+const DR = [-1, 0, 1, 0]; const DC = [0, 1, 0, -1];
+
+// Reflection on '/': up->right, right->up, down->left, left->down
+function reflectSlash(d){ return [D.RIGHT,D.UP,D.LEFT,D.DOWN][d]; }
+// Reflection on '\': up->left, left->up, down->right, right->down
+function reflectBackslash(d){ return [D.LEFT,D.DOWN,D.RIGHT,D.UP][d]; }
+
+// ---------- STORAGE ----------
+const STORE_KEY = "pinball_grid_v1";
+function loadStore(){
+  try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }catch(_){ return {}; }
+}
+function saveStore(s){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }catch(_){} }
+
+// ---------- RNG (seeded mulberry32 for level-stable variety) ----------
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = a;
+    t = Math.imul(t ^ t >>> 15, 1 | t);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+
+// ---------- LEVEL FORMULAS ----------
+function levelParams(level){
+  const gridSize = Math.min(10, 6 + Math.floor((level - 1)/3));
+  const starCount = Math.min(5, 1 + Math.floor((level - 1)/4));
+  const bumperCount = Math.min(14, 4 + level);
+  const blockerCount = Math.min(10, Math.floor(level / 2));
+  return { gridSize, starCount, bumperCount, blockerCount };
+}
+
+// ---------- SIMULATION ----------
+// Returns {path:[{r,c,dir}], stars:Set, reachedExit, exitedWithAllStars, totalStars}
+function simulate(grid, entry, exit, n){
+  const path = [];
+  const visited = new Set();
+  let r = entry.r, c = entry.c, dir = D.DOWN;
+  const starsCollected = new Set();
+  let totalStars = 0;
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++) if(grid[i][j]===T.STAR) totalStars++;
+
+  path.push({r, c, dir, type:'entry'});
+  let safety = n*n*8;
+  while(safety-- > 0){
+    const key = r*1000+c*4+dir;
+    if(visited.has(key)) { return {path, stars:starsCollected, reachedExit:false, exitedWithAllStars:false, totalStars, blocked:false, loop:true}; }
+    visited.add(key);
+
+    const nr = r + DR[dir], nc = c + DC[dir];
+    if(nr<0 || nr>=n || nc<0 || nc>=n){
+      // off board: reset (unless it is exit cell direction which is handled via being at exit then moving down)
+      return {path, stars:starsCollected, reachedExit:false, exitedWithAllStars:false, totalStars, blocked:true, loop:false};
+    }
+    const t = grid[nr][nc];
+    if(t===T.BLOCKER){
+      path.push({r:nr,c:nc,dir, type:'blocker'});
+      return {path, stars:starsCollected, reachedExit:false, exitedWithAllStars:false, totalStars, blocked:true, loop:false};
+    }
+    if(t===T.STAR){
+      starsCollected.add(nr+","+nc);
+      path.push({r:nr,c:nc,dir, type:'star'});
+      r=nr; c=nc;
+      continue;
+    }
+    if(t===T.SLASH){
+      const nd = reflectSlash(dir);
+      path.push({r:nr,c:nc,dir:nd, type:'slash'});
+      r=nr; c=nc; dir=nd;
+      continue;
+    }
+    if(t===T.BACKSLASH){
+      const nd = reflectBackslash(dir);
+      path.push({r:nr,c:nc,dir:nd, type:'backslash'});
+      r=nr; c=nc; dir=nd;
+      continue;
+    }
+    if(t===T.EXIT){
+      path.push({r:nr,c:nc,dir, type:'exit'});
+      const ok = starsCollected.size === totalStars;
+      return {path, stars:starsCollected, reachedExit:true, exitedWithAllStars:ok, totalStars, blocked:false, loop:false};
+    }
+    // empty or entry: pass through
+    path.push({r:nr,c:nc,dir, type:'empty'});
+    r=nr; c=nc;
+  }
+  return {path, stars:starsCollected, reachedExit:false, exitedWithAllStars:false, totalStars, blocked:false, loop:true};
+}
+
+// ---------- LEVEL GENERATION ----------
+// Strategy: place entry on top edge, exit on bottom edge, then sample placements of stars/bumpers/blockers with a seed.
+// Try until simulate() with the chosen orientations succeeds in 8-40 steps. Then "decoy" by flipping a couple of bumpers to wrong orientation.
+function generateLevel(level){
+  const p = levelParams(level);
+  const n = p.gridSize;
+  // Per-level deterministic-ish but varied
+  const baseSeed = level * 9301 + 49297;
+  for(let attempt=0; attempt<400; attempt++){
+    const rng = mulberry32(baseSeed + attempt*131);
+    const grid = Array.from({length:n},()=>Array(n).fill(T.EMPTY));
+    const entry = {r:0, c: 1 + Math.floor(rng()*(n-2))};
+    const exit  = {r:n-1, c: 1 + Math.floor(rng()*(n-2))};
+    grid[entry.r][entry.c] = T.ENTRY;
+    grid[exit.r][exit.c] = T.EXIT;
+
+    // Build a snake-ish path that includes stars and uses bumpers at turns.
+    // Pick a sequence of waypoints. Start at entry going down; turn at random rows; collect stars; end at exit.
+    const path = [];
+    let r=entry.r, c=entry.c, dir=D.DOWN;
+    path.push({r,c,dir});
+    const bumperPlacements = []; // {r,c, orient: T.SLASH|T.BACKSLASH}
+    const starPlacements = [];
+
+    // helper: step in direction, recording cells (path)
+    function stepTo(targetR, targetC){
+      // moves one cell at a time toward target along current dir until reached or boundary
+      while(r!==targetR || c!==targetC){
+        const nr = r + DR[dir], nc = c + DC[dir];
+        if(nr<0||nr>=n||nc<0||nc>=n) return false;
+        r=nr; c=nc; path.push({r,c,dir});
+      }
+      return true;
+    }
+
+    // Strategy: pick alternating directions. We pick a few "turns".
+    // From entry (top), go down some rows, turn left/right, traverse, turn down, etc., end at exit.
+    let segments = 2 + Math.floor(rng()*3); // 2-4 turn segments
+    let success = true;
+    let turnPoints = [];
+    let curRow = entry.r, curCol = entry.c, curDir = D.DOWN;
+
+    for(let s=0; s<segments && success; s++){
+      // pick how far to advance in current dir
+      let maxAdv;
+      if(curDir===D.DOWN) maxAdv = (n-1) - curRow - 1; // leave room
+      else if(curDir===D.UP) maxAdv = curRow - 1;
+      else if(curDir===D.RIGHT) maxAdv = (n-1) - curCol - 1;
+      else maxAdv = curCol - 1;
+      if(maxAdv < 1){ success = false; break; }
+      const adv = 1 + Math.floor(rng()*maxAdv);
+      const tr = curRow + DR[curDir]*adv;
+      const tc = curCol + DC[curDir]*adv;
+      // record movement
+      while(curRow!==tr || curCol!==tc){
+        curRow += DR[curDir]; curCol += DC[curDir];
+        path.push({r:curRow,c:curCol,dir:curDir});
+      }
+      // pick a new direction perpendicular
+      let newDir;
+      if(curDir===D.DOWN || curDir===D.UP){
+        // pick LEFT or RIGHT such that there's room
+        const canR = curCol < n-2;
+        const canL = curCol > 1;
+        if(canR && canL) newDir = rng()<0.5 ? D.LEFT : D.RIGHT;
+        else if(canR) newDir = D.RIGHT;
+        else if(canL) newDir = D.LEFT;
+        else { success=false; break; }
+      } else {
+        // currently horizontal; go DOWN (we want to end at bottom)
+        newDir = D.DOWN;
+      }
+      // Place a bumper at the turn cell.
+      const orient = bumperForTurn(curDir, newDir);
+      if(orient===null){ success=false; break; }
+      // avoid overwriting entry/exit
+      if((curRow===entry.r && curCol===entry.c) || (curRow===exit.r && curCol===exit.c)) { success=false; break; }
+      bumperPlacements.push({r:curRow, c:curCol, orient});
+      turnPoints.push({r:curRow,c:curCol});
+      curDir = newDir;
+    }
+    if(!success) continue;
+
+    // Now go from (curRow,curCol) toward the exit column in current direction, then DOWN to exit.
+    // If horizontal, advance to exit.c then turn down.
+    if(curDir===D.LEFT || curDir===D.RIGHT){
+      // move toward exit.c
+      const targetCol = exit.c;
+      if((curDir===D.RIGHT && targetCol<=curCol) || (curDir===D.LEFT && targetCol>=curCol)){
+        continue; // can't reach without another turn; reject
+      }
+      while(curCol!==targetCol){
+        const nc = curCol + DC[curDir];
+        if(nc<0||nc>=n){ success=false; break; }
+        curCol = nc; path.push({r:curRow,c:curCol,dir:curDir});
+      }
+      if(!success) continue;
+      // place a bumper to turn down (unless we're already at exit row, but we're not)
+      const orient = bumperForTurn(curDir, D.DOWN);
+      if(orient===null) continue;
+      if((curRow===entry.r && curCol===entry.c) || (curRow===exit.r && curCol===exit.c)) continue;
+      bumperPlacements.push({r:curRow, c:curCol, orient});
+      turnPoints.push({r:curRow,c:curCol});
+      curDir = D.DOWN;
+    }
+    // now go down to exit
+    if(curCol !== exit.c) continue;
+    while(curRow !== exit.r){
+      curRow++;
+      path.push({r:curRow,c:curCol,dir:D.DOWN});
+    }
+
+    // path length check (8..40)
+    if(path.length < 8 || path.length > 40) continue;
+
+    // Place stars on empty cells along the path (between entry and exit, excluding entry/exit/bumper cells)
+    const pathCells = path.filter(p=> !(p.r===entry.r&&p.c===entry.c) && !(p.r===exit.r&&p.c===exit.c) );
+    const bumperSet = new Set(bumperPlacements.map(b=>b.r+","+b.c));
+    const candidates = pathCells.filter(p=>!bumperSet.has(p.r+","+p.c));
+    // dedupe candidates
+    const seen = new Set();
+    const cand = candidates.filter(p=>{
+      const k=p.r+","+p.c; if(seen.has(k)) return false; seen.add(k); return true;
+    });
+    if(cand.length < p.starCount) continue;
+    // shuffle
+    for(let i=cand.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [cand[i],cand[j]]=[cand[j],cand[i]]; }
+    for(let i=0;i<p.starCount;i++){
+      const s = cand[i];
+      grid[s.r][s.c] = T.STAR;
+      starPlacements.push(s);
+    }
+
+    // Place bumpers (the correct-orientation ones)
+    for(const b of bumperPlacements){
+      grid[b.r][b.c] = b.orient;
+    }
+
+    // Now place extra bumpers (decoys) on random empty cells that are NOT on the path (mostly), some are decoys around path
+    const extraBumperNeeded = Math.max(0, p.bumperCount - bumperPlacements.length);
+    const occupied = new Set();
+    for(let i=0;i<n;i++) for(let j=0;j<n;j++) if(grid[i][j]!==T.EMPTY) occupied.add(i+","+j);
+
+    // candidates for blockers: cells not in path
+    const pathSet = new Set(path.map(p=>p.r+","+p.c));
+    const allEmpty = [];
+    for(let i=0;i<n;i++) for(let j=0;j<n;j++){
+      if(grid[i][j]===T.EMPTY) allEmpty.push({r:i,c:j, onPath: pathSet.has(i+","+j)});
+    }
+    // shuffle
+    for(let i=allEmpty.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [allEmpty[i],allEmpty[j]]=[allEmpty[j],allEmpty[i]]; }
+
+    // Place blockers on non-path cells first
+    let blockersPlaced = 0;
+    for(const cell of allEmpty){
+      if(blockersPlaced>=p.blockerCount) break;
+      if(cell.onPath) continue;
+      grid[cell.r][cell.c] = T.BLOCKER;
+      blockersPlaced++;
+    }
+    if(blockersPlaced < p.blockerCount){
+      // not enough space - skip blockers; this is okay edge case for tiny grids
+    }
+    // Place extra bumpers on any remaining empty cells
+    let extrasPlaced = 0;
+    for(const cell of allEmpty){
+      if(extrasPlaced>=extraBumperNeeded) break;
+      if(grid[cell.r][cell.c]!==T.EMPTY) continue;
+      grid[cell.r][cell.c] = rng()<0.5 ? T.SLASH : T.BACKSLASH;
+      extrasPlaced++;
+    }
+
+    // Verify simulate with the placed grid (this is the "solved" state) succeeds
+    const sim = simulate(grid, entry, exit, n);
+    if(!sim.reachedExit || !sim.exitedWithAllStars) continue;
+    if(sim.path.length < 8 || sim.path.length > 40) continue;
+
+    // Build "presented" grid: scramble some bumpers so the player has to fix them.
+    // Required: at least 2 useful bumper rotations (flip at least 2 of the correct ones).
+    const presented = grid.map(r=>r.slice());
+    // pick 2-3 correct bumpers to flip
+    const correctBumperIdx = bumperPlacements.slice();
+    for(let i=correctBumperIdx.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [correctBumperIdx[i],correctBumperIdx[j]]=[correctBumperIdx[j],correctBumperIdx[i]]; }
+    const toFlip = Math.min(correctBumperIdx.length, Math.max(2, Math.min(3, correctBumperIdx.length)));
+    for(let i=0;i<toFlip;i++){
+      const b = correctBumperIdx[i];
+      presented[b.r][b.c] = presented[b.r][b.c]===T.SLASH ? T.BACKSLASH : T.SLASH;
+    }
+
+    // Verify presented is NOT already solved (so player must do something), but solvable by toggling those bumpers back.
+    const presentedSim = simulate(presented, entry, exit, n);
+    if(presentedSim.reachedExit && presentedSim.exitedWithAllStars) continue;
+
+    // Level 1 constraint: <=5 bumpers, no blockers, 1 star
+    if(level===1){
+      let bc=0, bl=0, st=0;
+      for(let i=0;i<n;i++) for(let j=0;j<n;j++){
+        const v = presented[i][j];
+        if(v===T.SLASH||v===T.BACKSLASH) bc++;
+        else if(v===T.BLOCKER) bl++;
+        else if(v===T.STAR) st++;
+      }
+      if(bc>5 || bl>0 || st!==1) continue;
+    }
+
+    return {
+      n, grid: presented, solution: grid, entry, exit,
+      starCount: p.starCount, bumperCount: p.bumperCount, blockerCount: p.blockerCount
+    };
+  }
+  // Fallback minimal level if everything failed
+  return generateFallback(level);
+}
+
+function bumperForTurn(dirIn, dirOut){
+  // Returns SLASH or BACKSLASH that converts ball moving in dirIn into dirOut
+  // SLASH: up<->right, down<->left
+  // BACKSLASH: up<->left, down<->right
+  if(dirIn===D.DOWN && dirOut===D.LEFT) return T.SLASH;
+  if(dirIn===D.RIGHT && dirOut===D.UP) return T.SLASH;
+  if(dirIn===D.UP && dirOut===D.RIGHT) return T.SLASH;
+  if(dirIn===D.LEFT && dirOut===D.DOWN) return T.SLASH;
+  if(dirIn===D.DOWN && dirOut===D.RIGHT) return T.BACKSLASH;
+  if(dirIn===D.LEFT && dirOut===D.UP) return T.BACKSLASH;
+  if(dirIn===D.UP && dirOut===D.LEFT) return T.BACKSLASH;
+  if(dirIn===D.RIGHT && dirOut===D.DOWN) return T.BACKSLASH;
+  return null;
+}
+
+function generateFallback(level){
+  const n = 6;
+  const grid = Array.from({length:n},()=>Array(n).fill(T.EMPTY));
+  const entry = {r:0, c:1};
+  const exit = {r:n-1, c:3};
+  grid[entry.r][entry.c]=T.ENTRY;
+  grid[exit.r][exit.c]=T.EXIT;
+  grid[3][1]=T.SLASH; // down at (0,1) goes to (3,1), slash: down->left? No - we want down to right to reach col 3
+  grid[3][1]=T.BACKSLASH; // down->right
+  grid[3][3]=T.SLASH;     // right->up... we want continue down. Use blank then path goes through.
+  // Simpler: (0,1) down -> (3,1) backslash -> right -> (3,3) backslash -> down -> exit
+  grid[3][3]=T.BACKSLASH; // right->down
+  grid[2][2]=T.STAR;
+  // But star isn't on path. Put star on path:
+  grid[2][2]=T.EMPTY;
+  grid[3][2]=T.STAR;
+  const presented = grid.map(r=>r.slice());
+  presented[3][1] = T.SLASH; // wrong orientation
+  return {n, grid:presented, solution:grid, entry, exit, starCount:1, bumperCount:2, blockerCount:0};
+}
+
+// ---------- APP STATE ----------
+const state = {
+  screen:"home",  // home | game
+  level:1,
+  best: 0,
+  moves: 0,
+  collectedStars: 0,
+  totalStars: 0,
+  board: null,         // current level object
+  lastPath: null,       // last simulation result
+  cursor: {r:0,c:0},
+  settingsOpen: false,
+  resetConfirm: false,
+  options: { sound:true, motion:true, contrast:false },
+  animating:false,
+  ballEl: null,
+  audioCtx: null,
+  newBest: false,
+};
+
+// load store
+(function init(){
+  const s = loadStore();
+  state.best = s.best || 0;
+  state.options = Object.assign(state.options, s.options || {});
+})();
+
+// ---------- SOUND ----------
+function beep(freq=440, dur=.06, type="sine", vol=.05){
+  if(!state.options.sound) return;
+  try{
+    state.audioCtx = state.audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const ctx = state.audioCtx;
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime+dur);
+  }catch(_){}
+}
+
+// ---------- RENDER ----------
+const app = document.getElementById("app");
+function el(tag, attrs={}, children=[]){
+  const e = document.createElement(tag);
+  for(const k in attrs){
+    if(k==="class") e.className = attrs[k];
+    else if(k==="html") e.innerHTML = attrs[k];
+    else if(k==="onclick") e.addEventListener("click", attrs[k]);
+    else if(k==="style") Object.assign(e.style, attrs[k]);
+    else e.setAttribute(k, attrs[k]);
+  }
+  for(const c of [].concat(children)){
+    if(c==null) continue;
+    e.appendChild(typeof c==="string" ? document.createTextNode(c) : c);
+  }
+  return e;
+}
+
+function render(){
+  app.classList.toggle("high-contrast", !!state.options.contrast);
+  app.innerHTML = "";
+  const oldModal = document.getElementById("settingsModal");
+  if(oldModal) oldModal.remove();
+  if(state.screen==="home") renderHome();
+  else renderGame();
+  if(state.settingsOpen) renderSettings();
+}
+
+function renderHome(){
+  const top = el("div",{class:"topbar"},[
+    el("button",{class:"icon-btn", title:"Best", "aria-label":"Best", html:ICON.trophy + `<span style="position:absolute;font-size:11px;font-weight:800;color:#ffd66b;bottom:2px;right:6px">${state.best||""}</span>`, style:{position:"relative"}}),
+    el("button",{class:"icon-btn", title:"Settings", "aria-label":"Settings", html:ICON.gear, onclick:()=>{state.settingsOpen=true;render();}}),
+  ]);
+  const screen = el("div",{class:"screen"},[
+    el("div",{class:"logo", html:ICON.logo}),
+    el("button",{class:"btn", onclick: startGame},"Start Game"),
+  ]);
+  app.appendChild(top);
+  app.appendChild(screen);
+}
+
+function startGame(){
+  state.screen = "game";
+  state.level = 1;
+  state.newBest = false;
+  newLevel();
+}
+
+function newLevel(){
+  state.board = generateLevel(state.level);
+  state.moves = 0;
+  state.collectedStars = 0;
+  state.lastPath = null;
+  state.cursor = {r: state.board.entry.r, c: state.board.entry.c };
+  // count total stars
+  let tot=0;
+  for(let i=0;i<state.board.n;i++) for(let j=0;j<state.board.n;j++) if(state.board.grid[i][j]===T.STAR) tot++;
+  state.totalStars = tot;
+  render();
+}
+
+function renderGame(){
+  const b = state.board;
+  // HUD
+  const hud = el("div",{class:"hud"},[
+    el("div",{class:"pill", "aria-label":"Move count"},[el("span",{class:"pill-ico", html:ICON.moves}), String(state.moves)]),
+    el("div",{class:"pill", "aria-label":"Level"},[el("span",{class:"pill-ico flag", html:ICON.flag}), String(state.level)]),
+  ]);
+  // Board
+  const cellSize = Math.min(54, Math.floor((Math.min(window.innerWidth - 40, 520)) / b.n) - 6);
+  const boardEl = el("div",{class:"board", id:"board", style:{gridTemplateColumns:`repeat(${b.n}, var(--cell))`, gridTemplateRows:`repeat(${b.n}, var(--cell))`, "--cell": cellSize+"px"}});
+  for(let i=0;i<b.n;i++){
+    for(let j=0;j<b.n;j++){
+      const t = b.grid[i][j];
+      const isCursor = state.cursor.r===i && state.cursor.c===j;
+      const isBumper = t===T.SLASH || t===T.BACKSLASH;
+      const cls = ["cell"];
+      if(t===T.EMPTY) cls.push("empty");
+      if(t===T.ENTRY) cls.push("entry");
+      if(t===T.EXIT) cls.push("exit");
+      if(t===T.STAR) cls.push("star");
+      if(t===T.BLOCKER) cls.push("blocker");
+      if(isBumper) cls.push("bumper");
+      if(isCursor) cls.push("focus");
+      const cellEl = el("div",{
+        class:cls.join(" "),
+        role:"gridcell",
+        tabindex:"-1",
+        "data-r":i, "data-c":j,
+        "data-tile": tileName(t),
+        "data-bumper": isBumper ? (t===T.SLASH?"slash":"backslash") : "",
+        "data-star": t===T.STAR ? (isStarCollected(i,j)?"collected":"present") : "",
+        "data-path": hasPathAt(i,j) ? "1" : "0",
+        "aria-label":`Row ${i+1} Column ${j+1} ${tileName(t)}`,
+      });
+      // glyph
+      const glyph = el("div",{class:"glyph"});
+      if(t===T.ENTRY){
+        glyph.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+      } else if(t===T.EXIT){
+        glyph.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="9" opacity=".4"/></svg>`;
+      } else if(t===T.STAR){
+        glyph.innerHTML = ICON.star;
+        if(isStarCollected(i,j)) cellEl.classList.add("collected");
+      } else if(t===T.BLOCKER){
+        glyph.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="3"/></svg>`;
+      } else if(t===T.SLASH){
+        glyph.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"><line x1="5" y1="19" x2="19" y2="5"/></svg>`;
+      } else if(t===T.BACKSLASH){
+        glyph.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/></svg>`;
+      }
+      cellEl.appendChild(glyph);
+      if(isBumper){
+        cellEl.addEventListener("click", ()=>toggleBumper(i,j));
+      }
+      boardEl.appendChild(cellEl);
+    }
+  }
+
+  // Path SVG layer
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS,"svg");
+  svg.setAttribute("class","path-layer");
+  svg.setAttribute("viewBox", `0 0 ${b.n} ${b.n}`);
+  svg.setAttribute("preserveAspectRatio","none");
+  if(state.lastPath && state.lastPath.path && state.lastPath.path.length>1){
+    const poly = document.createElementNS(svgNS,"polyline");
+    const pts = state.lastPath.path.map(p => `${p.c+0.5},${p.r+0.5}`).join(" ");
+    poly.setAttribute("points", pts);
+    poly.setAttribute("fill","none");
+    poly.setAttribute("stroke", state.options.contrast ? "#fff" : "rgba(124,155,255,.85)");
+    poly.setAttribute("stroke-width","0.12");
+    poly.setAttribute("stroke-linecap","round");
+    poly.setAttribute("stroke-linejoin","round");
+    poly.setAttribute("stroke-dasharray","0.2 0.18");
+    svg.appendChild(poly);
+  }
+  boardEl.appendChild(svg);
+
+  const boardWrap = el("div",{class:"board-wrap"},[ boardEl ]);
+  // toast for new best
+  const toast = el("div",{class:"toast", id:"toast"},"New Best");
+  boardWrap.appendChild(toast);
+
+  // Controls
+  const controls = el("div",{class:"controls"},[
+    el("button",{class:"btn launch", id:"launchBtn", onclick: launch, "aria-label":"Launch"},"Launch"),
+  ]);
+  // Footer icons
+  const footer = el("div",{class:"footer"},[
+    el("button",{class:"icon-btn", title:"Settings", "aria-label":"Settings", html:ICON.gear, onclick:()=>{state.settingsOpen=true;render();}}),
+    el("button",{class:"icon-btn", title:"Menu", "aria-label":"Menu", html:ICON.house, onclick: goHome}),
+  ]);
+
+  app.appendChild(hud);
+  app.appendChild(boardWrap);
+  app.appendChild(controls);
+  app.appendChild(footer);
+
+  if(state.newBest){
+    const t = document.getElementById("toast");
+    requestAnimationFrame(()=>{
+      t.classList.add("show");
+      setTimeout(()=>t.classList.remove("show"), 1700);
+    });
+    state.newBest = false;
+  }
+}
+
+function tileName(t){
+  return {0:"empty",1:"entry",2:"exit",3:"star",4:"blocker",5:"slash",6:"backslash"}[t];
+}
+function isStarCollected(r,c){
+  if(!state.lastPath) return false;
+  return state.lastPath.stars && state.lastPath.stars.has(r+","+c);
+}
+function hasPathAt(r,c){
+  if(!state.lastPath) return false;
+  return state.lastPath.path.some(p=>p.r===r && p.c===c);
+}
+
+function toggleBumper(r,c){
+  if(state.animating) return;
+  const b = state.board;
+  const t = b.grid[r][c];
+  if(t!==T.SLASH && t!==T.BACKSLASH) return;
+  b.grid[r][c] = t===T.SLASH ? T.BACKSLASH : T.SLASH;
+  state.moves++;
+  state.lastPath = null; // clear last path when editing
+  state.cursor = {r,c};
+  beep(540,0.05,"triangle",.04);
+  render();
+  // Pulse the newly flipped bumper
+  const sel = `.cell[data-r="${r}"][data-c="${c}"]`;
+  const cellEl = document.querySelector(sel);
+  if(cellEl){
+    cellEl.classList.remove("just-flipped");
+    // force reflow then add
+    void cellEl.offsetWidth;
+    cellEl.classList.add("just-flipped");
+    setTimeout(()=>cellEl.classList.remove("just-flipped"), 260);
+  }
+}
+
+function launch(){
+  if(state.animating) return;
+  const b = state.board;
+  const sim = simulate(b.grid, b.entry, b.exit, b.n);
+  state.lastPath = sim;
+  // animate ball
+  animateBall(sim);
+}
+
+function animateBall(sim){
+  state.animating = true;
+  render();
+  const board = document.getElementById("board");
+  if(!board){ state.animating=false; return; }
+  const cellPx = parseFloat(getComputedStyle(board).getPropertyValue("--cell"));
+  const gap = parseFloat(getComputedStyle(board).gap) || 6;
+  const padding = gap;
+  const ball = el("div",{class:"ball"});
+  board.appendChild(ball);
+  const path = sim.path;
+  let i = 0;
+  const stepMs = state.options.motion ? 70 : 0;
+  function place(idx){
+    const p = path[idx];
+    const x = padding + p.c*(cellPx+gap) + cellPx/2 - 9;
+    const y = padding + p.r*(cellPx+gap) + cellPx/2 - 9;
+    ball.style.left = x+"px";
+    ball.style.top = y+"px";
+  }
+  place(0);
+  function tick(){
+    i++;
+    if(i>=path.length){
+      finishLaunch(sim, ball);
+      return;
+    }
+    place(i);
+    const seg = path[i];
+    if(seg.type==='star') beep(880,0.06,"triangle",.05);
+    else if(seg.type==='slash'||seg.type==='backslash') beep(440,0.04,"square",.03);
+    else if(seg.type==='blocker') beep(160,0.12,"sawtooth",.05);
+    setTimeout(tick, stepMs);
+  }
+  if(stepMs===0){
+    // jump to end
+    place(path.length-1);
+    finishLaunch(sim, ball);
+  } else {
+    setTimeout(tick, stepMs);
+  }
+}
+
+function finishLaunch(sim, ball){
+  // update collected stars display
+  state.collectedStars = sim.stars.size;
+  // remove ball after a moment
+  setTimeout(()=>{ try{ ball.remove(); }catch(_){} }, 300);
+  if(sim.reachedExit && sim.exitedWithAllStars){
+    // animate stars and exit, then advance
+    beep(660,.12,"triangle",.06);
+    setTimeout(()=>beep(880,.16,"triangle",.06),120);
+    setTimeout(()=>beep(1320,.2,"triangle",.06),280);
+    // mark animating on all star cells + exit cell
+    const cells = document.querySelectorAll(".cell.star, .cell.exit");
+    cells.forEach(c=>c.classList.add("animating"));
+    setTimeout(()=>{
+      state.level++;
+      let newBest = false;
+      if(state.level-1 > state.best){
+        state.best = state.level-1;
+        newBest = true;
+        saveStore({best:state.best, options:state.options});
+      }
+      state.newBest = newBest;
+      state.animating = false;
+      newLevel();
+    }, 700);
+  } else {
+    state.animating = false;
+    render();
+  }
+}
+
+function goHome(){
+  state.screen = "home";
+  render();
+}
+
+// ---------- SETTINGS ----------
+function renderSettings(){
+  const card = el("div",{class:"card"},[
+    settingsRow("speaker", "sound"),
+    settingsRow("motion", "motion"),
+    settingsRow("contrast", "contrast"),
+    el("div",{class:"row reset-row"},[
+      el("div",{class:"label"},[
+        el("span",{class:"best-pill", "aria-label":"Best", html:ICON.trophy + `<span class="best-num">${state.best||"0"}</span>`})
+      ]),
+      state.resetConfirm
+        ? el("div",{class:"confirm"},[
+            el("button",{class:"iconbtn-sm ok", html:ICON.check, "aria-label":"Confirm reset", onclick:()=>{ state.best=0; saveStore({best:0, options:state.options}); state.resetConfirm=false; render(); }}),
+            el("button",{class:"iconbtn-sm cancel", html:ICON.x, "aria-label":"Cancel reset", onclick:()=>{ state.resetConfirm=false; render(); }})
+          ])
+        : el("button",{class:"iconbtn-sm danger", html:ICON.trash, "aria-label":"Reset best", onclick:()=>{ state.resetConfirm=true; render(); }})
+    ]),
+    el("div",{style:{display:"flex",justifyContent:"flex-end"}},[
+      el("button",{class:"icon-btn", html:ICON.x, "aria-label":"Close settings", onclick:()=>{ state.settingsOpen=false; state.resetConfirm=false; render(); }})
+    ])
+  ]);
+  const modal = el("div",{class:"modal", onclick:(e)=>{ if(e.target.classList.contains("modal")){ state.settingsOpen=false; state.resetConfirm=false; render(); } }},[card]);
+  document.body.appendChild(modal);
+  modal.id = "settingsModal";
+}
+function settingsRow(iconKey, optKey){
+  const on = !!state.options[optKey];
+  return el("div",{class:"row"},[
+    el("div",{class:"label"},[ el("span",{class:"iconbtn-sm", html:ICON[iconKey]}) ]),
+    el("button",{class:"toggle"+(on?" on":""), "aria-pressed":on?"true":"false", "aria-label":optKey, onclick:()=>{ state.options[optKey] = !on; saveStore({best:state.best, options:state.options}); render(); }})
+  ]);
+}
+
+// ---------- KEYBOARD ----------
+window.addEventListener("keydown",(e)=>{
+  if(state.settingsOpen){
+    if(e.key==="Escape"){ state.settingsOpen=false; state.resetConfirm=false; render(); }
+    return;
+  }
+  if(state.screen==="home"){
+    if(e.key==="Enter" || e.key===" "){ e.preventDefault(); startGame(); }
+    return;
+  }
+  if(state.animating) return;
+  const b = state.board;
+  if(!b) return;
+  let {r,c} = state.cursor;
+  if(e.key==="ArrowUp"){ r = Math.max(0, r-1); state.cursor={r,c}; render(); e.preventDefault(); }
+  else if(e.key==="ArrowDown"){ r = Math.min(b.n-1, r+1); state.cursor={r,c}; render(); e.preventDefault(); }
+  else if(e.key==="ArrowLeft"){ c = Math.max(0, c-1); state.cursor={r,c}; render(); e.preventDefault(); }
+  else if(e.key==="ArrowRight"){ c = Math.min(b.n-1, c+1); state.cursor={r,c}; render(); e.preventDefault(); }
+  else if(e.key==="Enter" || e.key===" "){
+    const t = b.grid[r][c];
+    if(t===T.SLASH || t===T.BACKSLASH){ toggleBumper(r,c); }
+    e.preventDefault();
+  } else if(e.key==="l" || e.key==="L"){ launch(); e.preventDefault(); }
+  else if(e.key==="Escape"){ goHome(); }
+});
+
+// ---------- BOOT ----------
+window.addEventListener("resize", ()=>{ if(state.screen==="game") render(); });
+render();
+
+// Expose for testing
+window.__pinball = { state, simulate, generateLevel, T, D, render };
+</script>
+</body>
+</html>

@@ -1,0 +1,1469 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pinball Grid Game</title>
+    <style>
+:root{
+  --bg0:#0b1020;
+  --bg1:#0b1b2d;
+  --panel:rgba(255,255,255,0.06);
+  --panel2:rgba(255,255,255,0.1);
+  --text:rgba(255,255,255,0.92);
+  --muted:rgba(255,255,255,0.65);
+  --accent:#7cf4ff;
+  --accent2:#ffdb5c;
+  --danger:#ff5a7b;
+  --gridLine:rgba(255,255,255,0.12);
+  --path:rgba(124,244,255,0.22);
+  --pathStrong:rgba(124,244,255,0.35);
+  --bumper:rgba(255,255,255,0.78);
+  --shadow: 0 18px 60px rgba(0,0,0,0.45);
+  --radius:18px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  color:var(--text);
+  background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(124,244,255,0.20), transparent 60%),
+    radial-gradient(900px 600px at 10% 10%, rgba(255,219,92,0.14), transparent 65%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
+
+.app{
+  width:min(720px, 100%);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.card{
+  background:var(--panel);
+  border:1px solid rgba(255,255,255,0.09);
+  border-radius:var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.topRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 12px 0;
+}
+
+.iconBtn{
+  width:42px;height:42px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.04);
+  color:var(--text);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+}
+.iconBtn:focus{outline:2px solid rgba(124,244,255,0.7); outline-offset:2px;}
+.iconBtn:active{transform:translateY(1px)}
+
+.menuWrap{
+  padding:18px 18px 22px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:18px;
+}
+
+.logo{
+  width:min(260px, 70vw);
+}
+
+.primary{
+  width:min(320px, 92%);
+  height:52px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:linear-gradient(180deg, rgba(124,244,255,0.16), rgba(124,244,255,0.07));
+  color:var(--text);
+  font-weight:700;
+  letter-spacing:0.2px;
+  cursor:pointer;
+}
+.primary:focus{outline:2px solid rgba(124,244,255,0.7); outline-offset:2px;}
+.primary:active{transform:translateY(1px)}
+
+.bestBadge{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.bestNum{
+  min-width:28px;
+  text-align:left;
+  font-variant-numeric: tabular-nums;
+  color:var(--muted);
+  font-weight:650;
+}
+
+.gameWrap{
+  padding:14px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  max-height: calc(100vh - 36px);
+}
+
+.hud{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:2px 4px 0;
+}
+.hudLeft, .hudRight{display:flex; align-items:center; gap:10px;}
+.hudNum{
+  font-variant-numeric: tabular-nums;
+  font-size:18px;
+  font-weight:750;
+  color:var(--text);
+}
+.hudSub{
+  font-variant-numeric: tabular-nums;
+  font-size:16px;
+  font-weight:750;
+  color:var(--muted);
+}
+
+.board{
+  display:grid;
+  gap:6px;
+  padding:10px;
+  border-radius:16px;
+  background:rgba(0,0,0,0.18);
+  border:1px solid rgba(255,255,255,0.08);
+  /* Keep the whole game (HUD + board + controls) visible on shorter viewports.
+     Board is square, so constrain by both width and height. */
+  width: min(680px, calc(100vw - 56px), calc(100vh - 240px));
+  margin: 0 auto;
+}
+
+.cell{
+  width:100%;
+  aspect-ratio:1/1;
+  border-radius:12px;
+  border:1px solid var(--gridLine);
+  background:rgba(255,255,255,0.03);
+  position:relative;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  padding:0;
+  cursor:default;
+  touch-action: manipulation;
+}
+.cell[role="gridcell"]{cursor:pointer;}
+.cell:focus{outline:2px solid rgba(124,244,255,0.85); outline-offset:2px;}
+
+.cell.entry{
+  background:linear-gradient(180deg, rgba(124,244,255,0.14), rgba(255,255,255,0.02));
+}
+.cell.exit{
+  background:linear-gradient(180deg, rgba(255,219,92,0.12), rgba(255,255,255,0.02));
+}
+.cell.blocker{
+  background:linear-gradient(180deg, rgba(255,90,123,0.16), rgba(255,255,255,0.02));
+}
+
+.cell.path{
+  background:linear-gradient(180deg, var(--pathStrong), var(--path));
+  border-color: rgba(124,244,255,0.35);
+}
+.cell.pathStrong{
+  background:linear-gradient(180deg, rgba(124,244,255,0.55), rgba(124,244,255,0.18));
+  border-color:rgba(124,244,255,0.65);
+  box-shadow: 0 0 0 1px rgba(124,244,255,0.35) inset;
+}
+
+.bumperLine{
+  position:absolute;
+  width:84%;
+  height:4px;
+  background:var(--bumper);
+  border-radius:999px;
+  opacity:0.95;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+}
+.bumper.slash .bumperLine{ transform:rotate(-45deg); }
+.bumper.backslash .bumperLine{ transform:rotate(45deg); }
+
+.star{
+  width:64%;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.28));
+}
+.starCollected{
+  opacity:0.20;
+}
+
+.ball{
+  width:42%;
+  height:42%;
+  border-radius:999px;
+  background:radial-gradient(circle at 30% 28%, rgba(255,255,255,0.95), rgba(255,255,255,0.55) 35%, rgba(124,244,255,0.22) 62%, rgba(0,0,0,0.22));
+  box-shadow: 0 10px 25px rgba(0,0,0,0.42);
+  border:1px solid rgba(255,255,255,0.18);
+}
+
+.controls{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding-top:2px;
+}
+
+.pillRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.overlay{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  background:rgba(0,0,0,0.55);
+  backdrop-filter: blur(10px);
+}
+.overlay.open{display:flex;}
+.modal{
+  width:min(520px, 100%);
+  padding:14px;
+  border-radius:18px;
+  background:rgba(13,18,36,0.9);
+  border:1px solid rgba(255,255,255,0.12);
+  box-shadow: var(--shadow);
+}
+.settingsRow{
+  display:flex;
+  gap:12px;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+.toggleBtn{
+  width:56px;height:56px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.05);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+}
+.toggleBtn.on{
+  border-color: rgba(124,244,255,0.55);
+  background: rgba(124,244,255,0.10);
+}
+.toggleBtn.danger.on{
+  border-color: rgba(255,90,123,0.6);
+  background: rgba(255,90,123,0.10);
+}
+.toggleBtn:focus{outline:2px solid rgba(124,244,255,0.85); outline-offset:2px;}
+
+.newBest{
+  position:fixed;
+  top:14px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:10px 14px;
+  border-radius:14px;
+  background:rgba(255,219,92,0.12);
+  border:1px solid rgba(255,219,92,0.35);
+  color:rgba(255,255,255,0.95);
+  font-weight:800;
+  display:none;
+}
+.newBest.show{display:block;}
+
+/* High contrast setting */
+.hc{
+  --gridLine: rgba(255,255,255,0.30);
+  --pathStrong: rgba(124,244,255,0.55);
+  --path: rgba(124,244,255,0.30);
+  --bumper: rgba(255,255,255,0.95);
+}
+.hc .cell{border-width:2px}
+
+@media (max-width: 520px){
+  .board{gap:5px; padding:8px}
+  .cell{border-radius:10px}
+}
+
+</style>
+  </head>
+  <body>
+    <div class="app" id="app"></div>
+    <script>
+// Pinball Grid Game - deterministic grid logic + level generator
+// No DOM dependencies (used by UI + tests).
+
+/**
+ * Directions are the direction of travel leaving the current cell.
+ * @typedef {'up'|'right'|'down'|'left'} Dir
+ */
+
+/**
+ * @typedef {'entry'|'exit'|'star'|'blocker'|'bumper'|'empty'} TileKind
+ * @typedef {'slash'|'backslash'} BumperOrientation
+ *
+ * @typedef {{
+ *   kind: TileKind,
+ *   bumper?: { orientation: BumperOrientation }
+ * }} Tile
+ *
+ * @typedef {{ r: number, c: number }} Pos
+ */
+const DIRS = /** @type {const} */ ({
+  up: { dr: -1, dc: 0 },
+  right: { dr: 0, dc: 1 },
+  down: { dr: 1, dc: 0 },
+  left: { dr: 0, dc: -1 },
+});
+
+/** @param {number} n */
+function levelFormulas(n) {
+  const level = n;
+  const gridSize = Math.min(10, 6 + Math.floor((level - 1) / 3));
+  const starCount = Math.min(5, 1 + Math.floor((level - 1) / 4));
+  const bumperCount = Math.min(14, 4 + level);
+  const blockerCount = Math.min(10, Math.floor(level / 2));
+  return { gridSize, starCount, bumperCount, blockerCount };
+}
+
+/** Mulberry32 PRNG. @param {number} seed */
+function rngMulberry32(seed) {
+  let t = seed >>> 0;
+  return () => {
+    t += 0x6d2b79f5;
+    let x = t;
+    x = Math.imul(x ^ (x >>> 15), x | 1);
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** @param {() => number} rng @param {number} min @param {number} max */
+function randInt(rng, min, max) {
+  return Math.floor(rng() * (max - min + 1)) + min;
+}
+
+/** @param {() => number} rng @param {any[]} arr */
+function pick(rng, arr) {
+  return arr[Math.floor(rng() * arr.length)];
+}
+
+/** @param {Dir} dir @returns {'horizontal'|'vertical'} */
+function dirAxis(dir) {
+  return dir === 'left' || dir === 'right' ? 'horizontal' : 'vertical';
+}
+
+/**
+ * @param {BumperOrientation} orientation
+ * @param {Dir} incoming
+ * @returns {Dir}
+ */
+function reflectDir(orientation, incoming) {
+  if (orientation === 'slash') {
+    switch (incoming) {
+      case 'up':
+        return 'right';
+      case 'right':
+        return 'up';
+      case 'down':
+        return 'left';
+      case 'left':
+        return 'down';
+    }
+  }
+  // backslash
+  switch (incoming) {
+    case 'up':
+      return 'left';
+    case 'left':
+      return 'up';
+    case 'down':
+      return 'right';
+    case 'right':
+      return 'down';
+  }
+}
+
+/**
+ * Return orientation to map incoming -> outgoing (both must be perpendicular).
+ * @param {Dir} incoming
+ * @param {Dir} outgoing
+ * @returns {BumperOrientation|null}
+ */
+function orientationForTurn(incoming, outgoing) {
+  for (const o of /** @type {BumperOrientation[]} */ (['slash', 'backslash'])) {
+    if (reflectDir(o, incoming) === outgoing) return o;
+  }
+  return null;
+}
+
+/** @param {number} n @param {Pos} p */
+function inBounds(n, p) {
+  return p.r >= 0 && p.r < n && p.c >= 0 && p.c < n;
+}
+
+/** @param {Pos} p */
+function keyOf(p) {
+  return `${p.r},${p.c}`;
+}
+
+/** @param {Pos} p @param {Dir} d */
+function stateKey(p, d) {
+  return `${p.r},${p.c},${d}`;
+}
+
+/**
+ * @typedef {{
+ *   gridSize: number
+ *   grid: Tile[][]
+ *   entry: Pos
+ *   exit: Pos
+ *   starPositions: Pos[]
+ * }} Level
+ */
+
+/**
+ * @typedef {{
+ *   path: Pos[]
+ *   pathStates: { pos: Pos, dir: Dir }[]
+ *   collectedStars: Set<string>
+ *   completed: boolean
+ *   stoppedBy: 'exit'|'blocker'|'board-exit'|'loop'
+ * }} LaunchResult
+ */
+
+/**
+ * Simulate a launch on the provided level. Star collection is per-launch.
+ * @param {Level} level
+ * @returns {LaunchResult}
+ */
+function simulateLaunch(level) {
+  const n = level.gridSize;
+  /** @type {Dir} */
+  let dir = 'down';
+  /** @type {Pos} */
+  let pos = { ...level.entry };
+
+  /** @type {Pos[]} */
+  const path = [{ ...pos }];
+  /** @type {{pos: Pos, dir: Dir}[]} */
+  const pathStates = [];
+
+  const visited = new Set();
+  const collectedStars = new Set();
+  const starTotal = level.starPositions.length;
+
+  // Safety cap: n*n*8 is plenty given loop detection.
+  const stepCap = n * n * 8;
+
+  for (let step = 0; step < stepCap; step++) {
+    const tile = level.grid[pos.r][pos.c];
+
+    if (tile.kind === 'star') collectedStars.add(keyOf(pos));
+
+    if (tile.kind === 'bumper' && tile.bumper) {
+      dir = reflectDir(tile.bumper.orientation, dir);
+    }
+
+    // Stop conditions that happen *in* the current cell
+    if (tile.kind === 'blocker') {
+      pathStates.push({ pos: { ...pos }, dir });
+      return {
+        path,
+        pathStates,
+        collectedStars,
+        completed: false,
+        stoppedBy: 'blocker',
+      };
+    }
+
+    if (tile.kind === 'exit' && collectedStars.size === starTotal) {
+      pathStates.push({ pos: { ...pos }, dir });
+      return {
+        path,
+        pathStates,
+        collectedStars,
+        completed: true,
+        stoppedBy: 'exit',
+      };
+    }
+
+    const sk = stateKey(pos, dir);
+    if (visited.has(sk)) {
+      pathStates.push({ pos: { ...pos }, dir });
+      return {
+        path,
+        pathStates,
+        collectedStars,
+        completed: false,
+        stoppedBy: 'loop',
+      };
+    }
+    visited.add(sk);
+    pathStates.push({ pos: { ...pos }, dir });
+
+    const next = { r: pos.r + DIRS[dir].dr, c: pos.c + DIRS[dir].dc };
+    if (!inBounds(n, next)) {
+      return {
+        path,
+        pathStates,
+        collectedStars,
+        completed: false,
+        stoppedBy: 'board-exit',
+      };
+    }
+
+    pos = next;
+    path.push({ ...pos });
+  }
+
+  // Cap triggered (shouldn't happen); treat as loop-like stop.
+  return {
+    path,
+    pathStates,
+    collectedStars,
+    completed: false,
+    stoppedBy: 'loop',
+  };
+}
+
+/**
+ * @typedef {{
+ *   level: Level
+ *   // The orientations that make the constructed "intended" solution work.
+ *   solutionBumpers: Map<string, BumperOrientation>
+ *   // Bumpers flipped away from the solution (at least two, when possible).
+ *   requiredFixes: string[]
+ * }} GeneratedLevel
+ */
+
+/** @param {number} gridSize */
+function emptyGrid(gridSize) {
+  /** @type {Tile[][]} */
+  const grid = Array.from({ length: gridSize }, () =>
+    Array.from({ length: gridSize }, () => ({ kind: 'empty' })),
+  );
+  return grid;
+}
+
+/** @param {Tile[][]} grid */
+function cloneGrid(grid) {
+  return grid.map((row) =>
+    row.map((t) => ({
+      kind: t.kind,
+      bumper: t.bumper ? { orientation: t.bumper.orientation } : undefined,
+    })),
+  );
+}
+
+/**
+ * Generate a solvable level with required counts and at least one decoy bumper.
+ * The returned `level.grid` is the *initial puzzle* (not already solved).
+ *
+ * @param {number} levelNumber
+ * @returns {GeneratedLevel}
+ */
+function generateLevel(levelNumber) {
+  const { gridSize, starCount, bumperCount, blockerCount } =
+    levelFormulas(levelNumber);
+
+  // Level 1 constraints
+  const targetStarCount = levelNumber === 1 ? 1 : starCount;
+  const targetBlockerCount = levelNumber === 1 ? 0 : blockerCount;
+  const targetBumperCount = levelNumber === 1 ? Math.min(5, bumperCount) : bumperCount;
+
+  const minSteps = 8;
+  const maxSteps = 40;
+
+  for (let attempt = 0; attempt < 400; attempt++) {
+    const rng = rngMulberry32(levelNumber * 10000 + attempt * 97);
+    const grid = emptyGrid(gridSize);
+
+    const entry = { r: 0, c: randInt(rng, 0, gridSize - 1) };
+    const exit = { r: gridSize - 1, c: randInt(rng, 0, gridSize - 1) };
+
+    grid[entry.r][entry.c] = { kind: 'entry' };
+    grid[exit.r][exit.c] = { kind: 'exit' };
+
+    /** @type {Pos[]} */
+    const path = [{ ...entry }];
+    const pathSet = new Set([keyOf(entry)]);
+    /** @type {Dir} */
+    let dir = 'down';
+    /** @type {Pos} */
+    let pos = { ...entry };
+
+    // We'll create a path with 2..(bumperCount-1) turns so we always have decoy bumpers.
+    const maxTurns = Math.max(2, Math.min(targetBumperCount - 1, 9));
+    const minTurns = Math.min(2, maxTurns);
+    const desiredTurns = randInt(rng, minTurns, maxTurns);
+
+    /** @type {Map<string, BumperOrientation>} */
+    const solutionBumpers = new Map();
+    /** @type {Pos[]} */
+    const solutionTurnCells = [];
+
+    let turns = 0;
+    let failed = false;
+
+    // Build turns, then force a final segment that hits the exit.
+    while (turns < desiredTurns) {
+      const segLen = randInt(rng, 2, 5);
+      for (let i = 0; i < segLen; i++) {
+        const next = { r: pos.r + DIRS[dir].dr, c: pos.c + DIRS[dir].dc };
+        if (!inBounds(gridSize, next)) {
+          failed = true;
+          break;
+        }
+        if (pathSet.has(keyOf(next))) {
+          failed = true;
+          break;
+        }
+        // Avoid stepping into exit too early: only allow if this is the last turn segment.
+        if (next.r === exit.r && next.c === exit.c) {
+          failed = true;
+          break;
+        }
+        pos = next;
+        path.push({ ...pos });
+        pathSet.add(keyOf(pos));
+      }
+      if (failed) break;
+
+      // Place a bumper at the segment end to turn
+      const candidates =
+        dirAxis(dir) === 'vertical' ? /** @type {Dir[]} */ (['left', 'right']) : /** @type {Dir[]} */ (['up', 'down']);
+      const viable = candidates.filter((cand) => {
+        // Must be able to take at least 2 steps without leaving board.
+        const p1 = { r: pos.r + DIRS[cand].dr, c: pos.c + DIRS[cand].dc };
+        const p2 = { r: pos.r + 2 * DIRS[cand].dr, c: pos.c + 2 * DIRS[cand].dc };
+        if (!inBounds(gridSize, p1) || !inBounds(gridSize, p2)) return false;
+        if (pathSet.has(keyOf(p1)) || pathSet.has(keyOf(p2))) return false;
+        // Don't point immediately into entry
+        if (p1.r === entry.r && p1.c === entry.c) return false;
+        return true;
+      });
+      if (viable.length === 0) {
+        failed = true;
+        break;
+      }
+
+      const newDir = pick(rng, viable);
+      const orientation = orientationForTurn(dir, newDir);
+      if (!orientation) {
+        failed = true;
+        break;
+      }
+
+      const k = keyOf(pos);
+      solutionBumpers.set(k, orientation);
+      solutionTurnCells.push({ ...pos });
+      turns++;
+      dir = newDir;
+    }
+    if (failed) continue;
+
+    // Force a final Manhattan-ish segment that ends exactly at exit, avoiding revisit.
+    // We'll do this in at most 2 segments: first align column, then go to bottom row.
+    // If current dir axis doesn't permit the needed change, we add an extra turn cell.
+    const forceSegments = () => {
+      /** @type {Dir[]} */
+      const plan = [];
+      // First: head horizontally toward exit.c, then vertically toward exit.r, unless already aligned.
+      if (pos.c !== exit.c) {
+        plan.push(pos.c < exit.c ? 'right' : 'left');
+      }
+      if (pos.r !== exit.r) {
+        plan.push(pos.r < exit.r ? 'down' : 'up');
+      }
+
+      for (let i = 0; i < plan.length; i++) {
+        const desired = plan[i];
+        if (desired === dir) {
+          // ok
+        } else if (dirAxis(desired) !== dirAxis(dir)) {
+          // Need a turn: place a bumper at current pos to turn into desired.
+          const orientation = orientationForTurn(dir, desired);
+          if (!orientation) return false;
+          if (solutionBumpers.size >= targetBumperCount) return false;
+          solutionBumpers.set(keyOf(pos), orientation);
+          solutionTurnCells.push({ ...pos });
+          dir = desired;
+        } else {
+          // Same axis but opposite direction; avoid because bumpers cannot reverse.
+          return false;
+        }
+
+        // Walk until aligned with the target for this axis.
+        const steps =
+          dir === 'left' || dir === 'right' ? Math.abs(exit.c - pos.c) : Math.abs(exit.r - pos.r);
+        for (let s = 0; s < steps; s++) {
+          const next = { r: pos.r + DIRS[dir].dr, c: pos.c + DIRS[dir].dc };
+          if (!inBounds(gridSize, next)) return false;
+          if (pathSet.has(keyOf(next))) return false;
+          pos = next;
+          path.push({ ...pos });
+          pathSet.add(keyOf(pos));
+        }
+      }
+
+      // Must end at exit now.
+      return pos.r === exit.r && pos.c === exit.c;
+    };
+
+    if (!forceSegments()) continue;
+
+    const solvedSteps = path.length - 1;
+    if (solvedSteps < minSteps || solvedSteps > maxSteps) continue;
+    if (solutionBumpers.size < 2) continue;
+    if (solutionBumpers.size > targetBumperCount - 1) continue; // keep room for at least 1 decoy
+
+    // Place stars on non-bumper cells along the solved path.
+    const eligibleForStars = path.filter((p) => {
+      const k = keyOf(p);
+      if (p.r === entry.r && p.c === entry.c) return false;
+      if (p.r === exit.r && p.c === exit.c) return false;
+      if (solutionBumpers.has(k)) return false;
+      return true;
+    });
+    if (eligibleForStars.length < targetStarCount) continue;
+    /** @type {Pos[]} */
+    const starPositions = [];
+    const chosenStarKeys = new Set();
+    while (starPositions.length < targetStarCount) {
+      const p = pick(rng, eligibleForStars);
+      const k = keyOf(p);
+      if (chosenStarKeys.has(k)) continue;
+      chosenStarKeys.add(k);
+      starPositions.push({ ...p });
+    }
+
+    // Put stars on grid
+    for (const s of starPositions) grid[s.r][s.c] = { kind: 'star' };
+
+    // Put solution bumpers on grid
+    for (const [k, o] of solutionBumpers.entries()) {
+      const [r, c] = k.split(',').map(Number);
+      // Don't overwrite entry/exit/star (shouldn't happen)
+      if (grid[r][c].kind === 'entry' || grid[r][c].kind === 'exit' || grid[r][c].kind === 'star') {
+        failed = true;
+        break;
+      }
+      grid[r][c] = { kind: 'bumper', bumper: { orientation: o } };
+    }
+    if (failed) continue;
+
+    // Fill blockers (off the solved path).
+    const candidatesForBlockers = [];
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize; c++) {
+        const k = `${r},${c}`;
+        if (pathSet.has(k)) continue;
+        if (grid[r][c].kind !== 'empty') continue;
+        // Avoid directly under entry (too immediate)
+        if (r === 1 && c === entry.c) continue;
+        candidatesForBlockers.push({ r, c });
+      }
+    }
+    if (candidatesForBlockers.length < targetBlockerCount) continue;
+    for (let i = 0; i < targetBlockerCount; i++) {
+      const p = candidatesForBlockers.splice(randInt(rng, 0, candidatesForBlockers.length - 1), 1)[0];
+      grid[p.r][p.c] = { kind: 'blocker' };
+    }
+
+    // Add decoy bumpers until targetBumperCount.
+    const neededDecoys = targetBumperCount - solutionBumpers.size;
+    if (neededDecoys < 1) continue;
+    const candidatesForDecoys = [];
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize; c++) {
+        const k = `${r},${c}`;
+        if (pathSet.has(k)) continue;
+        if (grid[r][c].kind !== 'empty') continue;
+        // Keep away from entry/exit edges for readability
+        if (r === 0 || r === gridSize - 1) continue;
+        candidatesForDecoys.push({ r, c });
+      }
+    }
+    if (candidatesForDecoys.length < neededDecoys) continue;
+    for (let i = 0; i < neededDecoys; i++) {
+      const p = candidatesForDecoys.splice(randInt(rng, 0, candidatesForDecoys.length - 1), 1)[0];
+      grid[p.r][p.c] = {
+        kind: 'bumper',
+        bumper: { orientation: pick(rng, /** @type {BumperOrientation[]} */ (['slash', 'backslash'])) },
+      };
+    }
+
+    // Create initial puzzle by flipping at least two solution bumpers.
+    const solutionKeys = Array.from(solutionBumpers.keys());
+    const fixes = [];
+    const fixCount = Math.min(2, solutionKeys.length);
+    // If more are available, flip a few more for later levels (still solvable).
+    const extra = Math.min(solutionKeys.length - fixCount, levelNumber >= 6 ? 2 : levelNumber >= 3 ? 1 : 0);
+    const totalFixes = fixCount + extra;
+
+    // Shuffle solutionKeys (Fisher-Yates)
+    for (let i = solutionKeys.length - 1; i > 0; i--) {
+      const j = randInt(rng, 0, i);
+      [solutionKeys[i], solutionKeys[j]] = [solutionKeys[j], solutionKeys[i]];
+    }
+
+    for (let i = 0; i < totalFixes; i++) {
+      const k = solutionKeys[i];
+      fixes.push(k);
+      const [r, c] = k.split(',').map(Number);
+      const cur = grid[r][c];
+      if (cur.kind !== 'bumper' || !cur.bumper) {
+        failed = true;
+        break;
+      }
+      cur.bumper.orientation = cur.bumper.orientation === 'slash' ? 'backslash' : 'slash';
+    }
+    if (failed) continue;
+
+    /** @type {Level} */
+    const level = {
+      gridSize,
+      grid,
+      entry,
+      exit,
+      starPositions,
+    };
+
+    // Validate: solved version must complete; initial version must not.
+    const solvedGrid = cloneGrid(grid);
+    for (const [k, o] of solutionBumpers.entries()) {
+      const [r, c] = k.split(',').map(Number);
+      const t = solvedGrid[r][c];
+      if (t.kind === 'bumper' && t.bumper) t.bumper.orientation = o;
+    }
+    const solvedLevel = { ...level, grid: solvedGrid };
+    const solved = simulateLaunch(solvedLevel);
+    if (!solved.completed) continue;
+    if (solved.collectedStars.size !== targetStarCount) continue;
+    if (solved.path.length - 1 < minSteps || solved.path.length - 1 > maxSteps) continue;
+    if (simulateLaunch(level).completed) continue;
+
+    return { level, solutionBumpers, requiredFixes: fixes };
+  }
+
+  // As a last resort, produce a tiny trivial level (should never happen with attempts above).
+  const { gridSize: gs } = levelFormulas(levelNumber);
+  const grid = emptyGrid(gs);
+  const entry = { r: 0, c: 0 };
+  const exit = { r: gs - 1, c: 0 };
+  grid[entry.r][entry.c] = { kind: 'entry' };
+  grid[exit.r][exit.c] = { kind: 'exit' };
+  const star = { r: 1, c: 0 };
+  grid[star.r][star.c] = { kind: 'star' };
+  return {
+    level: { gridSize: gs, grid, entry, exit, starPositions: [star] },
+    solutionBumpers: new Map(),
+    requiredFixes: [],
+  };
+}
+
+
+
+const LS = {
+  best: 'pgg_bestLevel',
+  settings: 'pgg_settings_v1',
+};
+
+function clamp(n, a, b) {
+  return Math.max(a, Math.min(b, n));
+}
+
+function readJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJSON(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function h(tag, attrs = {}, children = []) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') el.className = v;
+    else if (k === 'dataset') Object.assign(el.dataset, v);
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else if (k === 'text') el.textContent = v;
+    else if (v !== undefined) el.setAttribute(k, String(v));
+  }
+  for (const c of children) el.append(c);
+  return el;
+}
+
+function svgIcon(name) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = {
+    gear: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 15.4a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Z" stroke="currentColor" stroke-width="2" />
+        <path d="M19.4 13.6v-3.2l-2.1-.7a7.7 7.7 0 0 0-.6-1.4l1-2-2.3-2.3-2 .9c-.5-.2-1-.4-1.4-.5L11.2 2H8.8l-.7 2.1c-.5.1-1 .3-1.4.5l-2-.9L2.4 6l1 2c-.3.5-.5 1-.6 1.5l-2.2.7v3.2l2.1.7c.1.5.3 1 .5 1.4l-1 2 2.3 2.3 2-.9c.5.2 1 .4 1.5.5l.7 2.1h3.2l.7-2.1c.5-.1 1-.3 1.4-.5l2 .9 2.3-2.3-1-2c.2-.5.4-1 .5-1.5l2.1-.7Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" opacity="0.9"/>
+      </svg>
+    `,
+    trophy: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M8 4h8v3a4 4 0 0 1-8 0V4Z" stroke="currentColor" stroke-width="2" />
+        <path d="M6 5H4v2a4 4 0 0 0 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M18 5h2v2a4 4 0 0 1-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M10 15h4v2a3 3 0 0 0 3 3H7a3 3 0 0 0 3-3v-2Z" stroke="currentColor" stroke-width="2" />
+      </svg>
+    `,
+    house: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+    `,
+    star: `
+      <svg class="star" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 2.7 14.9 9l6.8.6-5.1 4.4 1.6 6.6-6.2-3.6-6.2 3.6 1.6-6.6-5.1-4.4L9.1 9 12 2.7Z" fill="rgba(255,219,92,0.92)" stroke="rgba(0,0,0,0.22)" stroke-width="0.7"/>
+      </svg>
+    `,
+    blocker: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M7 7l10 10M17 7 7 17" stroke="rgba(255,255,255,0.78)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    `,
+    entry: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 5v12" stroke="rgba(255,255,255,0.85)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M8.2 9.5 12 5.7l3.8 3.8" stroke="rgba(255,255,255,0.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `,
+    exit: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M7 4h10v16H7V4Z" stroke="rgba(255,255,255,0.82)" stroke-width="2"/>
+        <path d="M10 12h4" stroke="rgba(255,219,92,0.9)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    `,
+    speaker: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M15.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+      </svg>
+    `,
+    motion: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M6 12a6 6 0 0 1 10.5-3.9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M18 12a6 6 0 0 1-10.5 3.9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M15 6h3v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M9 18H6v-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `,
+    contrast: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 3a9 9 0 1 0 0 18V3Z" fill="rgba(255,255,255,0.35)"/>
+        <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    `,
+    trash: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M5 7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M9 7V5h6v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M7 7l1 14h8l1-14" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+    `,
+    check: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M20 7 10 17l-4-4" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `,
+    x: `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+    `,
+    logo: `
+      <svg class="logo" viewBox="0 0 320 180" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="rgba(124,244,255,0.95)"/>
+            <stop offset="1" stop-color="rgba(255,219,92,0.95)"/>
+          </linearGradient>
+        </defs>
+        <rect x="18" y="18" width="284" height="144" rx="26" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)"/>
+        <path d="M70 54h180" stroke="rgba(255,255,255,0.16)" stroke-width="2"/>
+        <path d="M70 90h180" stroke="rgba(255,255,255,0.16)" stroke-width="2"/>
+        <path d="M70 126h180" stroke="rgba(255,255,255,0.16)" stroke-width="2"/>
+        <path d="M115 44v92" stroke="rgba(255,255,255,0.14)" stroke-width="2"/>
+        <path d="M160 44v92" stroke="rgba(255,255,255,0.14)" stroke-width="2"/>
+        <path d="M205 44v92" stroke="rgba(255,255,255,0.14)" stroke-width="2"/>
+        <circle cx="92" cy="82" r="17" fill="url(#g1)" opacity="0.9"/>
+        <path d="M216 60l40 40" stroke="rgba(255,255,255,0.86)" stroke-width="8" stroke-linecap="round"/>
+        <circle cx="244" cy="114" r="12" fill="rgba(255,255,255,0.88)" opacity="0.9"/>
+      </svg>
+    `,
+  }[name] ?? '';
+  return wrap.firstElementChild;
+}
+
+function beep(freq = 680, ms = 60) {
+  try {
+    const ac = beep.ac || (beep.ac = new (window.AudioContext || window.webkitAudioContext)());
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.value = 0.05;
+    o.connect(g);
+    g.connect(ac.destination);
+    o.start();
+    setTimeout(() => {
+      o.stop();
+      o.disconnect();
+      g.disconnect();
+    }, ms);
+  } catch {
+    // ignore
+  }
+}
+
+/** @typedef {{sound:boolean, motion:boolean, contrast:boolean}} Settings */
+
+const settings = /** @type {Settings} */ (
+  readJSON(LS.settings, { sound: true, motion: true, contrast: false })
+);
+
+let bestLevel = Number(localStorage.getItem(LS.best) || '0') || 0;
+
+const state = {
+  screen: /** @type {'menu'|'game'} */ ('menu'),
+  levelNumber: 0,
+  moves: 0,
+  level: null,
+  lastLaunch: null,
+  ballIndex: -1,
+  animTimer: null,
+  cursor: { r: 0, c: 0 },
+  resetConfirm: false,
+};
+
+const root = document.getElementById('app');
+
+const newBestToast = h('div', { class: 'newBest', id: 'newBestToast', text: 'New Best' });
+document.body.append(newBestToast);
+
+const overlay = h('div', { class: 'overlay', id: 'overlay' });
+const modal = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true' });
+overlay.append(modal);
+document.body.append(overlay);
+
+function openSettings() {
+  state.resetConfirm = false;
+  renderSettings();
+  overlay.classList.add('open');
+}
+function closeSettings() {
+  overlay.classList.remove('open');
+}
+overlay.addEventListener('click', (e) => {
+  if (e.target === overlay) closeSettings();
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeSettings();
+});
+
+function renderSettings() {
+  modal.replaceChildren();
+
+  const row = h('div', { class: 'settingsRow' });
+
+  const mkToggle = (icon, on, ariaLabel, onClick, extraClass = '') => {
+    const btn = h('button', {
+      class: `toggleBtn ${extraClass} ${on ? 'on' : ''}`,
+      type: 'button',
+      'aria-pressed': on ? 'true' : 'false',
+      'aria-label': ariaLabel,
+      onclick: onClick,
+    });
+    btn.append(svgIcon(icon));
+    return btn;
+  };
+
+  row.append(
+    mkToggle('speaker', settings.sound, 'Sound', () => {
+      settings.sound = !settings.sound;
+      writeJSON(LS.settings, settings);
+      renderSettings();
+    }),
+  );
+  row.append(
+    mkToggle('motion', settings.motion, 'Motion', () => {
+      settings.motion = !settings.motion;
+      writeJSON(LS.settings, settings);
+      render();
+      renderSettings();
+    }),
+  );
+  row.append(
+    mkToggle('contrast', settings.contrast, 'High contrast', () => {
+      settings.contrast = !settings.contrast;
+      writeJSON(LS.settings, settings);
+      render();
+      renderSettings();
+    }),
+  );
+
+  if (!state.resetConfirm) {
+    row.append(
+      mkToggle('trash', false, 'Reset best', () => {
+        state.resetConfirm = true;
+        renderSettings();
+      }, 'danger'),
+    );
+  } else {
+    row.append(
+      mkToggle('check', true, 'Confirm reset best', () => {
+        bestLevel = 0;
+        localStorage.setItem(LS.best, '0');
+        state.resetConfirm = false;
+        render();
+        renderSettings();
+      }, 'danger'),
+    );
+    row.append(
+      mkToggle('x', false, 'Cancel reset best', () => {
+        state.resetConfirm = false;
+        renderSettings();
+      }),
+    );
+  }
+
+  modal.append(row);
+}
+
+function showNewBest() {
+  newBestToast.classList.add('show');
+  setTimeout(() => newBestToast.classList.remove('show'), 1200);
+}
+
+function stopAnimation() {
+  if (state.animTimer) {
+    clearInterval(state.animTimer);
+    state.animTimer = null;
+  }
+  state.ballIndex = -1;
+}
+
+function startGame() {
+  state.levelNumber = 1;
+  state.moves = 0;
+  state.lastLaunch = null;
+  stopAnimation();
+  createLevel();
+  state.screen = 'game';
+  render();
+}
+
+function createLevel() {
+  const g = generateLevel(state.levelNumber);
+  state.level = g.level;
+  state.lastLaunch = null;
+  stopAnimation();
+  state.cursor = { r: 0, c: g.level.entry.c };
+  render();
+  queueMicrotask(() => focusCell(state.cursor.r, state.cursor.c));
+}
+
+function goMenu() {
+  stopAnimation();
+  state.screen = 'menu';
+  render();
+}
+
+function toggleBumperAt(r, c) {
+  if (!state.level) return;
+  const t = state.level.grid[r][c];
+  if (t.kind !== 'bumper' || !t.bumper) return;
+  t.bumper.orientation = t.bumper.orientation === 'slash' ? 'backslash' : 'slash';
+  state.moves += 1;
+  // Clear path on any edit
+  state.lastLaunch = null;
+  stopAnimation();
+  render();
+  queueMicrotask(() => focusCell(state.cursor.r, state.cursor.c));
+}
+
+function launch() {
+  if (!state.level) return;
+  stopAnimation();
+
+  const res = simulateLaunch(state.level);
+  state.lastLaunch = res;
+
+  if (!settings.motion) {
+    state.ballIndex = res.path.length - 1;
+    render();
+    if (settings.sound) {
+      if (res.collectedStars.size > 0) beep(760, 60);
+      if (res.completed) beep(980, 80);
+    }
+    if (res.completed) completeLevel();
+    return;
+  }
+
+  state.ballIndex = 0;
+  render();
+
+  const path = res.path;
+  let i = 0;
+  state.animTimer = setInterval(() => {
+    i++;
+    state.ballIndex = clamp(i, 0, path.length - 1);
+    render();
+    if (i >= path.length - 1) {
+      stopAnimation();
+      if (settings.sound) {
+        if (res.collectedStars.size > 0) beep(760, 60);
+        if (res.completed) beep(980, 80);
+      }
+      if (res.completed) completeLevel();
+    }
+  }, 55);
+}
+
+function completeLevel() {
+  // Quick pulse animation: collected stars + exit.
+  const pulseMs = 250;
+  const prevBest = bestLevel;
+  bestLevel = Math.max(bestLevel, state.levelNumber);
+  if (bestLevel !== prevBest) {
+    localStorage.setItem(LS.best, String(bestLevel));
+    showNewBest();
+  }
+
+  setTimeout(() => {
+    state.levelNumber += 1;
+    state.moves = 0;
+    createLevel();
+  }, pulseMs);
+}
+
+function focusCell(r, c) {
+  const el = root.querySelector(`button.cell[data-r="${r}"][data-c="${c}"]`);
+  if (el) el.focus({ preventScroll: true });
+}
+
+function cellAriaLabel(level, r, c, lastLaunch) {
+  const t = level.grid[r][c];
+  const row = r + 1;
+  const col = c + 1;
+  let type = t.kind;
+  let bump = '';
+  if (t.kind === 'bumper' && t.bumper) bump = ` ${t.bumper.orientation}`;
+  let starState = '';
+  if (t.kind === 'star') {
+    const collected = lastLaunch?.collectedStars?.has(`${r},${c}`) ? 'collected' : 'uncollected';
+    starState = ` ${collected}`;
+  }
+  const path = lastLaunch?.path?.some((p) => p.r === r && p.c === c) ? ' path' : '';
+  return `Row ${row} Column ${col} ${type}${bump}${starState}${path}`;
+}
+
+function renderMenu() {
+  const wrap = h('div', { class: 'card' });
+  const top = h('div', { class: 'topRow' });
+  const trophyBtn = h('button', {
+    class: 'iconBtn',
+    type: 'button',
+    'aria-label': 'Best level',
+    onclick: () => {},
+  });
+  trophyBtn.append(svgIcon('trophy'));
+  const trophyWrap = h('div', { class: 'bestBadge' }, [trophyBtn, h('div', { class: 'bestNum', text: String(bestLevel) })]);
+
+  const gearBtn = h('button', { class: 'iconBtn', type: 'button', 'aria-label': 'Settings', onclick: openSettings });
+  gearBtn.append(svgIcon('gear'));
+
+  top.append(trophyWrap, gearBtn);
+
+  const body = h('div', { class: 'menuWrap' });
+  body.append(svgIcon('logo'));
+
+  const startBtn = h('button', { class: 'primary', type: 'button', text: 'Start Game', onclick: startGame });
+  body.append(startBtn);
+
+  wrap.append(top, body);
+  return wrap;
+}
+
+function renderGame() {
+  if (!state.level) return h('div', { class: 'card' });
+
+  const wrap = h('div', { class: 'card gameWrap' });
+  const hud = h('div', { class: 'hud' });
+
+  const movesNum = h('div', { class: 'hudNum', text: String(state.moves) });
+  const left = h('div', { class: 'hudLeft' }, [movesNum]);
+
+  const collected = state.lastLaunch ? state.lastLaunch.collectedStars.size : 0;
+  const right = h('div', { class: 'hudRight' });
+  const starI = h('div', { style: 'display:grid;place-items:center;width:22px;height:22px;' });
+  starI.append(svgIcon('star'));
+  right.append(starI, h('div', { class: 'hudSub', text: String(collected) }), h('div', { class: 'hudNum', text: String(state.levelNumber) }));
+
+  hud.append(left, right);
+
+  // Board
+  const n = state.level.gridSize;
+  const board = h('div', {
+    class: 'board',
+    role: 'grid',
+    'aria-rowcount': String(n),
+    'aria-colcount': String(n),
+    style: `grid-template-columns: repeat(${n}, 1fr);`,
+  });
+
+  const lastLaunch = state.lastLaunch;
+  const pathSet = new Set((lastLaunch?.path ?? []).map((p) => `${p.r},${p.c}`));
+  const lastKey = lastLaunch?.path?.length ? keyOfPos(lastLaunch.path[lastLaunch.path.length - 1]) : null;
+  const ballPos = state.ballIndex >= 0 && lastLaunch?.path ? lastLaunch.path[state.ballIndex] : null;
+
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      const t = state.level.grid[r][c];
+      const isPath = pathSet.has(`${r},${c}`);
+      const classes = [
+        'cell',
+        t.kind,
+        isPath ? 'path' : '',
+        lastKey === `${r},${c}` ? 'pathStrong' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      const cell = h('button', {
+        class: classes,
+        type: 'button',
+        role: 'gridcell',
+        tabindex: r === state.cursor.r && c === state.cursor.c ? '0' : '-1',
+        'data-r': String(r),
+        'data-c': String(c),
+        'aria-label': cellAriaLabel(state.level, r, c, lastLaunch),
+        onclick: () => {
+          state.cursor = { r, c };
+          const tHere = state.level.grid[r][c];
+          if (tHere.kind === 'bumper') {
+            toggleBumperAt(r, c);
+          } else {
+            render();
+            queueMicrotask(() => focusCell(r, c));
+          }
+        },
+      });
+
+      // Content / glyphs
+      if (t.kind === 'bumper' && t.bumper) {
+        const bumper = h('div', { class: `bumper ${t.bumper.orientation}` }, [h('div', { class: 'bumperLine' })]);
+        cell.append(bumper);
+      } else if (t.kind === 'star') {
+        const s = svgIcon('star');
+        if (lastLaunch?.collectedStars?.has(`${r},${c}`)) s.classList.add('starCollected');
+        cell.append(s);
+      } else if (t.kind === 'blocker') {
+        cell.append(svgIcon('blocker'));
+      } else if (t.kind === 'entry') {
+        cell.append(svgIcon('entry'));
+      } else if (t.kind === 'exit') {
+        cell.append(svgIcon('exit'));
+      }
+
+      if (ballPos && ballPos.r === r && ballPos.c === c) {
+        cell.append(h('div', { class: 'ball', 'aria-hidden': 'true' }));
+      }
+
+      board.append(cell);
+    }
+  }
+
+  board.addEventListener('keydown', (e) => {
+    if (!state.level) return;
+    const key = e.key;
+    const n = state.level.gridSize;
+
+    const moveCursor = (dr, dc) => {
+      e.preventDefault();
+      state.cursor = {
+        r: clamp(state.cursor.r + dr, 0, n - 1),
+        c: clamp(state.cursor.c + dc, 0, n - 1),
+      };
+      render();
+      queueMicrotask(() => focusCell(state.cursor.r, state.cursor.c));
+    };
+
+    if (key === 'ArrowUp') return moveCursor(-1, 0);
+    if (key === 'ArrowDown') return moveCursor(1, 0);
+    if (key === 'ArrowLeft') return moveCursor(0, -1);
+    if (key === 'ArrowRight') return moveCursor(0, 1);
+
+    if (key === 'Enter' || key === ' ') {
+      e.preventDefault();
+      toggleBumperAt(state.cursor.r, state.cursor.c);
+      return;
+    }
+    if (key === 'l' || key === 'L') {
+      e.preventDefault();
+      launch();
+    }
+  });
+
+  const controls = h('div', { class: 'controls' });
+  const gearBtn = h('button', { class: 'iconBtn', type: 'button', 'aria-label': 'Settings', onclick: openSettings });
+  gearBtn.append(svgIcon('gear'));
+  const launchBtn = h('button', { class: 'primary', type: 'button', text: 'Launch', onclick: launch });
+  const homeBtn = h('button', { class: 'iconBtn', type: 'button', 'aria-label': 'Menu', onclick: goMenu });
+  homeBtn.append(svgIcon('house'));
+
+  controls.append(gearBtn, launchBtn, homeBtn);
+  wrap.append(hud, board, controls);
+  return wrap;
+}
+
+function keyOfPos(p) {
+  return `${p.r},${p.c}`;
+}
+
+function render() {
+  document.documentElement.classList.toggle('hc', !!settings.contrast);
+
+  root.replaceChildren();
+  if (state.screen === 'menu') root.append(renderMenu());
+  else root.append(renderGame());
+}
+
+render();
+
+</script>
+  </body>
+</html>

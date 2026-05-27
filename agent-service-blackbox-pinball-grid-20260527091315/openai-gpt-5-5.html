@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Pinball Grid</title>
+  <style>
+:root{--bg:#11162a;--panel:#1b2440;--panel2:#263559;--cell:#202a49;--line:#4e638f;--text:#fff7d6;--gold:#ffd84a;--pink:#ff7aae;--cyan:#61e4ff;--green:#8dff96;--red:#ff6d6d;--path:rgba(97,228,255,.42);--shadow:0 22px 70px rgba(0,0,0,.38);font-family:Inter,ui-rounded,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100vh;color:var(--text);background:radial-gradient(circle at 30% 10%,#344779 0,#18213c 36%,#0b1020 100%);display:grid;place-items:center;overflow-x:hidden}.shell{width:min(94vw,720px);min-height:min(92vh,860px);padding:22px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center}.topIcon{position:absolute;top:18px;width:48px;height:48px}.topIcon.left{left:18px}.topIcon.right{right:18px}button{font:inherit;color:inherit;border:0;cursor:pointer}.iconBtn{border-radius:18px;background:linear-gradient(145deg,#2b3861,#151d35);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(0,0,0,.24);display:grid;place-items:center;font-size:1.45rem;transition:transform .15s,filter .15s}.iconBtn:hover,.iconBtn:focus-visible{transform:translateY(-2px);filter:brightness(1.15);outline:3px solid var(--cyan);outline-offset:3px}.logo{width:min(64vw,340px);aspect-ratio:1;position:relative;margin-bottom:28px;filter:drop-shadow(0 24px 34px rgba(0,0,0,.35))}.logo .ball{position:absolute;width:38%;aspect-ratio:1;border-radius:50%;left:31%;top:11%;background:radial-gradient(circle at 35% 25%,#fff,#aef7ff 22%,#3bd8ff 58%,#1971a5 100%);box-shadow:0 0 34px rgba(97,228,255,.75)}.logo .bumper{position:absolute;width:54%;height:15%;border-radius:999px;background:linear-gradient(90deg,var(--pink),#ffc0d8);box-shadow:0 0 22px rgba(255,122,174,.7)}.logo .a{left:2%;bottom:28%;transform:rotate(35deg)}.logo .b{right:2%;bottom:28%;transform:rotate(-35deg)}.logo .peg{position:absolute;inset:35%;border:10px solid var(--gold);border-radius:28%;transform:rotate(45deg);opacity:.9}.primary{min-width:210px;padding:17px 26px;border-radius:24px;background:linear-gradient(180deg,#ffe66b,#f0a51e);color:#291a00;font-weight:900;font-size:1.22rem;letter-spacing:.01em;box-shadow:0 14px 0 #9f5e0d,0 24px 42px rgba(0,0,0,.3);transition:transform .12s,box-shadow .12s}.primary:hover,.primary:focus-visible{transform:translateY(-3px);box-shadow:0 17px 0 #9f5e0d,0 28px 48px rgba(0,0,0,.35);outline:3px solid #fff;outline-offset:4px}.primary:active{transform:translateY(8px);box-shadow:0 6px 0 #9f5e0d,0 16px 28px rgba(0,0,0,.28)}.game{justify-content:flex-start;gap:14px}.hud{width:min(92vw,620px,calc(100vh - 240px));display:flex;justify-content:space-between;align-items:center;margin-top:54px;font-weight:900;font-size:1.38rem;text-shadow:0 2px 0 rgba(0,0,0,.25)}.pill{min-width:86px;min-height:44px;padding:6px 14px;border-radius:999px;background:rgba(21,29,53,.72);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);display:flex;gap:9px;align-items:center;justify-content:center}.boardWrap{padding:12px;border-radius:30px;background:linear-gradient(145deg,rgba(255,255,255,.13),rgba(255,255,255,.03));box-shadow:var(--shadow);touch-action:manipulation}.board{display:grid;gap:5px;width:min(92vw,620px,calc(100vh - 240px));aspect-ratio:1}.cell{position:relative;border-radius:16%;background:linear-gradient(145deg,#263354,#151d34);border:2px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.1);display:grid;place-items:center;overflow:hidden;color:var(--text);min-width:0}.cell.focused{outline:3px solid var(--gold);outline-offset:-3px}.cell.path::before{content:"";position:absolute;inset:10%;border-radius:28%;background:var(--path);box-shadow:0 0 18px var(--cyan);z-index:0}.cell.entry::after{content:"";width:42%;height:42%;border-radius:50%;background:radial-gradient(circle at 35% 25%,#fff,#7defff 30%,#19a8d8);box-shadow:0 0 13px rgba(97,228,255,.8);z-index:2}.cell.exit{background:linear-gradient(145deg,#214533,#112719)}.cell.exit::after{content:"";width:56%;height:56%;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:linear-gradient(180deg,#b9ff91,#3adc54);box-shadow:0 0 18px rgba(141,255,150,.7);z-index:2}.cell.star::after{content:"★";font-size:clamp(18px,5vw,34px);color:var(--gold);text-shadow:0 0 14px rgba(255,216,74,.9);z-index:2}.cell.blocker{background:linear-gradient(145deg,#4b2230,#221018)}.cell.blocker::after{content:"";width:70%;height:70%;border-radius:22%;background:repeating-linear-gradient(45deg,var(--red) 0 7px,#421722 7px 14px);box-shadow:inset 0 0 0 2px rgba(255,255,255,.16);z-index:2}.cell.bumper{cursor:pointer}.cell.bumper::after{content:"";position:absolute;width:86%;height:18%;border-radius:999px;background:linear-gradient(90deg,#ff69a9,#ffd1e2);box-shadow:0 0 12px rgba(255,122,174,.85),inset 0 1px 0 rgba(255,255,255,.55);z-index:2}.cell.bumper.slash::after{transform:rotate(-45deg)}.cell.bumper.backslash::after{transform:rotate(45deg)}.cell.bumper:hover{filter:brightness(1.18)}.cell .dot{position:absolute;width:18%;height:18%;border-radius:50%;background:#fff;box-shadow:0 0 12px #fff;z-index:3;animation:pop .38s ease both}.controls{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:8px}.controls .iconBtn{width:54px;height:54px}.settings{position:fixed;inset:0;background:rgba(5,8,18,.62);display:grid;place-items:center;z-index:10;backdrop-filter:blur(8px)}.settingsCard{width:min(86vw,330px);padding:24px;border-radius:34px;background:linear-gradient(145deg,#26355d,#131b31);box-shadow:var(--shadow);display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.settingsCard .iconBtn{height:70px}.settingsCard .wide{grid-column:1/-1}.settingsCard .active{outline:4px solid var(--green);outline-offset:2px}.confirm{display:flex;gap:14px}.confirm .iconBtn{flex:1}.toast{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:1.4rem;padding:9px 16px;border-radius:999px;background:rgba(15,22,40,.75)}.complete .cell.exit::after{animation:spin .7s ease}.complete .cell.star::after{animation:pop .65s ease}.highContrast{--path:rgba(255,255,255,.72);--line:#fff}.highContrast .cell{border-color:#fff}.highContrast .cell.bumper::after{box-shadow:0 0 0 3px #fff,0 0 16px #fff}.reduceMotion *{animation:none!important;transition:none!important}@keyframes pop{0%{transform:scale(.55);opacity:.35}65%{transform:scale(1.22)}100%{transform:scale(1);opacity:1}}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:520px){.shell{padding:12px}.hud{margin-top:58px}.board{gap:3px}.cell{border-width:1px}.primary{min-width:180px}.topIcon{width:44px;height:44px}}
+
+
+/* Polish pass: stronger visual language without adding visible words. */
+.cell.entry{
+  background:radial-gradient(circle at 50% 44%,rgba(97,228,255,.28),rgba(32,42,73,.9) 58%),linear-gradient(145deg,#214c72,#111b34);
+  border-color:rgba(165,246,255,.9);
+  box-shadow:inset 0 0 0 2px rgba(97,228,255,.24),inset 0 1px 0 rgba(255,255,255,.35),0 0 18px rgba(97,228,255,.28);
+}
+.cell.entry::before{
+  content:"";position:absolute;top:7%;left:50%;width:46%;height:24%;transform:translateX(-50%);
+  clip-path:polygon(0 0,100% 0,50% 100%);
+  background:linear-gradient(180deg,#fff,#8ef5ff 58%,#21cfff);
+  filter:drop-shadow(0 0 8px rgba(97,228,255,.95));z-index:1;
+}
+.cell.entry::after{
+  width:46%;height:46%;border:3px solid rgba(255,255,255,.9);
+  box-shadow:0 0 0 4px rgba(22,34,62,.78),0 0 20px rgba(97,228,255,.95);
+}
+.cell.exit{
+  background:radial-gradient(circle at 50% 50%,rgba(141,255,150,.32),rgba(17,39,25,.92) 62%),linear-gradient(145deg,#245d3a,#0d2114);
+  border-color:rgba(185,255,145,.95);
+  box-shadow:inset 0 0 0 2px rgba(141,255,150,.24),inset 0 1px 0 rgba(255,255,255,.28),0 0 20px rgba(141,255,150,.28);
+}
+.cell.exit::before{
+  content:"";position:absolute;inset:17%;border-radius:50%;border:4px solid rgba(255,255,255,.88);
+  box-shadow:0 0 0 4px rgba(64,255,111,.22),0 0 18px rgba(141,255,150,.9),inset 0 0 14px rgba(141,255,150,.65);z-index:1;
+}
+.cell.exit::after{
+  width:46%;height:46%;background:linear-gradient(180deg,#efffcd,#58f66b 62%,#18a938);
+  filter:drop-shadow(0 0 8px rgba(141,255,150,.95));
+}
+.cell.bumper{
+  background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.08),rgba(21,29,52,.9) 60%),linear-gradient(145deg,#2c3a63,#121a31);
+  border-color:rgba(255,226,245,.62);
+  box-shadow:inset 0 0 0 2px rgba(255,122,174,.13),inset 0 1px 0 rgba(255,255,255,.18);
+}
+.cell.bumper::after{
+  width:88%;height:22%;border-radius:999px;
+  background:linear-gradient(90deg,#ff3f96 0 18%,#fff 45% 55%,#ffb9d7 82% 100%);
+  box-shadow:0 0 0 3px rgba(255,255,255,.96),0 0 0 6px rgba(7,11,24,.82),0 0 22px rgba(255,122,174,.95),inset 0 2px 0 rgba(255,255,255,.85),inset 0 -3px 0 rgba(109,18,65,.36);
+}
+.cell.bumper.slash::after{background:linear-gradient(90deg,#61e4ff 0 18%,#fff 45% 55%,#ff7aae 82% 100%)}
+.cell.bumper.backslash::after{background:linear-gradient(90deg,#ffd84a 0 18%,#fff 45% 55%,#ff7aae 82% 100%)}
+.cell.bumper.focused{outline-color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,.33),0 0 0 4px rgba(255,216,74,.5)}
+.settingsCard .settingToggle{position:relative;border:2px solid rgba(255,255,255,.18);background:linear-gradient(145deg,#243151,#10182d);filter:saturate(.75) brightness(.88)}
+.settingsCard .settingToggle::after{content:"";position:absolute;right:10px;bottom:10px;width:16px;height:16px;border-radius:50%;background:#ff6d6d;box-shadow:0 0 0 3px rgba(8,12,25,.9),0 0 12px rgba(255,109,109,.72)}
+.settingsCard .settingToggle.active{border-color:rgba(141,255,150,.9);background:linear-gradient(145deg,#2d5a46,#142c24);filter:none;outline:4px solid rgba(141,255,150,.95);outline-offset:2px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.16),0 0 24px rgba(141,255,150,.35)}
+.settingsCard .settingToggle.active::after{background:#8dff96;box-shadow:0 0 0 3px rgba(8,12,25,.9),0 0 16px rgba(141,255,150,.9)}
+.highContrast .cell.entry,.highContrast .cell.exit,.highContrast .cell.bumper{border-color:#fff;box-shadow:inset 0 0 0 3px #fff,0 0 0 2px #000}
+.highContrast .settingsCard .settingToggle.active{outline-color:#fff}
+
+
+/* QA fixes: keep controls visible on short screens and make settings modal/closable. */
+.shell.game{min-height:auto;padding-top:10px;padding-bottom:10px;gap:10px}
+.game .hud{margin-top:6px}
+@media(max-height:640px){.board{width:min(92vw,620px,calc(100vh - 270px))}.hud{width:min(92vw,620px,calc(100vh - 270px))}.boardWrap{padding:9px}.controls{margin-top:4px}.primary{padding:14px 24px}.controls .iconBtn{width:50px;height:50px}}
+.settingsCard{position:relative;grid-template-columns:repeat(3,1fr);padding-top:54px}
+.settingsCard .settingsClose{position:absolute;right:16px;top:14px;width:42px;height:42px;border-radius:15px;background:linear-gradient(145deg,#3d496d,#151d35);font-size:1.15rem;box-shadow:inset 0 0 0 2px rgba(255,255,255,.16),0 8px 18px rgba(0,0,0,.25)}
+.settingsCard .settingsClose:hover,.settingsCard .settingsClose:focus-visible{outline:3px solid #fff;outline-offset:2px;filter:brightness(1.2)}
+.settingsCard .settingToggle{font-size:1.7rem;min-width:0}
+.settingsCard .wide{grid-column:1/-1}
+
+</style>
+</head>
+<body>
+  <main id="app" aria-live="polite"></main>
+<script>
+(function(root, factory){
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.PinballCore = factory();
+})(typeof globalThis !== 'undefined' ? globalThis : this, function(){
+  'use strict';
+  const DIRS = { up:{dr:-1,dc:0}, right:{dr:0,dc:1}, down:{dr:1,dc:0}, left:{dr:0,dc:-1} };
+  const SLASH = { up:'right', right:'up', down:'left', left:'down' };
+  const BACKSLASH = { up:'left', left:'up', down:'right', right:'down' };
+  const TYPES = { EMPTY:'empty', ENTRY:'entry', EXIT:'exit', STAR:'star', BLOCKER:'blocker', BUMPER:'bumper' };
+
+  function formulas(level){
+    return {
+      gridSize: Math.min(10, 6 + Math.floor((level - 1) / 3)),
+      starCount: Math.min(5, 1 + Math.floor((level - 1) / 4)),
+      bumperCount: Math.min(14, 4 + level),
+      blockerCount: Math.min(10, Math.floor(level / 2))
+    };
+  }
+
+  function key(r,c){ return r + ',' + c; }
+  function inBounds(level,r,c){ return r >= 0 && c >= 0 && r < level.size && c < level.size; }
+  function makeGrid(n){ return Array.from({length:n}, () => Array.from({length:n}, () => ({ type:TYPES.EMPTY }))); }
+
+  function addPathCell(list, seen, r, c){ const k = key(r,c); if (!seen.has(k)) { seen.add(k); list.push({r,c}); } }
+  function buildSolutionPath(n){
+    const mid = Math.floor(n / 2);
+    const left = 1;
+    const right = n - 2;
+    const topTurn = Math.max(2, Math.floor(n / 3));
+    const bottomTurn = n - 2;
+    const entry = { r:0, c:mid };
+    const exit = { r:n-1, c:right };
+    const cells = [], seen = new Set();
+    addPathCell(cells, seen, 0, mid);
+    for (let r=1; r<=topTurn; r++) addPathCell(cells, seen, r, mid);
+    for (let c=mid-1; c>=left; c--) addPathCell(cells, seen, topTurn, c);
+    for (let r=topTurn+1; r<=bottomTurn; r++) addPathCell(cells, seen, r, left);
+    for (let c=left+1; c<=right; c++) addPathCell(cells, seen, bottomTurn, c);
+    addPathCell(cells, seen, n-1, right);
+    const turns = [
+      { r:topTurn, c:mid, solution:'/' },
+      { r:topTurn, c:left, solution:'/' },
+      { r:bottomTurn, c:left, solution:'\\' },
+      { r:bottomTurn, c:right, solution:'\\' }
+    ];
+    return { entry, exit, cells, seen, turns };
+  }
+
+  function candidateDecoys(n, pathSeen){
+    const out = [];
+    for (let ring=0; ring<n; ring++) {
+      for (let r=0; r<n; r++) for (let c=0; c<n; c++) {
+        const dist = Math.abs(r - Math.floor(n/2)) + Math.abs(c - Math.floor(n/2));
+        if (dist !== ring) continue;
+        const k = key(r,c);
+        if (pathSeen.has(k)) continue;
+        if (r === 0 || r === n-1) continue;
+        out.push({r,c});
+      }
+    }
+    return out;
+  }
+
+  function buildLevel(levelNumber){
+    const f = formulas(levelNumber);
+    const n = f.gridSize;
+    const grid = makeGrid(n);
+    const path = buildSolutionPath(n);
+    grid[path.entry.r][path.entry.c] = { type:TYPES.ENTRY };
+    grid[path.exit.r][path.exit.c] = { type:TYPES.EXIT };
+
+    const turnKeys = new Set();
+    const bumpers = [];
+    path.turns.forEach((t, i) => {
+      turnKeys.add(key(t.r,t.c));
+      const needsPlayer = i < Math.min(3, 2 + (levelNumber % 2));
+      const orientation = needsPlayer ? (t.solution === '/' ? '\\' : '/') : t.solution;
+      grid[t.r][t.c] = { type:TYPES.BUMPER, orientation, solution:t.solution, useful:true };
+      bumpers.push({ r:t.r, c:t.c, solution:t.solution, useful:true });
+    });
+
+    const starPlaces = path.cells.filter(p => {
+      const k = key(p.r,p.c);
+      return k !== key(path.entry.r,path.entry.c) && k !== key(path.exit.r,path.exit.c) && !turnKeys.has(k);
+    });
+    for (let i=0; i<f.starCount; i++) {
+      const idx = Math.floor(((i + 1) * starPlaces.length) / (f.starCount + 1));
+      const p = starPlaces[Math.min(starPlaces.length - 1, idx)];
+      grid[p.r][p.c] = { type:TYPES.STAR, collected:false };
+    }
+
+    const decoys = candidateDecoys(n, path.seen);
+    let decoyIndex = (levelNumber * 3) % Math.max(1, decoys.length);
+    while (bumpers.length < f.bumperCount && decoys.length) {
+      const p = decoys[decoyIndex % decoys.length]; decoyIndex++;
+      if (grid[p.r][p.c].type !== TYPES.EMPTY) continue;
+      const orientation = ((p.r + p.c + levelNumber) % 2 === 0) ? '/' : '\\';
+      grid[p.r][p.c] = { type:TYPES.BUMPER, orientation, solution:orientation, useful:false };
+      bumpers.push({ r:p.r, c:p.c, solution:orientation, useful:false });
+    }
+
+    let blockers = 0;
+    const blockerCandidates = [];
+    for (let r=1; r<n-1; r++) for (let c=0; c<n; c++) {
+      if (grid[r][c].type === TYPES.EMPTY && !path.seen.has(key(r,c)) && Math.abs(c - path.entry.c) > 0) blockerCandidates.push({r,c});
+    }
+    let start = (levelNumber * 5) % Math.max(1, blockerCandidates.length);
+    while (blockers < f.blockerCount && blockerCandidates.length) {
+      const p = blockerCandidates[start % blockerCandidates.length]; start++;
+      if (grid[p.r][p.c].type === TYPES.EMPTY) { grid[p.r][p.c] = { type:TYPES.BLOCKER }; blockers++; }
+    }
+
+    return { number:levelNumber, size:n, grid, entry:path.entry, exit:path.exit, solutionPath:path.cells, formulas:f };
+  }
+
+  function cloneLevel(level){
+    return { ...level, entry:{...level.entry}, exit:{...level.exit}, solutionPath:level.solutionPath.map(p=>({...p})), formulas:{...level.formulas}, grid: level.grid.map(row => row.map(cell => ({...cell}))) };
+  }
+
+  function setSolutionOrientations(level){
+    const copy = cloneLevel(level);
+    for (const row of copy.grid) for (const cell of row) if (cell.type === TYPES.BUMPER && cell.useful) cell.orientation = cell.solution;
+    return copy;
+  }
+
+  function reflect(dir, orientation){ return orientation === '/' ? SLASH[dir] : BACKSLASH[dir]; }
+
+  function totalStars(level){
+    let count = 0;
+    for (const row of level.grid) for (const cell of row) if (cell.type === TYPES.STAR) count++;
+    return count;
+  }
+
+  function simulateLaunch(level){
+    let r = level.entry.r, c = level.entry.c, dir = 'down';
+    const visitedStates = new Set();
+    const collected = new Set();
+    const path = [{ r, c, dir, type:TYPES.ENTRY }];
+    const total = totalStars(level);
+    let completed = false;
+    let stoppedBy = 'loop';
+    for (let steps=0; steps<200; steps++) {
+      const stateKey = key(r,c) + ',' + dir;
+      if (visitedStates.has(stateKey)) { stoppedBy = 'loop'; break; }
+      visitedStates.add(stateKey);
+      const delta = DIRS[dir];
+      r += delta.dr; c += delta.dc;
+      if (!inBounds(level,r,c)) { stoppedBy = 'edge'; break; }
+      const cell = level.grid[r][c];
+      if (cell.type === TYPES.STAR) collected.add(key(r,c));
+      path.push({ r, c, dir, type:cell.type });
+      if (cell.type === TYPES.BLOCKER) { stoppedBy = 'blocker'; break; }
+      if (cell.type === TYPES.EXIT) {
+        if (collected.size === total) { completed = true; stoppedBy = 'exit'; }
+        else stoppedBy = 'early-exit';
+        break;
+      }
+      if (cell.type === TYPES.BUMPER) dir = reflect(dir, cell.orientation);
+    }
+    return { path, collected:[...collected], collectedCount:collected.size, totalStars:total, completed, stoppedBy };
+  }
+
+  function toggleBumper(level, r, c){
+    if (!inBounds(level,r,c)) return false;
+    const cell = level.grid[r][c];
+    if (cell.type !== TYPES.BUMPER) return false;
+    cell.orientation = cell.orientation === '/' ? '\\' : '/';
+    return true;
+  }
+
+  return { TYPES, formulas, buildLevel, cloneLevel, setSolutionOrientations, simulateLaunch, toggleBumper, reflect, totalStars };
+});
+
+</script>
+<script>
+(function(){
+  'use strict';
+  const Core = window.PinballCore;
+  const app = document.getElementById('app');
+  const STORE = 'pinball-grid-best';
+  const SETTINGS = 'pinball-grid-settings';
+  const state = {
+    screen:'menu', levelNumber:1, level:null, moves:0, lastPath:[], lastCollected:new Set(), collectedCount:0,
+    cursor:{r:0,c:0}, best:Number(localStorage.getItem(STORE) || '1'), settings:{sound:true,motion:true,contrast:false}, confirmReset:false
+  };
+  try { Object.assign(state.settings, JSON.parse(localStorage.getItem(SETTINGS) || '{}')); } catch {}
+
+  function saveSettings(){ localStorage.setItem(SETTINGS, JSON.stringify(state.settings)); }
+  function saveBest(){ localStorage.setItem(STORE, String(state.best)); }
+  function iconButton(icon, cls, aria, onClick){
+    const b = document.createElement('button'); b.className = 'iconBtn ' + (cls || ''); b.type = 'button'; b.textContent = icon; b.setAttribute('aria-label', aria); b.addEventListener('click', onClick); return b;
+  }
+  function primary(text, onClick){ const b=document.createElement('button'); b.type='button'; b.className='primary'; b.textContent=text; b.addEventListener('click', onClick); return b; }
+  function shell(extra){ const s=document.createElement('section'); s.className='shell ' + (extra||''); if(state.settings.contrast)s.classList.add('highContrast'); if(!state.settings.motion)s.classList.add('reduceMotion'); return s; }
+  function clear(){ app.innerHTML=''; }
+
+  function renderMenu(){
+    state.screen='menu'; clear();
+    const s=shell('menu');
+    const trophy=iconButton('🏆','topIcon left','trophy best ' + state.best,()=>{}); const num=document.createElement('span'); num.textContent=String(state.best); trophy.appendChild(num);
+    trophy.style.gap='2px'; trophy.style.fontSize='1.08rem';
+    s.appendChild(trophy);
+    s.appendChild(iconButton('⚙','topIcon right','settings',openSettings));
+    const logo=document.createElement('div'); logo.className='logo'; logo.setAttribute('aria-label','ball and bumper logo');
+    logo.innerHTML='<div class="ball"></div><div class="peg"></div><div class="bumper a"></div><div class="bumper b"></div>';
+    s.appendChild(logo);
+    s.appendChild(primary('Start Game', startGame));
+    app.appendChild(s);
+  }
+
+  function startGame(){ state.levelNumber=1; state.moves=0; state.lastCollected=new Set(); createLevel(1); }
+  function createLevel(num){ state.screen='game'; state.levelNumber=num; state.moves=0; state.level=Core.buildLevel(num); state.lastPath=[]; state.lastCollected=new Set(); state.collectedCount=0; state.cursor={...state.level.entry}; renderGame(); }
+  function renderGame(completing){
+    clear();
+    const s=shell('game'); if(completing)s.classList.add('complete');
+    const hud=document.createElement('div'); hud.className='hud';
+    const left=document.createElement('div'); left.className='pill'; left.textContent=String(state.moves); left.setAttribute('aria-label','move count ' + state.moves);
+    const right=document.createElement('div'); right.className='pill'; right.innerHTML='<span aria-hidden="true">⭐</span><span>'+state.collectedCount+'</span><span aria-hidden="true">◆</span><span>'+state.levelNumber+'</span>'; right.setAttribute('aria-label','collected stars ' + state.collectedCount + ' level ' + state.levelNumber);
+    hud.append(left,right); s.appendChild(hud);
+    const wrap=document.createElement('div'); wrap.className='boardWrap';
+    const board=document.createElement('div'); board.className='board'; board.setAttribute('role','grid'); board.style.gridTemplateColumns=`repeat(${state.level.size},1fr)`;
+    const pathSet=new Set(state.lastPath.map(p=>p.r+','+p.c));
+    for(let r=0;r<state.level.size;r++) for(let c=0;c<state.level.size;c++){
+      const cell=state.level.grid[r][c]; const el=document.createElement('button'); el.type='button'; el.className='cell ' + cell.type;
+      if(cell.type===Core.TYPES.BUMPER) el.classList.add(cell.orientation==='/'?'slash':'backslash');
+      if(pathSet.has(r+','+c)) el.classList.add('path');
+      if(state.cursor.r===r && state.cursor.c===c) el.classList.add('focused');
+      el.setAttribute('role','gridcell'); el.dataset.r=r; el.dataset.c=c;
+      el.setAttribute('aria-label', describeCell(r,c,cell,pathSet.has(r+','+c),state.lastCollected.has(r+','+c)));
+      el.addEventListener('click',()=>{ state.cursor={r,c}; if(cell.type===Core.TYPES.BUMPER) toggleAt(r,c); else renderGame(); });
+      board.appendChild(el);
+    }
+    wrap.appendChild(board); s.appendChild(wrap);
+    const controls=document.createElement('div'); controls.className='controls';
+    controls.appendChild(primary('Launch', launch));
+    controls.appendChild(iconButton('⚙','','settings',openSettings));
+    controls.appendChild(iconButton('⌂','','Menu',renderMenu));
+    s.appendChild(controls);
+    app.appendChild(s);
+  }
+  function describeCell(r,c,cell,onPath,collected){
+    let d = `row ${r+1}, column ${c+1}, ${cell.type}`;
+    if(cell.type===Core.TYPES.BUMPER) d += `, ${cell.orientation === '/' ? 'slash' : 'backslash'} bumper orientation`;
+    if(cell.type===Core.TYPES.STAR) d += collected ? ', star collected' : ', star not collected';
+    d += onPath ? ', path present' : ', no path';
+    return d;
+  }
+  function toggleAt(r,c){ if(Core.toggleBumper(state.level,r,c)){ state.moves++; state.lastPath=[]; state.lastCollected=new Set(); state.collectedCount=0; clickSound(250); } renderGame(); }
+  function launch(){
+    const result=Core.simulateLaunch(state.level); state.lastPath=result.path; state.lastCollected=new Set(result.collected); state.collectedCount=result.collectedCount; clickSound(result.completed?520:180); renderGame(result.completed);
+    if(result.completed){ setTimeout(()=>{ state.best=Math.max(state.best,state.levelNumber+1); saveBest(); createLevel(state.levelNumber+1); }, state.settings.motion ? 720 : 20); }
+  }
+  function clickSound(freq){
+    if(!state.settings.sound) return;
+    try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const osc=ctx.createOscillator(); const gain=ctx.createGain(); osc.frequency.value=freq; gain.gain.value=.035; osc.connect(gain); gain.connect(ctx.destination); osc.start(); gain.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.08); osc.stop(ctx.currentTime+.09); }catch{}
+  }
+  function closeSettings(overlay){ app.inert=false; app.removeAttribute('aria-hidden'); if(overlay) overlay.remove(); }
+  function openSettings(){ state.confirmReset=false; renderSettings(); }
+  function renderSettings(){
+    app.inert=true; app.setAttribute('aria-hidden','true');
+    const overlay=document.createElement('div'); overlay.className='settings'; overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true'); overlay.addEventListener('click',e=>{ if(e.target===overlay) closeSettings(overlay); });
+    const card=document.createElement('div'); card.className='settingsCard';
+    const close=iconButton('✕','settingsClose','X',()=>closeSettings(overlay));
+    const sound=iconButton(state.settings.sound?'🔊':'🔇', state.settings.sound?'settingToggle active':'settingToggle', 'speaker', ()=>{state.settings.sound=!state.settings.sound; saveSettings(); closeSettings(overlay); renderSettings();});
+    const motion=iconButton(state.settings.motion?'➰':'○', state.settings.motion?'settingToggle active':'settingToggle', 'motion', ()=>{state.settings.motion=!state.settings.motion; saveSettings(); closeSettings(overlay); if(state.screen==='game')renderGame(); else renderMenu(); renderSettings();});
+    const contrast=iconButton('◩', state.settings.contrast?'settingToggle active':'settingToggle', 'high contrast', ()=>{state.settings.contrast=!state.settings.contrast; saveSettings(); closeSettings(overlay); if(state.screen==='game')renderGame(); else renderMenu(); renderSettings();});
+    card.append(close,sound,motion,contrast);
+    if(state.confirmReset){
+      const confirm=document.createElement('div'); confirm.className='confirm wide';
+      confirm.appendChild(iconButton('✓','','check',()=>{state.best=1; saveBest(); state.confirmReset=false; closeSettings(overlay); if(state.screen==='game')renderGame(); else renderMenu();}));
+      confirm.appendChild(iconButton('✕','','X',()=>{state.confirmReset=false; closeSettings(overlay); renderSettings();}));
+      card.appendChild(confirm);
+    } else card.appendChild(iconButton('🗑','wide','trash',()=>{state.confirmReset=true; closeSettings(overlay); renderSettings();}));
+    overlay.appendChild(card); document.body.appendChild(overlay);
+  }
+
+
+  document.addEventListener('keydown', (e)=>{
+    const overlay=document.querySelector('.settings');
+    if(overlay && e.key==='Escape'){ e.preventDefault(); closeSettings(overlay); }
+  });
+
+  document.addEventListener('keydown', (e)=>{
+    if(state.screen!=='game' || !state.level) return;
+    const k=e.key.toLowerCase(); let moved=false;
+    if(k==='arrowup'){state.cursor.r=Math.max(0,state.cursor.r-1); moved=true;}
+    if(k==='arrowdown'){state.cursor.r=Math.min(state.level.size-1,state.cursor.r+1); moved=true;}
+    if(k==='arrowleft'){state.cursor.c=Math.max(0,state.cursor.c-1); moved=true;}
+    if(k==='arrowright'){state.cursor.c=Math.min(state.level.size-1,state.cursor.c+1); moved=true;}
+    if(k==='enter'||k===' '){ e.preventDefault(); toggleAt(state.cursor.r,state.cursor.c); return; }
+    if(k==='l'){ launch(); return; }
+    if(moved){ e.preventDefault(); renderGame(); }
+  });
+
+  renderMenu();
+})();
+
+</script>
+</body>
+</html>
